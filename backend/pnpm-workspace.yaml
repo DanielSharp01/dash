@@ -1,0 +1,6 @@
+allowBuilds:
+  '@scarf/scarf': set this to true or false
+  esbuild: set this to true or false
+minimumReleaseAgeExclude:
+  - '@danielsharp/typeline@0.1.2'
+  - '@danielsharp/drizzle@0.1.1'
