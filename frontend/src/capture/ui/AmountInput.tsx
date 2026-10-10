@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Amount } from "../../core/types";
+import type { Amount } from "@dash/core";
 import { NumberInput } from "./NumberInput";
 
 const isBulk = (unit?: string) => unit === "g" || unit === "ml";

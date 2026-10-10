@@ -1,15 +1,14 @@
 import type { ReactNode } from "react";
-import { allFoods, batchLabel, displayName, foodById, foodIcon, latestBatch, loggable, useFoods } from "../../core/foods";
-import { basisLabel, labelAt, round } from "../../core/label";
-import { batchPerUnit } from "../../core/nutrition";
-import type { Food } from "../../core/types";
+import { basisLabel, batchPerUnit, displayName, type Food, type FoodLookup, labelAt, latestBatch, loggable, round } from "@dash/core";
+import { useFoodLookup } from "../../queries/foods.queries";
+import { batchLabel, useListedFoods } from "../foods";
 import { canScan } from "./Scanner";
 
-export function foodSummary(f: Food): string {
-  if (f.kind === "combo") return f.parts.map((p) => foodById(p.foodId)?.name ?? "?").join(" + ") || "empty combo";
+export function foodSummary(f: Food, foods: FoodLookup): string {
+  if (f.kind === "combo") return f.parts.map((p) => foods(p.foodId)?.name ?? "?").join(" + ") || "empty combo";
   if (f.kind === "recipe") {
     const b = latestBatch(f);
-    const sized = b && batchPerUnit(b);
+    const sized = b && batchPerUnit(b, foods);
     const kcal = sized?.per.kcal;
     if (!b) return "still cooking";
     return `${batchLabel(b)} batch${kcal ? ` · ${round(kcal.value * (sized.unit === "g" ? 100 : 1), 0)} kcal / ${sized.unit === "g" ? "100 g" : "portion"}` : ""}`;
@@ -21,10 +20,11 @@ export function foodSummary(f: Food): string {
 }
 
 export function FoodRow({ food, onPick, sub }: { food: Food; onPick: (f: Food) => void; sub?: string }) {
+  const foods = useFoodLookup();
   return (
     <li>
       <button className="row" onClick={() => onPick(food)}>
-        <span className="row-icon">{foodIcon(food)}</span>
+        <span className="row-icon">{food.icon}</span>
         <span className="row-main">
           <span className="row-title">
             {food.name} {food.kind === "item" && food.variant && <span className="badge badge-variant">{food.variant}</span>}
@@ -32,7 +32,7 @@ export function FoodRow({ food, onPick, sub }: { food: Food; onPick: (f: Food) =
             {food.kind === "recipe" && <span className="badge badge-muted">recipe</span>}
             {food.kind === "item" && food.unsure && <span className="badge badge-warn">Unsure</span>}
           </span>
-          <span className="row-sub">{sub ?? foodSummary(food)}</span>
+          <span className="row-sub">{sub ?? foodSummary(food, foods)}</span>
         </span>
         <span className="row-chevron">›</span>
       </button>
@@ -60,12 +60,13 @@ interface Props {
 }
 
 export function FoodSearch({ query, onQuery, kinds, recentIds, onPick, onNew, onScan, barcode, onClearBarcode, foundName, extra, placeholder, unfinished = false }: Props) {
-  useFoods();
+  const lookup = useFoodLookup();
+  const listed = useListedFoods();
   const offered = (f: Food) => kinds.includes(f.kind) && (unfinished || loggable(f));
-  const foods = allFoods().filter(offered);
+  const foods = listed.filter(offered);
   const q = query.trim().toLowerCase();
-  const matches = q ? foods.filter((f) => `${displayName(f)}`.toLowerCase().includes(q)) : [];
-  const recent = recentIds.map(foodById).filter((f): f is Food => !!f && !f.deleted && offered(f));
+  const matches = q ? foods.filter((f) => displayName(f).toLowerCase().includes(q)) : [];
+  const recent = recentIds.map(lookup).filter((f): f is Food => !!f && foods.includes(f));
   const rest = foods.filter((f) => !recent.includes(f)).sort((a, b) => a.name.localeCompare(b.name));
   const newName = query.trim() || foundName;
 

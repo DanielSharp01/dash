@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
-import { entriesSnapshot, removeEntry, useEntries } from "../core/entries";
-import { followUpCount, undoPoint } from "../core/followUp";
-import { itemById, removeFood } from "../core/foods";
-import { todayKey } from "../core/time";
-import type { Entry } from "../core/types";
+import type { Entry } from "@dash/core";
+import { deleteEntry, restoreEntry, useDayEntries, useFollowUpCount } from "../queries/entries.queries";
+import { useMe } from "../queries/me.queries";
+import { dayParam, todayKey } from "./time";
 import { CookFlow } from "./flows/CookFlow";
 import { EatFlow } from "./flows/EatFlow";
 import { ExerciseFlow } from "./flows/ExerciseFlow";
@@ -12,7 +11,7 @@ import { ActivityRoute, BatchRoute, CatalogueScreen, type CatalogueTab, ComboRou
 import { GoalsScreen } from "./screens/Goals";
 import { SettingsScreen, WeighInsScreen } from "./screens/Profile";
 import { type EntryActions, InboxScreen, Today } from "./screens/Today";
-import type { Notice, Notify } from "./ui/notify";
+import { dismiss, notify, useNotice } from "./ui/notify";
 import { useOpen } from "./ui/useSteps";
 
 /** The day a page is about: "?day=" when it's a valid past day, otherwise today. */
@@ -37,45 +36,39 @@ const sections: { target: NavTarget; path: string; match: string[]; icon: string
 ];
 
 export function App() {
-  const [toast, setToast] = useState<Notice & { id: number }>();
+  // Days and times need the person's rollover hour, so nothing renders before /me is in.
+  useMe();
+  const toast = useNotice();
   const [drawer, setDrawer] = useState(false);
-  const entries = useEntries();
+  const followUpCount = useFollowUpCount();
   const location = useLocation();
   const open = useOpen();
   const [day, setDay] = useDay();
 
   const current = sections.find((s) => s.match.some((m) => (m === "/" ? location.pathname === "/" : location.pathname === m)))?.target;
 
-  const notify: Notify = useCallback((message, undo, action) => setToast({ id: Date.now(), message, undo, action }), []);
-
-  const finish = useCallback(
-    (saved?: Entry, undo?: () => void) => {
-      if (saved) notify(saved.when.date === todayKey() ? "Saved" : `Saved to ${new Date(`${saved.when.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "long" })}`, undo, { label: "Edit", run: () => open(`/entry/${saved.id}/edit`) });
-    },
-    [notify],
-  );
+  const finish = useCallback((saved?: Entry, undo?: () => void) => {
+    if (saved)
+      notify(saved.when.date === todayKey() ? "Saved" : `Saved to ${new Date(`${saved.when.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "long" })}`, undo, {
+        label: "Edit",
+        run: () => open(`/entry/${saved.id}/edit${dayParam(saved.when.date)}`),
+      });
+  }, []);
 
   const remove = (entry: Entry) => {
-    const undo = undoPoint();
-    removeEntry(entry.id);
-    // An unsure item only exists to be followed up through its entries; without any it's noise.
-    if (entry.kind === "food")
-      for (const line of entry.lines) {
-        const item = itemById(line.itemId);
-        if (item?.unsure && !entriesSnapshot().some((e) => e.kind === "food" && e.lines.some((l) => l.itemId === item.id))) removeFood(item.id);
-      }
-    notify("Deleted", undo);
+    void deleteEntry(entry);
+    notify("Deleted", () => void restoreEntry(entry.id));
   };
 
   const actions: EntryActions = {
-    onEdit: (e) => open(`/entry/${e.id}/edit`),
-    onDuplicate: (e) => open(`/entry/${e.id}/duplicate`),
+    onEdit: (e) => open(`/entry/${e.id}/edit${dayParam(e.when.date)}`),
+    onDuplicate: (e) => open(`/entry/${e.id}/duplicate${dayParam(e.when.date)}`),
     onDelete: remove,
   };
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(undefined), 5000);
+    const t = setTimeout(dismiss, 5000);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -99,12 +92,12 @@ export function App() {
         {(["items", "combos", "recipes", "activities"] as CatalogueTab[]).map((tab) => (
           <Route key={tab} path={`/${tab}`} element={<CatalogueScreen tab={tab} onMenu={openMenu} />} />
         ))}
-        <Route path="/items/:id" element={<ItemRoute notify={notify} />} />
-        <Route path="/combos/:id" element={<ComboRoute notify={notify} />} />
-        <Route path="/recipes/:id" element={<RecipeRoute notify={notify} />} />
-        <Route path="/recipes/:id/:batchId" element={<BatchRoute notify={notify} />} />
-        <Route path="/activities/:id" element={<ActivityRoute notify={notify} />} />
-        <Route path="/weigh-ins" element={<WeighInsScreen onMenu={openMenu} notify={notify} />} />
+        <Route path="/items/:id" element={<ItemRoute />} />
+        <Route path="/combos/:id" element={<ComboRoute />} />
+        <Route path="/recipes/:id" element={<RecipeRoute />} />
+        <Route path="/recipes/:id/:batchId" element={<BatchRoute />} />
+        <Route path="/activities/:id" element={<ActivityRoute />} />
+        <Route path="/weigh-ins" element={<WeighInsScreen onMenu={openMenu} />} />
         <Route path="/goal" element={<GoalsScreen onMenu={openMenu} />} />
         <Route path="/settings" element={<SettingsScreen onMenu={openMenu} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -113,7 +106,7 @@ export function App() {
       {drawer && (
         <Drawer onClose={() => setDrawer(false)}>
           {sections.map((s) => {
-            const count = s.target === "inbox" ? followUpCount(entries) : 0;
+            const count = s.target === "inbox" ? followUpCount : 0;
             return (
               <button key={s.target} className="drawer-link" aria-current={current === s.target ? "page" : undefined} onClick={() => go(s)}>
                 <span aria-hidden>{s.icon}</span>
@@ -132,7 +125,7 @@ export function App() {
             <button
               onClick={() => {
                 toast.undo!();
-                setToast(undefined);
+                dismiss();
               }}
             >
               Undo
@@ -142,7 +135,7 @@ export function App() {
             <button
               onClick={() => {
                 toast.action!.run();
-                setToast(undefined);
+                dismiss();
               }}
             >
               {toast.action.label}
@@ -196,10 +189,13 @@ function Cook() {
   );
 }
 
-/** Edit or log again by id; one that no longer exists goes back to the day view. */
+/** Edit or log again by id, found on its day; one that no longer exists goes back to the day view. */
 function EditEntry({ finish }: { finish: Finish }) {
   const { id, mode } = useParams();
-  const entry = useEntries().find((e) => e.id === id);
+  const [day] = useDay();
+  const { data, isPending } = useDayEntries(day);
+  if (isPending) return null;
+  const entry = data?.find((e) => e.id === id);
   if (!entry || (mode !== "edit" && mode !== "duplicate")) return <Navigate to="/" replace />;
   return entry.kind === "food" ? (
     <EatFlow key={`${mode}-${id}`} via={entry.via} date={entry.when.date} mode={{ kind: mode, entry }} onDone={finish} />

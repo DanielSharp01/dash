@@ -1,36 +1,52 @@
+import { useState } from "react";
+import {
+  BEGINNING,
+  dailyTargets,
+  fluidUnit,
+  formatFluid,
+  formatWeight,
+  fromDisplayFluid,
+  fromDisplayWeight,
+  macroPresets,
+  type MacroPreset,
+  MIN_KCAL,
+  type Plan,
+  planAt,
+  samePlan,
+  toDisplayFluid,
+  type UnitSystem,
+} from "@dash/core";
+import { savePlan, useMe } from "../../queries/me.queries";
+import { useWeighIns } from "../../queries/weighIns.queries";
+import { targetDate } from "../body";
+import { todayKey } from "../time";
 import { WeightInput } from "../ui/BodyInputs";
 import { FlowShell } from "../ui/FlowShell";
-import { useSteps } from "../ui/useSteps";
-import { currentPlan, dailyTargets, latestPlanStart, MIN_KCAL, samePlan, savePlan, targetDate } from "../../core/goals";
-import { todayKey } from "../../core/time";
-import { useWeighIns } from "../../core/weighIns";
-import { useState } from "react";
-import { macroPresets, type MacroPreset, type Plan, useProfile } from "../../core/profile";
-import { BEGINNING } from "../../core/types";
-import { fluidUnit, formatFluid, formatWeight, fromDisplayFluid, fromDisplayWeight, toDisplayFluid, type UnitSystem } from "../../core/units";
-import { NumberInput } from "../ui/NumberInput";
 import { MissingDetails } from "../ui/MissingDetails";
+import { NumberInput } from "../ui/NumberInput";
+import { useSteps } from "../ui/useSteps";
 
 const paces: Record<UnitSystem, number[]> = { metric: [0, 0.25, 0.5, 0.75], imperial: [0, 0.5, 1, 1.5] };
 const fmt = (n: number) => Math.round(n).toLocaleString();
 
 export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
   const { close } = useSteps<"goal">("goal");
-  const profile = useProfile();
+  const { profile, plan: history } = useMe();
   const { units } = profile;
+  const current = planAt(history.versions);
   // Edits stay a draft so trying out options doesn't create a version per tap.
-  const [draft, setDraft] = useState<Plan>(() => currentPlan(profile));
+  const [draft, setDraft] = useState<Plan>(current);
   const updatePlan = (patch: Partial<Plan>) => setDraft((d) => ({ ...d, ...patch }));
   const goal = draft.goal;
-  const t = dailyTargets({ ...profile, ...draft, planHistory: undefined }, useWeighIns());
-  const dirty = !samePlan(draft, currentPlan(profile));
+  const t = dailyTargets(profile, [{ from: BEGINNING, plan: draft }], useWeighIns());
+  const dirty = !samePlan(draft, current);
   const [change, setChange] = useState<"fix" | "changed">();
   const [resetKey, setResetKey] = useState(0);
   const [from, setFrom] = useState(todayKey);
-  const since = latestPlanStart(profile);
+  const since = history.versions.at(-1)?.from ?? BEGINNING;
   const fromValid = !!from && from >= since;
   const finish = t.calc && targetDate(t.calc.bodyKg, goal);
-  const history = profile.planHistory ?? [];
+  const versions = history.versions;
   const targetTooHigh = !!t.calc && goal.targetKg !== undefined && goal.targetKg >= t.calc.bodyKg;
 
   return (
@@ -63,7 +79,7 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
               <button
                 className="btn"
                 onClick={() => {
-                  setDraft(currentPlan(profile));
+                  setDraft(current);
                   setResetKey((k) => k + 1);
                 }}
               >
@@ -73,7 +89,7 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
                 className="btn btn-primary btn-block"
                 disabled={!change || (change === "changed" && !fromValid)}
                 onClick={() => {
-                  savePlan(draft, change === "fix" ? "fix" : { from });
+                  void savePlan(draft, change === "fix" ? "fix" : { from });
                   setChange(undefined);
                 }}
               >
@@ -173,11 +189,11 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
         <p className="hint">{describeMacros(draft.macroPlan)}</p>
       </div>
 
-      {history.length > 1 && (
+      {versions.length > 1 && (
         <details className="version-history">
-          <summary>History · {history.length} versions</summary>
+          <summary>History · {versions.length} versions</summary>
           <ul>
-            {[...history].reverse().map((h) => (
+            {[...versions].reverse().map((h) => (
               <li key={h.from}>
                 <span>
                   <b>{h.from !== BEGINNING ? `Since ${new Date(`${h.from}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}` : "Before"}</b>

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { dayParts, nowWhen, shiftDate, todayKey, withDate } from "../../core/time";
-import type { When } from "../../core/types";
+import { shiftDate, type When } from "@dash/core";
+import { dayParts, nowWhen, todayKey, withDate } from "../time";
 
 /** Any day can be picked, with yesterday one tap away for the morning-after case. */
 export function WhenPicker({ value, onChange, onDone }: { value: When; onChange: (w: When) => void; onDone: () => void }) {

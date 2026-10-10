@@ -1,8 +1,8 @@
 import { useCallback, useState } from "react";
-import { batchLabel, isFinished, recipeById, saveFood, useFoods } from "../../core/foods";
-import { suggestIcon } from "../../core/icons";
-import type { Recipe } from "../../core/types";
-import { BatchEditor, startBatch } from "../editors/RecipeEditors";
+import { asRecipe, type Recipe } from "@dash/core";
+import { saveBatch, useFoodLookup } from "../../queries/foods.queries";
+import { BatchEditor, createRecipe, startBatch } from "../editors/RecipeEditors";
+import { batchLabel, unfinishedBatch } from "../foods";
 import { FlowShell } from "../ui/FlowShell";
 import { FoodSearch } from "../ui/FoodSearch";
 import { useSteps } from "../ui/useSteps";
@@ -14,16 +14,16 @@ type Step = "name" | "batch" | "done";
  * goes, so closing mid-cook keeps it as a draft to come back to.
  */
 export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (logPortionOf?: Recipe) => void }) {
-  useFoods();
+  const foods = useFoodLookup();
   const exit = useCallback(() => onDone(), [onDone]);
   const { step, depth, go, back, close } = useSteps<Step>(recipeId ? "batch" : "name", exit);
   const [query, setQuery] = useState("");
   const [current, setCurrent] = useState(recipeId);
-  const recipe = recipeById(current);
-  const draft = recipe && [...recipe.batches].reverse().find((b) => !isFinished(b));
+  const recipe = asRecipe(foods(current));
+  const draft = recipe && unfinishedBatch(recipe);
 
   const cook = (r: Recipe) => {
-    if (!r.batches.some((b) => !isFinished(b))) saveFood({ ...r, batches: [...r.batches, startBatch(r)] });
+    if (!unfinishedBatch(r)) void saveBatch(r.id, startBatch(r));
     setCurrent(r.id);
     go("batch");
   };
@@ -66,7 +66,10 @@ export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (log
         unfinished
         placeholder="What are you cooking?"
         onPick={(f) => f.kind === "recipe" && cook(f)}
-        onNew={(name) => cook({ id: crypto.randomUUID(), kind: "recipe", name: name.trim(), icon: suggestIcon(name, ["food"]), batches: [] })}
+        onNew={(name) => {
+          setCurrent(createRecipe(name.trim()).id);
+          go("batch");
+        }}
         extra={
           !query.trim() && (
             <li>

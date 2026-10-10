@@ -1,5 +1,6 @@
-import { currentProfile } from "./profile";
-import type { DayPart, When } from "./types";
+import { logicalDate, partOfTime as corePartOfTime, shiftDate, sortKey as coreSortKey, type DayPart, type MeResponse, type When } from "@dash/core";
+import { queryClient } from "../queries/client";
+import { keys } from "../queries/keys";
 
 export const dayParts: { part: DayPart; label: string; range: string; icon: string }[] = [
   { part: "dawn", label: "Early morning", range: "4–7", icon: "🌅" },
@@ -11,45 +12,24 @@ export const dayParts: { part: DayPart; label: string; range: string; icon: stri
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-export const toDateKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** The app only renders once /me is loaded, so the person's rollover hour is always there. */
+const dayEndsAt = () => queryClient.getQueryData<MeResponse>(keys.me)?.profile.dayEndsAt ?? 0;
 
-const dayEndsAt = () => currentProfile().dayEndsAt;
-
-/** Before the rollover hour the clock is still on the previous day. */
-const logicalDate = (d: Date) => {
-  const shifted = new Date(d);
-  if (d.getHours() < dayEndsAt()) shifted.setDate(shifted.getDate() - 1);
-  return toDateKey(shifted);
-};
-
-export const todayKey = () => logicalDate(new Date());
-
-export const shiftDate = (key: string, days: number) => {
-  const d = new Date(`${key}T12:00:00`);
-  d.setDate(d.getDate() + days);
-  return toDateKey(d);
-};
+export const todayKey = () => logicalDate(new Date(), dayEndsAt());
 
 export const nowWhen = (): When => {
   const d = new Date();
-  return { date: logicalDate(d), kind: "now", time: `${pad(d.getHours())}:${pad(d.getMinutes())}` };
+  return { date: logicalDate(d, dayEndsAt()), kind: "now", time: `${pad(d.getHours())}:${pad(d.getMinutes())}` };
 };
 
 /** Today defaults to now; a past day has no sensible default time, so it starts as unknown. */
 export const initialWhen = (date: string): When => (date === todayKey() ? nowWhen() : { date, kind: "day" });
 
-export const partOfTime =(time: string): DayPart => {
-  const h = Number(time.slice(0, 2));
-  if (h < dayEndsAt()) return "night";
-  if (h >= 4 && h < 7) return "dawn";
-  if (h >= 7 && h < 12) return "morning";
-  if (h >= 12 && h < 17) return "afternoon";
-  if (h >= 17 && h < 21) return "evening";
-  return "night";
-};
+export const partOfTime = (time: string) => corePartOfTime(time, dayEndsAt());
 
-export const partOf = (w: When): DayPart | undefined =>
-  w.kind === "part" ? w.part : w.kind === "day" ? undefined : partOfTime(w.time);
+export const partOf = (w: When): DayPart | undefined => (w.kind === "part" ? w.part : w.kind === "day" ? undefined : partOfTime(w.time));
+
+export const sortKey = (w: When) => coreSortKey(w, dayEndsAt());
 
 export function dayLabel(key: string) {
   const today = todayKey();
@@ -77,7 +57,7 @@ export function dayHeading(key: string) {
 function isLiveNow(w: When) {
   if (w.kind !== "now" || w.date !== todayKey()) return false;
   const d = new Date();
-  const [h, m] = w.time.split(":").map(Number);
+  const [h, m] = w.time.split(":").map(Number) as [number, number];
   const diff = d.getHours() * 60 + d.getMinutes() - (h * 60 + m);
   return Math.abs(diff) <= 5 || Math.abs(diff) >= 24 * 60 - 5;
 }
@@ -105,15 +85,6 @@ export function whenIcon(w: When, live = false) {
   return dayParts.find((p) => p.part === part)!.icon;
 }
 
-export function sortKey(w: When) {
-  const order: Record<DayPart, string> = { dawn: "05:30", morning: "09:30", afternoon: "14:30", evening: "19:00", night: "22:30" };
-  if (w.kind === "part") return `${w.date} ${order[w.part]}`;
-  if (w.kind === "day") return `${w.date} 99`;
-  // Past midnight but before the rollover, the time belongs at the end of its day.
-  const h = Number(w.time.slice(0, 2));
-  return `${w.date} ${h < dayEndsAt() ? `${h + 24}${w.time.slice(2)}` : w.time}`;
-}
-
 /** Moving a capture to another day keeps its time of day; "now" only means now on today. */
 export function withDate(w: When, date: string): When {
   if (w.kind === "now" || w.kind === "exact") return date === todayKey() && w.kind === "now" ? w : { date, kind: "exact", time: w.time };
@@ -121,3 +92,6 @@ export function withDate(w: When, date: string): When {
 }
 
 export const dayMs = (key: string) => new Date(`${key}T12:00:00`).getTime();
+
+/** "?day=" for a past day; today needs none. */
+export const dayParam = (date: string) => (date === todayKey() ? "" : `?day=${date}`);

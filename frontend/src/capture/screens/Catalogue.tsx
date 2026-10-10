@@ -1,19 +1,18 @@
 import { useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router";
-import { activityById, allActivities, deleteActivity, saveActivity, useActivities } from "../../core/activities";
-import { defaultBurn } from "../../core/burn";
-import { entriesUsing, useEntries } from "../../core/entries";
-import { deleteFood } from "../../core/followUp";
-import { allFoods, comboById, itemById, recipeById, saveFood, useFoods } from "../../core/foods";
-import type { Activity, Combo, Food, Item, Recipe } from "../../core/types";
-import { suggestIcon } from "../../core/icons";
+import { type Activity, asItem, asRecipe, autoActivityIcon, autoFoodIcon, type Combo, defaultBurn, type Food, type FoodItem } from "@dash/core";
+import { deleteActivity, restoreActivity, saveActivity, useActivityLookup } from "../../queries/activities.queries";
+import { asNewFood, deleteBatch, deleteFood, restoreBatch, restoreFood, saveBatch, saveFood, useFoodLookup, useFoodUsage } from "../../queries/foods.queries";
+import { useListedActivities } from "../activities";
+import { undoBy } from "../errors";
 import { ActivityEditor } from "../editors/ActivityEditor";
 import { comboToRecipe, ComboEditor } from "../editors/ComboEditor";
 import { ItemEditor } from "../editors/ItemEditor";
-import { BatchEditor, RecipeEditor, startBatch } from "../editors/RecipeEditors";
+import { BatchEditor, createRecipe, RecipeEditor, startBatch } from "../editors/RecipeEditors";
+import { blankItem, ownCopy, unfinishedBatch, useListedFoods, usesOf } from "../foods";
 import { FlowShell } from "../ui/FlowShell";
 import { FoodRow } from "../ui/FoodSearch";
-import type { Notify } from "../ui/notify";
+import { notify } from "../ui/notify";
 import { TrashIcon } from "../ui/TrashIcon";
 import { useOpen, useSteps } from "../ui/useSteps";
 
@@ -30,15 +29,15 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
   const { close } = useSteps("list");
   const open = useOpen();
   const navigate = useNavigate();
-  const entries = useEntries();
-  useFoods();
-  useActivities();
+  const usage = useFoodUsage();
+  const listed = useListedFoods();
+  const activities = useListedActivities();
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const meta = tabs.find((t) => t.tab === tab)!;
   const matches = (name: string) => !q || name.toLowerCase().includes(q);
-  const foods = allFoods().filter((f) => f.kind === meta.kind && matches(`${f.name} ${f.kind === "item" ? (f.variant ?? "") : ""}`));
-  const uses = (id: string) => entriesUsing(entries, id).length;
+  const foods = listed.filter((f) => f.kind === meta.kind && matches(`${f.name} ${f.kind === "item" ? (f.variant ?? "") : ""}`));
+  const uses = (id: string) => usesOf(usage, id);
   const unsure = foods.filter((f) => f.kind === "item" && f.unsure).sort((a, b) => uses(b.id) - uses(a.id));
   const rest = foods.filter((f) => !unsure.includes(f)).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -46,10 +45,7 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
   const create = () => {
     if (tab !== "recipes") return open(`/${tab}/new`, { name: query.trim() });
     if (!query.trim()) return document.querySelector<HTMLInputElement>(".search-bar input")?.focus();
-    const name = query.trim();
-    const recipe: Recipe = { id: crypto.randomUUID(), kind: "recipe", name, icon: suggestIcon(name, ["food"]), batches: [] };
-    saveFood({ ...recipe, batches: [startBatch(recipe)] });
-    open(`/cook/${recipe.id}`);
+    open(`/cook/${createRecipe(query.trim()).id}`);
   };
 
   return (
@@ -74,8 +70,9 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
 
       {tab === "activities" ? (
         <ul className="list">
-          {allActivities()
+          {activities
             .filter((a) => matches(a.name))
+            .sort((a, b) => a.name.localeCompare(b.name))
             .map((a) => (
               <li key={a.id}>
                 <button className="row" onClick={() => open(`/activities/${a.id}`)}>
@@ -131,13 +128,21 @@ function DeleteButton({ onDelete, label }: { onDelete: () => void; label: string
   );
 }
 
-export function ItemRoute({ notify }: { notify: Notify }) {
+/** Soft, so past entries keep showing it; public items can't be deleted at all. */
+function removeFood(food: Food) {
+  void deleteFood(food.id);
+  notify(`Deleted ${food.name}`, () => void restoreFood(food.id));
+}
+
+const liveOwn = (f: Food | undefined) => (f && !f.deleted ? f : undefined);
+
+export function ItemRoute() {
   const open = useOpen();
   const { close } = useSteps("edit", undefined, "/items");
-  const item = useResolved<Item>((id, name) => (id === "new" ? { id: crypto.randomUUID(), kind: "item", name: name ?? "", unit: "g", labels: [], servings: [] } : itemById(id)));
-  useFoods();
+  const foods = useFoodLookup();
+  const item = useResolved<FoodItem>((id, name) => (id === "new" ? blankItem(name ?? "") : asItem(foods(id))));
   if (!item) return <Navigate to="/items" replace />;
-  const stored = itemById(item.id);
+  const stored = asItem(liveOwn(foods(item.id)));
 
   return (
     <FlowShell
@@ -145,13 +150,13 @@ export function ItemRoute({ notify }: { notify: Notify }) {
       canGoBack
       onBack={close}
       onClose={close}
-      actions={stored && <DeleteButton label={item.name} onDelete={() => (notify(`Deleted ${item.name}`, deleteFood(stored)), close())} />}
+      actions={stored && !stored.public && <DeleteButton label={item.name} onDelete={() => (removeFood(stored), close())} />}
     >
       <ItemEditor
         key={item.id}
         item={stored ?? item}
-        onSaved={(saved) => {
-          notify(`Saved ${saved.name}`);
+        onSaved={(saved, done) => {
+          done.then((r) => notify(`Saved ${saved.name}`, undoBy(r.undoToken)), () => {});
           close();
         }}
         onMerged={(target, undo) => {
@@ -172,13 +177,17 @@ export function ItemRoute({ notify }: { notify: Notify }) {
   );
 }
 
-export function ComboRoute({ notify }: { notify: Notify }) {
+export function ComboRoute() {
   const navigate = useNavigate();
   const { close } = useSteps("edit", undefined, "/combos");
-  const combo = useResolved<Combo>((id, name) => (id === "new" ? { id: crypto.randomUUID(), kind: "combo", name: name ?? "", parts: [] } : comboById(id)));
-  useFoods();
+  const foods = useFoodLookup();
+  const combo = useResolved<Combo>((id, name) => {
+    if (id !== "new") return foods(id)?.kind === "combo" ? (foods(id) as Combo) : undefined;
+    return asNewFood({ id: crypto.randomUUID(), kind: "combo", name: name ?? "", icon: autoFoodIcon(name ?? "", "combo"), iconAuto: true, catalogued: true, parts: [] }) as Combo;
+  });
   if (!combo) return <Navigate to="/combos" replace />;
-  const stored = comboById(combo.id);
+  const found = liveOwn(foods(combo.id));
+  const stored = found?.kind === "combo" ? found : undefined;
 
   return (
     <FlowShell
@@ -186,34 +195,34 @@ export function ComboRoute({ notify }: { notify: Notify }) {
       canGoBack
       onBack={close}
       onClose={close}
-      actions={stored && <DeleteButton label={combo.name} onDelete={() => (notify(`Deleted ${combo.name}`, deleteFood(stored)), close())} />}
+      actions={stored && !stored.public && <DeleteButton label={combo.name} onDelete={() => (removeFood(stored), close())} />}
     >
       <ComboEditor
         key={combo.id}
         combo={stored ?? combo}
-        onSaved={(c) => {
-          notify(`Saved ${c.name}`);
+        onSaved={(c, done) => {
+          done.then((r) => notify(`Saved ${c.name}`, undoBy(r.undoToken)), () => {});
           close();
         }}
         onToRecipe={(c) => {
-          const recipe = comboToRecipe(c);
-          saveFood(recipe);
-          if (stored) deleteFood(stored);
+          const { recipe, batch } = comboToRecipe(c, foods);
+          void saveFood(recipe);
+          void saveBatch(recipe.id, batch);
+          if (stored && !stored.public) void deleteFood(stored.id);
           notify(`${c.name} is a recipe now. Weigh it or set its portions to finish.`);
-          navigate(`/recipes/${recipe.id}/${recipe.batches[0].id}`, { replace: true, state: { inApp: true } });
+          navigate(`/recipes/${recipe.id}/${batch.id}`, { replace: true, state: { inApp: true } });
         }}
       />
     </FlowShell>
   );
 }
 
-export function RecipeRoute({ notify }: { notify: Notify }) {
+export function RecipeRoute() {
   const open = useOpen();
   const navigate = useNavigate();
   const { id } = useParams();
   const { close } = useSteps("edit", undefined, "/recipes");
-  useFoods();
-  const recipe = recipeById(id);
+  const recipe = asRecipe(liveOwn(useFoodLookup()(id)));
   if (!recipe) return <Navigate to="/recipes" replace />;
 
   return (
@@ -222,18 +231,18 @@ export function RecipeRoute({ notify }: { notify: Notify }) {
       canGoBack
       onBack={close}
       onClose={close}
-      actions={<DeleteButton label={recipe.name} onDelete={() => (notify(`Deleted ${recipe.name}`, deleteFood(recipe)), close())} />}
+      actions={!recipe.public && <DeleteButton label={recipe.name} onDelete={() => (removeFood(recipe), close())} />}
     >
       <RecipeEditor
         recipe={recipe}
         onOpenBatch={(b) => open(`/recipes/${recipe.id}/${b.id}`)}
         onCookAgain={() => {
-          if (!recipe.batches.some((b) => !b.yield)) saveFood({ ...recipe, batches: [...recipe.batches, startBatch(recipe)] });
+          if (!unfinishedBatch(recipe)) void saveBatch(recipe.id, startBatch(recipe));
           open(`/cook/${recipe.id}`);
         }}
         onToCombo={(c) => {
-          saveFood(c);
-          deleteFood(recipe);
+          void saveFood(c);
+          void deleteFood(recipe.id);
           notify(`${recipe.name} is a combo now`);
           navigate(`/combos/${c.id}`, { replace: true, state: { inApp: true } });
         }}
@@ -242,18 +251,15 @@ export function RecipeRoute({ notify }: { notify: Notify }) {
   );
 }
 
-export function BatchRoute({ notify }: { notify: Notify }) {
+export function BatchRoute() {
   const { id, batchId } = useParams();
   const { close } = useSteps("edit", undefined, `/recipes/${id}`);
-  const entries = useEntries();
-  useFoods();
-  const recipe = recipeById(id);
-  const batch = recipe?.batches.find((b) => b.id === batchId);
+  const recipe = asRecipe(useFoodLookup()(id));
+  const batch = recipe?.batches.find((b) => b.id === batchId && !b.deleted);
   if (!recipe || !batch) return <Navigate to="/recipes" replace />;
   const removeBatch = () => {
-    const before = recipe;
-    saveFood({ ...recipe, batches: recipe.batches.filter((b) => b.id !== batch.id) });
-    notify("Batch deleted", () => saveFood(before));
+    void deleteBatch(recipe.id, batch.id);
+    notify("Batch deleted", () => void restoreBatch(recipe.id, batch.id));
     close();
   };
 
@@ -264,7 +270,7 @@ export function BatchRoute({ notify }: { notify: Notify }) {
       canGoBack
       onBack={close}
       onClose={close}
-      actions={!entriesUsing(entries, recipe.id).some((e) => e.lines.some((l) => l.batchId === batch.id)) && <DeleteButton label="batch" onDelete={removeBatch} />}
+      actions={!recipe.public && <DeleteButton label="batch" onDelete={removeBatch} />}
     >
       <BatchEditor
         recipeId={recipe.id}
@@ -278,16 +284,17 @@ export function BatchRoute({ notify }: { notify: Notify }) {
   );
 }
 
-export function ActivityRoute({ notify }: { notify: Notify }) {
+export function ActivityRoute() {
   const { close } = useSteps("edit", undefined, "/activities");
-  const entries = useEntries();
-  useActivities();
+  const activities = useActivityLookup();
   const activity = useResolved<Activity>((id, name) =>
-    id === "new" ? { id: crypto.randomUUID(), name: name ?? "", icon: "", measures: ["duration"], burn: defaultBurn.duration } : activityById(id),
+    id === "new"
+      ? { id: crypto.randomUUID(), name: name ?? "", icon: autoActivityIcon(name ?? ""), iconAuto: true, measures: ["duration"], burn: defaultBurn.duration, revision: 0, deleted: false, public: false, starter: false }
+      : activities(id),
   );
   if (!activity) return <Navigate to="/activities" replace />;
-  const stored = activityById(activity.id);
-  const used = entries.some((e) => e.kind === "exercise" && e.activityId === activity.id);
+  const found = activities(activity.id);
+  const stored = found && !found.deleted ? found : undefined;
 
   return (
     <FlowShell
@@ -295,14 +302,26 @@ export function ActivityRoute({ notify }: { notify: Notify }) {
       canGoBack
       onBack={close}
       onClose={close}
-      actions={stored && <DeleteButton label={activity.name} onDelete={() => (notify(`Deleted ${activity.name}`, deleteActivity(stored, used)), close())} />}
+      actions={
+        stored &&
+        !stored.public && (
+          <DeleteButton
+            label={activity.name}
+            onDelete={() => {
+              void deleteActivity(stored.id);
+              notify(`Deleted ${activity.name}`, () => void restoreActivity(stored.id));
+              close();
+            }}
+          />
+        )
+      }
     >
       <ActivityEditor
         key={activity.id}
         activity={stored ?? activity}
-        onSave={(saved) => {
-          saveActivity(saved);
-          notify(`Saved ${saved.name}`);
+        onSave={(input) => {
+          void saveActivity(ownCopy(input, stored));
+          notify(`Saved ${input.name}`);
           close();
         }}
       />

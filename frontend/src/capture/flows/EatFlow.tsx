@@ -1,16 +1,51 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { frequentFoodIds, recentFoodIds, saveEntry, useEntries, usualAmount } from "../../core/entries";
-import { comboAsLines, undoPoint } from "../../core/followUp";
-import { allFoods, batchLabel, comboById, currentBatch, displayName, foodById, foodIcon, isFinished, itemByBarcode, itemById, leftovers, loggable, recipeById, saveFood, setBatchGone, useFoods, variantsOf } from "../../core/foods";
-import { suggestIcon } from "../../core/icons";
-import { contents, defaultAmount, formatAmount, quantity, unitDimension, unitsFor } from "../../core/label";
-import { batchPerUnit, type Contents, lineContents, lineFood, withBase } from "../../core/nutrition";
-import { lookupBarcode, type Found } from "../../core/openFoodFacts";
-import { useProfile } from "../../core/profile";
-import { initialWhen, nowWhen, todayKey } from "../../core/time";
-import { type Amount, BEGINNING, type Combo, type Food, type FoodData, type FoodEntry, type Item, type Line, type Nutrients, type Portion, type Recipe, type Serving, type When } from "../../core/types";
+import {
+  type Amount,
+  asItem,
+  asRecipe,
+  autoFoodIcon,
+  batchPerUnit,
+  BEGINNING,
+  type ComboInput,
+  comboAsLines,
+  type Contents,
+  contents,
+  currentBatch,
+  defaultAmount,
+  displayName,
+  type Food,
+  type FoodData,
+  type FoodEntry,
+  type FoodEntryInput,
+  type FoodInput,
+  type FoodItem,
+  type FoodItemInput,
+  type FoodLookup,
+  type FoodUsage,
+  formatAmount,
+  labelAt,
+  lineContents,
+  type Line,
+  loggable,
+  type Nutrients,
+  type OpenFoodFactsResult,
+  type Portion,
+  quantity,
+  type Recipe,
+  type Serving,
+  unitDimension,
+  unitsFor,
+  type When,
+  withBase,
+} from "@dash/core";
+import { deleteEntry, saveEntry } from "../../queries/entries.queries";
+import { saveBatch, saveFood, useFoodLookup, useFoodUsage } from "../../queries/foods.queries";
+import { lookupBarcode } from "../../queries/lookups.queries";
+import { useProfile } from "../../queries/me.queries";
 import { PortionList } from "../editors/PortionList";
 import { ItemEditor } from "../editors/ItemEditor";
+import { batchLabel, finishedBatches, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, useListedFoods, usualAmount, variantsOf } from "../foods";
+import { initialWhen, nowWhen } from "../time";
 import { AmountInput } from "../ui/AmountInput";
 import { FlowShell } from "../ui/FlowShell";
 import { BarcodeIcon, FoodSearch } from "../ui/FoodSearch";
@@ -32,10 +67,13 @@ interface NewFood {
   parts: Portion[];
   name: string;
   variant: string;
+  /** Undefined while it follows the name. */
   icon?: string;
   barcode?: string;
   draft: LabelDraft;
   servings: Serving[];
+  /** The entry-only item being edited, which is saved in place instead of created. */
+  existing?: FoodItem;
 }
 
 const newId = () => crypto.randomUUID();
@@ -51,62 +89,70 @@ function newFoodData(n: NewFood, amount: Amount): FoodData {
   return { unit, labels: label ? [label] : [], servings };
 }
 
-function lineFor(f: Item | Recipe, amount: Amount): Line {
-  if (f.kind === "item") return { id: newId(), itemId: f.id, amount };
-  return { id: newId(), recipeId: f.id, batchId: currentBatch(f)?.id, amount };
+function lineFor(f: FoodItem | Recipe, amount: Amount): Line {
+  if (f.kind === "item") return { id: newId(), foodId: f.id, amount };
+  const batchId = currentBatch(f)?.id;
+  return { id: newId(), foodId: f.id, ...(batchId ? { batchId } : {}), amount };
 }
 
-function comboLines(c: Combo): Line[] {
-  return c.parts.flatMap((p) => {
-    const f = foodById(p.foodId);
-    return f && f.kind !== "combo" ? [lineFor(f, p.amount)] : [];
-  });
-}
-
-function recipeUnits(r: Recipe, batchId: string | undefined, system: "metric" | "imperial") {
+function recipeUnits(r: Recipe, batchId: string | undefined, system: "metric" | "imperial", foods: FoodLookup) {
   const batch = r.batches.find((b) => b.id === batchId) ?? currentBatch(r);
-  const sized = batch && batchPerUnit(batch);
+  const sized = batch && batchPerUnit(batch, foods);
   if (!sized) return ["g"];
   return sized.unit === "portion" ? ["portion"] : system === "imperial" ? ["oz", "g"] : ["g"];
 }
 
-export function usualFor(f: Item | Recipe, entries: ReturnType<typeof useEntries>, system: "metric" | "imperial"): Amount {
-  const usual = usualAmount(entries, f.id);
+function usualFor(f: FoodItem | Recipe, usage: Map<string, FoodUsage>, system: "metric" | "imperial", foods: FoodLookup): Amount {
+  const usual = usualAmount(usage, f.id);
   if (usual) return usual;
   if (f.kind === "item") return defaultAmount(f, system);
-  return recipeUnits(f, undefined, system)[0] === "portion" ? { value: 1, unit: "portion" } : { value: 300, unit: "g" };
+  return recipeUnits(f, undefined, system, foods)[0] === "portion" ? { value: 1, unit: "portion" } : { value: 300, unit: "g" };
+}
+
+/** An entry-only line is edited the same way it was made: as a new food that isn't saved yet. */
+function newFoodOf(source: FoodEntry | undefined, foods: FoodLookup): NewFood | undefined {
+  const only = source?.lines.length === 1 ? source.lines[0] : undefined;
+  if (!only) return undefined;
+  const existing = asItem(foods(only.foodId));
+  if (only.foodId && (!existing || existing.catalogued)) return undefined;
+  return {
+    kind: "item",
+    parts: [],
+    name: existing?.name ?? only.rawName ?? "",
+    variant: existing?.variant ?? "",
+    icon: existing && !existing.iconAuto ? existing.icon : undefined,
+    barcode: only.barcode ?? existing?.barcode,
+    draft: draftFrom(existing?.unit, existing && labelAt(existing), "typed"),
+    servings: existing?.servings ?? [],
+    existing,
+  };
 }
 
 export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: FoodEntry["via"]; date: string; mode?: EatMode; onDone: (saved?: FoodEntry, undo?: () => void) => void }) {
+  const foods = useFoodLookup();
+  const usage = useFoodUsage();
+  const listed = useListedFoods();
   const source = mode.kind === "new" ? undefined : mode.entry;
-  const starting = mode.kind === "new" && mode.foodId ? foodById(mode.foodId) : undefined;
+  const starting = mode.kind === "new" && mode.foodId ? foods(mode.foodId) : undefined;
   const exit = useCallback(() => onDone(), [onDone]);
   const first: Step = source || starting ? "amount" : "cards";
   const { step, depth, go, back, replace, close } = useSteps<Step>(first, exit);
-  const entries = useEntries();
   const { units } = useProfile();
-  useFoods();
+  const usual = (f: FoodItem | Recipe) => usualFor(f, usage, units, foods);
 
   const [entryId] = useState(() => (mode.kind === "edit" ? mode.entry.id : newId()));
   const [when, setWhen] = useState<When>(() => (mode.kind === "edit" ? mode.entry.when : mode.kind === "duplicate" ? nowWhen() : initialWhen(date)));
   const [query, setQuery] = useState("");
   const [barcode, setBarcode] = useState<string>();
-  const [found, setFound] = useState<Found>();
-  const [attachTo, setAttachTo] = useState<Item>();
+  const [found, setFound] = useState<OpenFoodFactsResult>();
+  const [attachTo, setAttachTo] = useState<FoodItem>();
   const [comboId, setComboId] = useState(source?.comboId);
-  const [title, setTitle] = useState(source?.title);
   const [lines, setLines] = useState<Line[]>(() => {
     if (source) return source.lines.map((l) => (mode.kind === "duplicate" ? { ...l, id: newId() } : l));
-    if (starting && starting.kind !== "combo") return [lineFor(starting, usualFor(starting, entries, units))];
+    if (starting && starting.kind !== "combo") return [lineFor(starting, usual(starting))];
     return [];
   });
-  // An entry-only line is edited the same way it was made: as a new food that isn't saved yet.
-  const [newFood, setNewFood] = useState<NewFood | undefined>(() => {
-    const only = source?.lines.length === 1 ? source.lines[0] : undefined;
-    if (!only || only.itemId || only.recipeId) return undefined;
-    const label = only.own?.labels[only.own.labels.length - 1];
-    return { kind: "item", parts: [], name: only.rawName ?? "", variant: "", barcode: only.barcode, draft: draftFrom(only.own?.unit, label, "typed"), servings: only.own?.servings ?? [] };
-  });
+  const [newFood, setNewFood] = useState<NewFood | undefined>(() => newFoodOf(source, foods));
   const [calories, setCalories] = useState<Nutrients>({});
   const [note, setNote] = useState("");
   const [openLine, setOpenLine] = useState<string>();
@@ -117,36 +163,34 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     if (step === "amount" && lines.length === 0 && !newFood) replace(first === "amount" ? "what" : first);
   }, []);
 
-  useEffect(() => {
-    if (!barcode || itemByBarcode(barcode)) return;
-    const ctrl = new AbortController();
-    lookupBarcode(barcode, ctrl.signal).then(setFound);
-    return () => ctrl.abort();
-  }, [barcode]);
-
   /** An edit keeps what a line came to on the day unless its amount was changed. */
   const untouched = (l: Line) => {
     const before = mode.kind === "edit" ? mode.entry.lines.find((x) => x.id === l.id) : undefined;
-    return !!before && before.base !== undefined && before.itemId === l.itemId && JSON.stringify(before.amount) === JSON.stringify(l.amount);
+    return !!before && before.base !== undefined && before.foodId === l.foodId && JSON.stringify(before.amount) === JSON.stringify(l.amount);
   };
 
-  const commit = (lineList: Line[], extra: Partial<FoodEntry> = {}) => {
-    const undo = undoPoint();
-    const entry: FoodEntry = {
+  /** Saves the entry, along with the foods it creates; an explicit comboId, even undefined, replaces the current one. */
+  const commit = (lineList: Line[], extra: { comboId?: string } = {}, created: FoodInput[] = []) => {
+    const withCreated = (id: string | undefined) => created.find((c) => c.id === id) ?? foods(id);
+    const combo = "comboId" in extra ? extra.comboId : comboId;
+    const input: FoodEntryInput = {
       id: entryId,
       kind: "food",
       when,
-      createdAt: mode.kind === "edit" ? mode.entry.createdAt : new Date().toISOString(),
       via: source?.via ?? via,
-      comboId,
-      title,
-      lines: lineList.map((l) => (l.recipeId || untouched(l) ? l : withBase(l, lineFood(l)))),
-      ...extra,
+      ...(combo ? { comboId: combo } : {}),
+      lines: lineList.map((l) => {
+        const food = withCreated(l.foodId);
+        return food?.kind === "recipe" || untouched(l) ? l : withBase(l, food?.kind === "item" ? food : undefined);
+      }),
     };
-    saveEntry(entry);
+    void saveEntry(input, { newFoods: created, stored: mode.kind === "edit" ? mode.entry : undefined });
     const eaten = lineList.length === 1 ? lineList[0] : undefined;
-    if (lastOfIt && eaten?.recipeId && eaten.batchId) setBatchGone(eaten.recipeId, eaten.batchId, true);
-    onDone(entry, undo);
+    const recipe = asRecipe(foods(eaten?.foodId));
+    const batch = recipe?.batches.find((b) => b.id === eaten?.batchId);
+    if (lastOfIt && recipe && batch) void saveBatch(recipe.id, { ...batch, gone: true });
+    const shown = { ...input, revision: 0, deleted: false, createdAt: new Date().toISOString() } as FoodEntry;
+    onDone(shown, mode.kind === "edit" ? undefined : () => void deleteEntry(shown));
     close();
   };
 
@@ -154,110 +198,117 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     setNewFood(undefined);
     if (f.kind === "combo") {
       setComboId(f.id);
-      setTitle(f.name);
-      setLines(comboLines(f));
+      setLines(comboAsLines(f, 1, foods, newId));
       go("amount");
       return;
     }
-    if (f.kind === "item" && barcode && f.barcode !== barcode && !itemByBarcode(barcode)) {
+    // The scan matched nothing, so this is the first time the barcode meets the item.
+    if (f.kind === "item" && barcode && f.barcode !== barcode) {
       setAttachTo(f);
       go("attach");
       return;
     }
-    const kept = lines.length === 1 ? lines[0].amount : undefined;
-    const fits = kept && (f.kind === "item" ? quantity(f, kept) !== undefined : recipeUnits(f, undefined, units).includes(kept.unit ?? ""));
+    const kept = lines.length === 1 ? lines[0]!.amount : undefined;
+    const fits = kept && (f.kind === "item" ? quantity(f, kept) !== undefined : recipeUnits(f, undefined, units, foods).includes(kept.unit ?? ""));
     setComboId(undefined);
-    setTitle(undefined);
-    setLines([{ ...lineFor(f, fits ? kept : usualFor(f, entries, units)), id: lines[0]?.id ?? newId(), barcode: f.kind === "item" && f.barcode === barcode ? barcode : undefined }]);
+    const line = { ...lineFor(f, fits ? kept : usual(f)), id: lines[0]?.id ?? newId() };
+    setLines([f.kind === "item" && f.barcode === barcode && barcode ? { ...line, barcode } : line]);
     go("amount");
   };
 
-  const startNew = (name: string, base?: Item) => {
+  const startNew = (name: string, base?: FoodItem) => {
     const fromDb = found && !base && (!name || name === found.name);
     setNewFood({
       kind: "item",
       parts: [],
       name: base?.name ?? (name || found?.name || ""),
       variant: fromDb ? (found.brand ?? "") : "",
-      icon: base?.icon,
+      icon: base && !base.iconAuto ? base.icon : undefined,
       barcode,
       draft: fromDb ? draftFrom(found.unit, found.label, "database") : draftFrom(base?.unit ?? (via === "drank" ? "ml" : undefined), undefined),
       servings: fromDb ? found.servings : [],
     });
     setComboId(undefined);
-    setTitle(undefined);
-    setLines([{ id: newId(), rawName: name, barcode, amount: {} }]);
+    setLines([{ id: newId(), ...(name ? { rawName: name } : {}), ...(barcode ? { barcode } : {}), amount: {} }]);
     go("new");
   };
 
-  const onCode = (code: string) => {
-    const match = itemByBarcode(code);
+  /** The person's matching items come first; with none, Open Food Facts may know the product. */
+  const onCode = async (code: string) => {
     setBarcode(code);
+    const result = await lookupBarcode(code).catch(() => undefined);
+    setFound(result?.openFoodFacts);
+    const match = result?.foods.find((f): f is FoodItem => f.kind === "item" && loggable(f));
     if (match) {
-      setLines([{ ...lineFor(match, usualFor(match, entries, units)), barcode: code }]);
+      setLines([{ ...lineFor(match, usual(match)), barcode: code }]);
       setComboId(undefined);
-      setTitle(undefined);
       setNewFood(undefined);
       replace("amount");
     } else back();
   };
 
-  /** Saves the new food as asked, then the entry with one line pointing at it, or carrying it. */
+  /** Saves the new food as asked, then the entry with one line pointing at it, or a bare name with no label. */
   const saveNew = (as: "completed" | "unsure" | "entry") => {
     if (!newFood) return;
-    const line = lines[0];
+    const line = lines[0]!;
     const data = newFoodData(newFood, line.amount);
     const name = newFood.name.trim() || "Something";
-    if (as === "entry") {
-      commit([{ id: line.id, rawName: name, barcode: newFood.barcode, amount: line.amount, own: data }]);
+    const scanned = newFood.barcode ? { barcode: newFood.barcode } : {};
+    if (as === "entry" && !data.labels.length && !newFood.existing) {
+      commit([{ id: line.id, rawName: name, ...scanned, amount: line.amount }], { comboId: undefined });
       return;
     }
-    const item: Item = {
-      id: newId(),
+    const item: FoodItemInput = {
+      id: newFood.existing?.id ?? newId(),
       kind: "item",
       name,
-      variant: newFood.variant.trim() || undefined,
-      icon: newFood.icon,
-      barcode: newFood.barcode,
-      ...data,
-      unsure: as === "unsure" || undefined,
+      ...(newFood.variant.trim() ? { variant: newFood.variant.trim() } : {}),
+      icon: newFood.icon ?? autoFoodIcon(name, "item", data.unit),
+      iconAuto: newFood.icon === undefined,
+      catalogued: as !== "entry",
+      ...scanned,
+      unit: data.unit,
+      notFluid: false,
+      unsure: as === "unsure",
+      labels: data.labels,
+      servings: data.servings,
     };
-    saveFood(item);
-    commit([{ id: line.id, itemId: item.id, rawName: name, barcode: newFood.barcode, amount: line.amount }]);
+    if (newFood.existing) void saveFood(item);
+    commit([{ id: line.id, foodId: item.id, rawName: name, ...scanned, amount: line.amount }], { comboId: undefined }, newFood.existing ? [] : [item]);
   };
 
-  const newCombo = (): Combo | undefined =>
-    newFood?.kind === "combo" ? { id: newId(), kind: "combo", name: newFood.name.trim() || "Something", icon: newFood.icon, parts: newFood.parts } : undefined;
+  const newCombo = (catalogued: boolean): ComboInput | undefined => {
+    if (newFood?.kind !== "combo") return undefined;
+    const name = newFood.name.trim() || "Something";
+    return { id: newId(), kind: "combo", name, icon: newFood.icon ?? autoFoodIcon(name, "combo"), iconAuto: newFood.icon === undefined, catalogued, parts: newFood.parts };
+  };
 
   /** Coming back from a combo's parts, the single line for the new item starts over. */
   const toItemAmount = () => {
-    if (lines.length !== 1 || lines[0].itemId || lines[0].recipeId) setLines([{ id: newId(), rawName: newFood?.name, barcode, amount: {} }]);
+    if (lines.length !== 1 || lines[0]!.foodId) setLines([{ id: newId(), ...(newFood?.name ? { rawName: newFood.name } : {}), ...(barcode ? { barcode } : {}), amount: {} }]);
     go("amount");
   };
 
   const toComboAmount = () => {
-    const combo = newCombo();
-    if (!combo) return;
-    setLines(comboAsLines(combo));
+    if (newFood?.kind !== "combo") return;
+    setLines(comboAsLines(newFood, 1, foods, newId));
     go("amount");
   };
 
-  /** Logs the parts; with keep, the combo is saved too, so next time it's one tap. */
+  /** Logs the parts as a combo; kept, it shows up next time as one tap, otherwise only on this entry. */
   const saveNewCombo = (keep: boolean) => {
-    const combo = newCombo();
-    if (!combo) return;
-    if (keep) saveFood(combo);
-    commit(lines, keep ? { comboId: combo.id, title: undefined } : { comboId: undefined, title: combo.name });
+    const combo = newCombo(keep);
+    if (combo) commit(lines, { comboId: combo.id }, [combo]);
   };
 
   const quickLog = (f: Food) => {
-    if (f.kind === "combo") return commit(comboLines(f), { comboId: f.id, title: undefined });
-    commit([lineFor(f, usualFor(f, entries, units))], { comboId: undefined, title: undefined });
+    if (f.kind === "combo") return commit(comboAsLines(f, 1, foods, newId), { comboId: f.id });
+    commit([lineFor(f, usual(f))], { comboId: undefined });
   };
 
   const header = { canGoBack: depth > 1, onBack: back, onClose: close, when, onWhen: () => go("when") };
 
-  if (step === "scan") return <Scanner onCode={onCode} onClose={back} />;
+  if (step === "scan") return <Scanner onCode={(code) => void onCode(code)} onClose={back} />;
 
   if (step === "when")
     return (
@@ -267,7 +318,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     );
 
   if (step === "item") {
-    const item = itemById(lines[0]?.itemId);
+    const item = asItem(foods(lines[0]?.foodId));
     if (!item) return null;
     return (
       <FlowShell title={item.unsure ? "Complete item" : "Edit item"} canGoBack onBack={back} onClose={close}>
@@ -275,17 +326,16 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
           item={item}
           onSaved={back}
           onMerged={(target) => {
+            const line = lines[0]!;
             if (target.kind === "combo") {
               setComboId(target.id);
-              setTitle(target.name);
-              setLines(comboAsLines(target, lines[0].amount.value ?? 1));
-            } else setLines([target.kind === "item" ? { ...lines[0], itemId: target.id } : { ...lineFor(target, lines[0].amount), id: lines[0].id }]);
+              setLines(comboAsLines(target, line.amount.value ?? 1, foods, newId));
+            } else setLines([target.kind === "item" ? { ...line, foodId: target.id } : { ...lineFor(target, line.amount), id: line.id }]);
             back();
           }}
           onCombo={(combo) => {
             setComboId(combo.id);
-            setTitle(combo.name);
-            setLines(comboAsLines(combo, lines[0].amount.value ?? 1));
+            setLines(comboAsLines(combo, lines[0]!.amount.value ?? 1, foods, newId));
             back();
           }}
         />
@@ -300,16 +350,17 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
         <button
           className="row"
           onClick={() => {
-            saveFood({ ...attachTo, barcode });
+            // A built-in item can't take the barcode; it's logged as it is.
+            if (!attachTo.public && barcode) void saveFood({ ...(foodInput(attachTo) as FoodItemInput), barcode });
             setBarcode(undefined);
-            setLines([{ ...lineFor(attachTo, usualFor(attachTo, entries, units)), barcode }]);
+            setLines([{ ...lineFor(attachTo, usual(attachTo)), ...(barcode ? { barcode } : {}) }]);
             replace("amount");
           }}
         >
-          <span className="row-icon">{foodIcon(attachTo)}</span>
+          <span className="row-icon">{attachTo.icon}</span>
           <span className="row-main">
             <span className="row-title">It's this one</span>
-            <span className="row-sub">Add the barcode to {displayName(attachTo)}, so the next scan finds it</span>
+            <span className="row-sub">{attachTo.public ? `Log it as ${displayName(attachTo)}` : `Add the barcode to ${displayName(attachTo)}, so the next scan finds it`}</span>
           </span>
         </button>
         <button className="row" onClick={() => startNew(attachTo.name, attachTo)}>
@@ -331,19 +382,22 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
           <button
             className="btn btn-primary btn-block"
             disabled={calories.kcal === undefined}
-            onClick={() =>
-              commit(
-                [
-                  {
-                    id: newId(),
-                    rawName: note.trim() || undefined,
-                    amount: { value: 1, unit: "piece" },
-                    own: { unit: "piece", labels: [{ from: BEGINNING, per: "serving", values: calories, source: "typed" }], servings: [] },
-                  },
-                ],
-                { comboId: undefined, title: undefined },
-              )
-            }
+            onClick={() => {
+              const item: FoodItemInput = {
+                id: newId(),
+                kind: "item",
+                name: note.trim() || "Calories",
+                icon: "🔥",
+                iconAuto: false,
+                catalogued: false,
+                unit: "piece",
+                notFluid: false,
+                unsure: false,
+                labels: [{ from: BEGINNING, per: "serving", values: calories, source: "typed" }],
+                servings: [],
+              };
+              commit([{ id: newId(), foodId: item.id, ...(note.trim() ? { rawName: note.trim() } : {}), amount: { value: 1, unit: "piece" } }], { comboId: undefined }, [item]);
+            }}
           >
             Save
           </button>
@@ -363,7 +417,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     );
 
   if (step === "new" && newFood) {
-    const twins = newFood.name.trim() ? variantsOf({ id: "", name: newFood.name }) : [];
+    const twins = newFood.name.trim() ? variantsOf(listed, { id: newFood.existing?.id ?? "", name: newFood.name }) : [];
     return (
       <FlowShell
         title={source ? "Label" : "New"}
@@ -403,19 +457,19 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
   }
 
   if (step === "amount" && (lines.length > 0 || newFood)) {
-    const line = lines[0];
+    const line = lines[0]!;
     const buildingCombo = newFood?.kind === "combo";
     const newItem = buildingCombo ? undefined : newFood;
     const single = lines.length === 1 && !comboId && !buildingCombo;
-    const item = itemById(line?.itemId);
-    const recipe = recipeById(line?.recipeId);
-    const combo = comboById(comboId);
-    const preview = newItem ? previewNew(newItem, line.amount, when.date) : lines.reduce<Contents>((sum, l) => mergeContents(sum, lineContents(l, when.date)), {});
+    const item = asItem(foods(line?.foodId));
+    const recipe = asRecipe(foods(line?.foodId));
+    const combo = foods(comboId);
+    const preview = newItem ? previewNew(newItem, line.amount, when.date) : lines.reduce<Contents>((sum, l) => mergeContents(sum, lineContents(l, when.date, foods)), {});
     const changeable = mode.kind !== "edit" || single;
 
     return (
       <FlowShell
-        title={combo?.name ?? title ?? (newFood ? newFood.name || "Unnamed" : recipe ? recipe.name : item ? item.name : (line?.rawName ?? "How much?"))}
+        title={combo?.name ?? (newFood ? newFood.name || "Unnamed" : recipe ? recipe.name : item ? item.name : (line?.rawName ?? "How much?"))}
         subtitle={
           buildingCombo ? (
             <span className="badge badge-warn">New combo</span>
@@ -462,7 +516,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
                   {hasValues(newItem.draft) ? "Edit label" : "Add label"}
                 </button>
               )}
-              {item && (
+              {item && !item.public && (
                 <button className="link-btn" onClick={() => go("item")}>
                   {item.unsure ? "Complete item" : "Edit item"}
                 </button>
@@ -477,7 +531,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
             )}
             <AmountInput
               amount={line.amount}
-              units={newItem ? unitsFor(labelFrom(newItem.draft) ? newFoodData(newItem, line.amount) : undefined, units) : recipe ? recipeUnits(recipe, line.batchId, units) : unitsFor(item ?? line.own, units)}
+              units={newItem ? unitsFor(labelFrom(newItem.draft) ? newFoodData(newItem, line.amount) : undefined, units) : recipe ? recipeUnits(recipe, line.batchId, units, foods) : unitsFor(item, units)}
               allowOther={!!newItem || !!item?.unsure}
               onChange={(amount) => setLines([{ ...line, amount }])}
             />
@@ -511,7 +565,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
         query={query}
         onQuery={setQuery}
         kinds={["item", "combo", "recipe"]}
-        recentIds={recentFoodIds(entries, via)}
+        recentIds={recentFoodIds(usage, via)}
         placeholder="Search items, combos, recipes"
         onPick={pickFood}
         onNew={(name) => startNew(name)}
@@ -542,12 +596,11 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
   );
 }
 
-function NewFoodHead({ value, onChange, twins }: { value: NewFood; onChange: (n: NewFood) => void; twins: Item[] }) {
-  const icon = value.icon ?? suggestIcon(value.name, ["drink", "food"]);
+function NewFoodHead({ value, onChange, twins }: { value: NewFood; onChange: (n: NewFood) => void; twins: FoodItem[] }) {
   return (
     <>
       <div className="name-row">
-        <span className="row-icon big">{icon ?? "🍽️"}</span>
+        <span className="row-icon big">{value.icon ?? autoFoodIcon(value.name, value.kind)}</span>
         <input className="big-text" placeholder="What was it?" autoFocus={!value.name} value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} />
       </div>
       <label className="field compact">
@@ -583,7 +636,7 @@ function NewFoodChoices({ canComplete, onSave }: { canComplete: boolean; onSave:
 }
 
 function BatchChoice({ recipe, batchId, onChange }: { recipe: Recipe; batchId?: string; onChange: (id: string) => void }) {
-  const batches = recipe.batches.filter(isFinished).reverse();
+  const batches = finishedBatches(recipe).reverse();
   if (batches.length < 2) return null;
   return (
     <div className="chip-row" role="radiogroup" aria-label="Batch">
@@ -599,15 +652,16 @@ function BatchChoice({ recipe, batchId, onChange }: { recipe: Recipe; batchId?: 
 /** A combo logs at its usual amounts; each part opens for a day with more milk. */
 function ComboLines({ lines, openId, onOpen, onChange }: { lines: Line[]; openId?: string; onOpen: (id?: string) => void; onChange: (l: Line[]) => void }) {
   const { units } = useProfile();
+  const foods = useFoodLookup();
   return (
     <ul className="list combo-lines">
       {lines.map((l) => {
-        const food = foodById(l.itemId ?? l.recipeId);
+        const food = foods(l.foodId);
         const open = openId === l.id;
         return (
           <li key={l.id} className={`combo-line ${open ? "open" : ""}`}>
             <button className="row" onClick={() => onOpen(open ? undefined : l.id)} aria-expanded={open}>
-              <span className="row-icon">{food ? foodIcon(food) : "✎"}</span>
+              <span className="row-icon">{food?.icon ?? "✎"}</span>
               <span className="row-main">
                 <span className="row-title">
                   {food ? displayName(food) : (l.rawName ?? "Something")} {food?.kind === "item" && food.unsure && <span className="badge badge-warn">Unsure</span>}
@@ -622,10 +676,10 @@ function ComboLines({ lines, openId, onOpen, onChange }: { lines: Line[]; openId
                   amount={l.amount}
                   units={
                     food?.kind === "recipe"
-                      ? recipeUnits(food, l.batchId, units)
+                      ? recipeUnits(food, l.batchId, units, foods)
                       : food?.kind === "item" && food.unsure
                         ? [...new Set([...unitsFor(food, units), ...unitsFor(undefined, units)])]
-                        : unitsFor(food?.kind === "item" ? food : l.own, units)
+                        : unitsFor(asItem(food), units)
                   }
                   allowOther={food?.kind === "item" && food.unsure}
                   onChange={(amount) => onChange(lines.map((x) => (x.id === l.id ? { ...x, amount } : x)))}
@@ -723,18 +777,21 @@ export function MacroFields({ values, onChange }: { values: Nutrients; onChange:
  * food goes by most recent, with cooked dishes not eaten up yet first, and opens the amount.
  */
 function FoodCards({ via, onPick, onSearch, onScan }: { via: FoodEntry["via"]; onPick: (f: Food) => void; onSearch: (query: string) => void; onScan: () => void }) {
-  const entries = useEntries();
+  const usage = useFoodUsage();
   const { units } = useProfile();
-  const foods = useFoods();
+  const foods = useFoodLookup();
+  const listed = useListedFoods();
   const cards = useMemo(() => {
-    const isDrink = (f: Food) => (f.kind === "item" ? f.unit === "ml" : f.kind === "combo" && f.parts.some((p) => itemById(p.foodId)?.unit === "ml"));
+    const drink = (f: Food) => isDrink(f, foods);
+    const starters = listed.filter((f) => f.starter && (via === "drank") === drink(f));
     const ordered =
       via === "drank"
-        ? [...frequentFoodIds(entries, "drank", todayKey()).map(foodById), ...allFoods().filter((f) => f.id.startsWith("seed-")), ...allFoods().filter(isDrink)]
-        : [...leftovers(), ...recentFoodIds(entries, "ate").map(foodById)];
-    const offered = (f: Food | undefined): f is Food => !!f && !f.deleted && loggable(f) && !(f.kind === "item" && f.unsure) && (via === "ate" || isDrink(f));
+        ? [...frequentDrinkIds(usage).map(foods), ...starters, ...listed.filter(drink)]
+        : [...leftovers(listed), ...recentFoodIds(usage, "ate").map(foods), ...starters];
+    const live = new Set(listed);
+    const offered = (f: Food | undefined): f is Food => !!f && live.has(f) && loggable(f) && !(f.kind === "item" && f.unsure) && (via === "ate" || drink(f));
     return ordered.filter((f, i, all): f is Food => offered(f) && all.indexOf(f) === i).slice(0, via === "drank" ? 12 : 9);
-  }, [entries, foods, via]);
+  }, [usage, foods, listed, via]);
 
   const sub = (f: Food) => {
     if (f.kind === "combo") return "combo";
@@ -742,7 +799,7 @@ function FoodCards({ via, onPick, onSearch, onScan }: { via: FoodEntry["via"]; o
       const b = currentBatch(f);
       return b && !b.gone ? `${batchLabel(b)} batch` : "recipe";
     }
-    return formatAmount(usualAmount(entries, f.id) ?? defaultAmount(f, units));
+    return formatAmount(usualAmount(usage, f.id) ?? defaultAmount(f, units));
   };
 
   return (
@@ -759,7 +816,7 @@ function FoodCards({ via, onPick, onSearch, onScan }: { via: FoodEntry["via"]; o
         <div className="drink-grid">
           {cards.map((f) => (
             <button key={f.id} className={`tile drink-card ${f.kind === "recipe" ? "tile-leftover" : ""}`} onClick={() => onPick(f)}>
-              <span className="tile-icon">{foodIcon(f)}</span>
+              <span className="tile-icon">{f.icon}</span>
               <span className="tile-label">{f.name}</span>
               <span className="tile-sub">{sub(f)}</span>
             </button>

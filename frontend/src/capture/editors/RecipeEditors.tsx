@@ -1,39 +1,61 @@
 import { useState } from "react";
-import { batchLabel, isFinished, itemById, recipeById, saveFood, setBatchGone, useFoods } from "../../core/foods";
-import { suggestIcon } from "../../core/icons";
-import { round } from "../../core/label";
-import { batchPerUnit, batchTotal, withBase } from "../../core/nutrition";
-import { useProfile } from "../../core/profile";
-import { todayKey } from "../../core/time";
-import type { Batch, Combo, Recipe } from "../../core/types";
+import { asItem, asRecipe, autoFoodIcon, type Batch, batchPerUnit, batchTotal, type ComboInput, type FoodLookup, isFinished, type Recipe, type RecipeInput, round, withBase } from "@dash/core";
+import { saveBatch, saveFood, useFoodLookup } from "../../queries/foods.queries";
+import { useMe } from "../../queries/me.queries";
+import { batchLabel, finishedBatches } from "../foods";
 import { NutritionPreview } from "../flows/EatFlow";
+import { todayKey } from "../time";
 import { NumberInput } from "../ui/NumberInput";
 import { IconField } from "../ui/Pickers";
 import { PortionList } from "./PortionList";
 
-function storeBatch(recipeId: string, batch: Batch) {
-  const r = recipeById(recipeId);
-  const recorded = { ...batch, ingredients: batch.ingredients.map((p) => withBase(p, itemById(p.foodId))) };
-  if (r) saveFood({ ...r, batches: r.batches.map((b) => (b.id === batch.id ? recorded : b)) });
-}
+/** Records what each ingredient amount comes to now, so later serving changes don't move the batch. */
+const storeBatch = (recipeId: string, batch: Batch, foods: FoodLookup) =>
+  void saveBatch(recipeId, { ...batch, ingredients: batch.ingredients.map((p) => withBase(p, asItem(foods(p.foodId)))) });
 
 /** The next cooking starts from the last one's ingredients, to adjust for this time. */
-export function startBatch(r: Recipe): Batch {
-  const last = r.batches[r.batches.length - 1];
-  return { id: crypto.randomUUID(), madeOn: todayKey(), ingredients: last ? last.ingredients.map(({ foodId, amount }) => ({ foodId, amount })) : [] };
+export function startBatch(r: Pick<Recipe, "batches">): Batch {
+  const last = r.batches.filter((b) => !b.deleted).at(-1);
+  return { id: crypto.randomUUID(), madeOn: todayKey(), ingredients: last ? last.ingredients.map(({ foodId, amount }) => ({ foodId, amount })) : [], gone: false };
 }
 
-export const recipeToCombo = (r: Recipe, b: Batch): Combo => ({ id: crypto.randomUUID(), kind: "combo", name: r.name, icon: r.icon, parts: b.ingredients });
+/** A new recipe is stored with its first batch, so the cook screen has something to fill in. */
+export function createRecipe(name: string) {
+  const recipe: RecipeInput = { id: crypto.randomUUID(), kind: "recipe", name, icon: autoFoodIcon(name, "recipe"), iconAuto: true, catalogued: true };
+  void saveFood(recipe);
+  void saveBatch(recipe.id, startBatch({ batches: [] }));
+  return recipe;
+}
+
+export const recipeInput = (r: Recipe): RecipeInput => ({
+  id: r.id,
+  kind: "recipe",
+  name: r.name,
+  icon: r.icon,
+  iconAuto: r.iconAuto,
+  catalogued: r.catalogued,
+  ...(r.originId ? { originId: r.originId } : {}),
+});
+
+export const recipeToCombo = (r: Recipe, b: Batch): ComboInput => ({
+  id: crypto.randomUUID(),
+  kind: "combo",
+  name: r.name,
+  icon: r.icon,
+  iconAuto: r.iconAuto,
+  catalogued: true,
+  parts: b.ingredients.map(({ foodId, amount }) => ({ foodId, amount })),
+});
 
 /**
  * Ingredients are saved as they go in, since cooking takes a while. Weighing the finished dish
  * sizes it; the pot's weight comes off so it can stay on the scale.
  */
 export function BatchEditor({ recipeId, batchId, onFinished }: { recipeId: string; batchId: string; onFinished: (b: Batch) => void }) {
-  useFoods();
-  const { pots } = useProfile();
-  const recipe = recipeById(recipeId);
-  const batch = recipe?.batches.find((b) => b.id === batchId);
+  const foods = useFoodLookup();
+  const { pots } = useMe();
+  const recipe = asRecipe(foods(recipeId));
+  const batch = recipe?.batches.find((b) => b.id === batchId && !b.deleted);
   const [mode, setMode] = useState<"weighed" | "portions">(() => (batch?.yield && "portions" in batch.yield ? "portions" : "weighed"));
   const [scale, setScale] = useState<number | undefined>(() => (batch?.yield && "grams" in batch.yield ? batch.yield.grams : undefined));
   const [potId, setPotId] = useState<string>();
@@ -43,20 +65,20 @@ export function BatchEditor({ recipeId, batchId, onFinished }: { recipeId: strin
   const pot = pots.find((p) => p.id === potId);
   const grams = scale !== undefined ? scale - (pot?.grams ?? 0) : undefined;
   const yieldNow = mode === "weighed" ? (grams && grams > 0 ? { grams } : undefined) : portions && portions > 0 ? { portions } : undefined;
-  const total = batchTotal(batch);
-  const sized = yieldNow && batchPerUnit({ ...batch, yield: yieldNow });
+  const total = batchTotal(batch, foods);
+  const sized = yieldNow && batchPerUnit({ ...batch, yield: yieldNow }, foods);
 
   return (
     <div className="item-editor">
       <label className="field compact">
         <span className="field-label">Made on</span>
-        <input className="text-input" type="date" max={todayKey()} value={batch.madeOn} onChange={(e) => e.target.value && storeBatch(recipeId, { ...batch, madeOn: e.target.value })} />
+        <input className="text-input" type="date" max={todayKey()} value={batch.madeOn} onChange={(e) => e.target.value && storeBatch(recipeId, { ...batch, madeOn: e.target.value }, foods)} />
       </label>
 
       <div className="field">
         <span className="field-label">Ingredients, as they go in</span>
         <p className="hint">Raw weights from the raw labels. Water counts toward the weight and adds nothing else.</p>
-        <PortionList portions={batch.ingredients} kinds={["item"]} addLabel="Add an ingredient" onChange={(ingredients) => storeBatch(recipeId, { ...batch, ingredients })} />
+        <PortionList portions={batch.ingredients} kinds={["item"]} addLabel="Add an ingredient" onChange={(ingredients) => storeBatch(recipeId, { ...batch, ingredients }, foods)} />
       </div>
 
       {batch.ingredients.length > 0 && (
@@ -116,7 +138,7 @@ export function BatchEditor({ recipeId, batchId, onFinished }: { recipeId: strin
 
       {isFinished(batch) && (
         <label className="check-line">
-          <input type="checkbox" checked={!!batch.gone} onChange={(e) => setBatchGone(recipeId, batch.id, e.target.checked)} />
+          <input type="checkbox" checked={batch.gone} onChange={(e) => void saveBatch(recipeId, { ...batch, gone: e.target.checked })} />
           All eaten, stop offering it when logging
         </label>
       )}
@@ -126,8 +148,8 @@ export function BatchEditor({ recipeId, batchId, onFinished }: { recipeId: strin
           className="btn btn-primary btn-block"
           disabled={!yieldNow || batch.ingredients.length === 0}
           onClick={() => {
-            const finished = { ...recipeById(recipeId)!.batches.find((b) => b.id === batch.id)!, yield: yieldNow };
-            storeBatch(recipeId, finished);
+            const finished = { ...batch, yield: yieldNow! };
+            storeBatch(recipeId, finished, foods);
             onFinished(finished);
           }}
         >
@@ -138,35 +160,41 @@ export function BatchEditor({ recipeId, batchId, onFinished }: { recipeId: strin
   );
 }
 
-export function RecipeEditor({ recipe, onOpenBatch, onCookAgain, onToCombo }: { recipe: Recipe; onOpenBatch: (b: Batch) => void; onCookAgain: () => void; onToCombo: (c: Combo) => void }) {
-  useFoods();
-  const current = recipeById(recipe.id) ?? recipe;
+export function RecipeEditor({ recipe, onOpenBatch, onCookAgain, onToCombo }: { recipe: Recipe; onOpenBatch: (b: Batch) => void; onCookAgain: () => void; onToCombo: (c: ComboInput) => void }) {
+  const foods = useFoodLookup();
+  const current = asRecipe(foods(recipe.id)) ?? recipe;
   const [name, setName] = useState(current.name);
-  const [icon, setIcon] = useState(current.icon);
-  const rename = (patch: Partial<Recipe>) => saveFood({ ...current, ...patch });
-  const latest = [...current.batches].reverse().find(isFinished);
+  const [icon, setIcon] = useState(current.iconAuto ? undefined : current.icon);
+  const rename = (patch: Partial<RecipeInput>) => void saveFood({ ...recipeInput(current), ...patch });
+  const latest = finishedBatches(current).at(-1);
 
   return (
     <div className="item-editor">
       <div className="name-row">
         <IconField
           value={icon}
-          fallback={suggestIcon(name, ["food"]) ?? "🍲"}
+          fallback={autoFoodIcon(name, "recipe")}
           groups={["food"]}
           onChange={(i) => {
             setIcon(i);
-            rename({ icon: i });
+            rename({ icon: i ?? autoFoodIcon(name, "recipe"), iconAuto: i === undefined });
           }}
         />
-        <input className="big-text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && rename({ name: name.trim() })} />
+        <input
+          className="big-text"
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => name.trim() && name.trim() !== current.name && rename({ name: name.trim(), ...(icon === undefined ? { icon: autoFoodIcon(name, "recipe") } : {}) })}
+        />
       </div>
 
       <div className="field">
         <span className="field-label">Batches</span>
         <p className="hint">Each cooking keeps its own ingredients and values. Logging uses the latest unless you pick another.</p>
         <ul className="list">
-          {[...current.batches].reverse().map((b) => {
-            const sized = batchPerUnit(b);
+          {current.batches.filter((b) => !b.deleted).reverse().map((b) => {
+            const sized = batchPerUnit(b, foods);
             return (
               <li key={b.id}>
                 <button className="row" onClick={() => onOpenBatch(b)}>

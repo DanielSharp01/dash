@@ -1,15 +1,12 @@
 import { useState } from "react";
-import { activityById } from "../../core/activities";
-import { useEntries } from "../../core/entries";
-import { entryNeedsFollowUp, followUpCount, unsureItemsInUse } from "../../core/followUp";
-import { batchLabel, cookingNow, displayName, foodById, foodIcon, itemById, recipeById, useFoods } from "../../core/foods";
-import { useDailyTargets } from "../../core/goals";
-import { formatAmount } from "../../core/label";
-import { type Contents, dayTotals, entryContents, type Part } from "../../core/nutrition";
-import { useProfile } from "../../core/profile";
-import { dayHeading, dayParts, partOf, shiftDate, sortKey, todayKey, whenLabel } from "../../core/time";
-import type { Entry, FoodEntry, Line } from "../../core/types";
-import { formatFluid } from "../../core/units";
+import { asItem, asRecipe, type Contents, dayTotals, displayName, type Entry, entryContents, entryNeedsFollowUp, type FoodLookup, formatAmount, formatFluid, type Line, type Part, shiftDate } from "@dash/core";
+import { useActivityLookup } from "../../queries/activities.queries";
+import { useDayEntries, useFollowUp, useFollowUpCount } from "../../queries/entries.queries";
+import { useFoodLookup } from "../../queries/foods.queries";
+import { useProfile } from "../../queries/me.queries";
+import { batchLabel, cookingNow, useListedFoods } from "../foods";
+import { useDailyTargets } from "../targets";
+import { dayHeading, dayParam, dayParts, partOf, sortKey, todayKey, whenLabel } from "../time";
 import { FlowShell } from "../ui/FlowShell";
 import { Ring } from "../ui/Ring";
 import { TrashIcon } from "../ui/TrashIcon";
@@ -25,14 +22,13 @@ export interface EntryActions {
 const fmt = (n: number) => Math.round(n).toLocaleString();
 
 export function Today({ day, setDay, onMenu, actions }: { day: string; setDay: (d: string) => void; onMenu: () => void; actions: EntryActions }) {
-  const entries = useEntries();
-  useFoods();
+  const { data: entries, isPending } = useDayEntries(day);
   const open = useOpen();
   const targets = useDailyTargets(day);
-  const dayQuery = day === todayKey() ? "" : `?day=${day}`;
-  const dayEntries = entries.filter((e) => e.when.date === day).sort((a, b) => sortKey(a.when).localeCompare(sortKey(b.when)));
-  const inbox = followUpCount(entries);
-  const cooking = cookingNow();
+  const dayQuery = dayParam(day);
+  const dayEntries = [...(entries ?? [])].sort((a, b) => sortKey(a.when).localeCompare(sortKey(b.when)));
+  const inbox = useFollowUpCount();
+  const cooking = cookingNow(useListedFoods());
 
   return (
     <div className="home">
@@ -77,7 +73,7 @@ export function Today({ day, setDay, onMenu, actions }: { day: string; setDay: (
       <MissingDetails missing={targets.missing} lead="The budget is a placeholder until Dash knows your" />
 
       <DaySummary entries={dayEntries} day={day} />
-      <Timeline entries={dayEntries} actions={actions} />
+      {isPending ? <p className="empty">Loading…</p> : <Timeline entries={dayEntries} actions={actions} />}
 
       <nav className="quick-add">
         <button className="qa-btn qa-food" onClick={() => open(`/log/ate${dayQuery}`)}>
@@ -107,7 +103,7 @@ const macroMeta = [
 function DaySummary({ entries, day }: { entries: Entry[]; day: string }) {
   const goals = useDailyTargets(day);
   const { units } = useProfile();
-  const t = dayTotals(entries);
+  const t = dayTotals(entries, useFoodLookup());
   const budget = goals.kcal + t.burned;
   const left = budget - t.kcal.value;
   const unsure = t.kcal.missing > 0;
@@ -211,21 +207,23 @@ function Timeline({ entries, actions }: { entries: Entry[]; actions: EntryAction
   );
 }
 
-export function lineName(l: Line) {
-  const food = foodById(l.recipeId ?? l.itemId);
+export function lineName(l: Line, foods: FoodLookup) {
+  const food = foods(l.foodId);
   if (food) return displayName(food);
-  return l.rawName ?? "Calories";
+  return l.rawName ?? "Something";
 }
 
-function lineIcon(l: Line) {
-  const food = foodById(l.recipeId ?? l.itemId);
-  return food ? foodIcon(food) : "✎";
+const lineIcon = (l: Line, foods: FoodLookup) => foods(l.foodId)?.icon ?? "✎";
+
+/** "Just calories" is an entry-only item counted in pieces with one piece logged. */
+function isJustCalories(l: Line, foods: FoodLookup) {
+  const item = asItem(foods(l.foodId));
+  return !!item && !item.catalogued && item.unit === "piece" && !item.servings.length && l.amount.unit === "piece" && l.amount.value === 1;
 }
 
-function lineDetail(l: Line) {
-  const recipe = recipeById(l.recipeId);
-  const batch = recipe?.batches.find((b) => b.id === l.batchId);
-  const amount = l.own && l.own.unit === "piece" && l.amount.unit === "piece" && l.amount.value === 1 && !l.own.servings.length ? "just calories" : formatAmount(l.amount);
+function lineDetail(l: Line, foods: FoodLookup) {
+  const batch = asRecipe(foods(l.foodId))?.batches.find((b) => b.id === l.batchId);
+  const amount = isJustCalories(l, foods) ? "just calories" : formatAmount(l.amount);
   return batch ? `${amount} · ${batchLabel(batch)} batch` : amount;
 }
 
@@ -236,6 +234,8 @@ const kcalText = (c: Contents) => {
 };
 
 export function EntryRow({ entry, open, onToggle, actions, showDay = false }: { entry: Entry; open: boolean; onToggle: () => void; actions: EntryActions; showDay?: boolean }) {
+  const foods = useFoodLookup();
+  const activities = useActivityLookup();
   const badges: { text: string; tone: "warn" | "muted" }[] = [];
   let title: string;
   let icon: string;
@@ -245,29 +245,29 @@ export function EntryRow({ entry, open, onToggle, actions, showDay = false }: { 
   let lines: Line[] = [];
 
   if (entry.kind === "food") {
-    const f = entry as FoodEntry;
-    lines = f.lines;
-    const single = f.lines.length === 1 && !f.comboId ? f.lines[0] : undefined;
-    title = foodById(f.comboId)?.name ?? f.title ?? (single ? lineName(single) : `${f.lines.length} things`);
-    icon = f.comboId ? (foodById(f.comboId) ? foodIcon(foodById(f.comboId)!) : "🍱") : single ? lineIcon(single) : "🍱";
-    detail = single ? lineDetail(single) : f.lines.map(lineName).join(", ");
-    macros = entryContents(f);
+    lines = entry.lines;
+    const single = entry.lines.length === 1 && !entry.comboId ? entry.lines[0] : undefined;
+    const combo = foods(entry.comboId);
+    title = combo?.name ?? (single ? lineName(single, foods) : `${entry.lines.length} things`);
+    icon = combo?.icon ?? (single ? lineIcon(single, foods) : "🍱");
+    detail = single ? lineDetail(single, foods) : entry.lines.map((l) => lineName(l, foods)).join(", ");
+    macros = entryContents(entry, foods);
     kcal = kcalText(macros);
-    if (f.lines.some((l) => itemById(l.itemId)?.unsure)) badges.push({ text: "Unsure item", tone: "warn" });
-    if (f.lines.some((l) => l.amount.value === undefined)) badges.push({ text: "Amount unknown", tone: "warn" });
-    if (single && !single.itemId && !single.recipeId && detail !== "just calories") badges.push({ text: "Not an item", tone: "muted" });
+    if (entry.lines.some((l) => asItem(foods(l.foodId))?.unsure)) badges.push({ text: "Unsure item", tone: "warn" });
+    if (entry.lines.some((l) => l.amount.value === undefined)) badges.push({ text: "Amount unknown", tone: "warn" });
+    const singleItem = asItem(foods(single?.foodId));
+    if (single && (!single.foodId || (singleItem && !singleItem.catalogued)) && !isJustCalories(single, foods)) badges.push({ text: "Not an item", tone: "muted" });
   } else {
-    const a = activityById(entry.activityId);
-    title = a ? a.name : `“${entry.rawName}”`;
+    const a = activities(entry.activityId);
+    title = a?.name ?? "Activity";
     icon = a?.icon ?? "✎";
-    if (!a) badges.push({ text: "Not in your activities", tone: "warn" });
     detail =
       Object.values(entry.measures)
         .map((m) => `${m.value} ${m.unit}`)
         .join(" · ") || "no measures";
     if (entry.kcal !== undefined) kcal = `${entry.kcal} kcal`;
   }
-  if (entryNeedsFollowUp(entry)) badges.push({ text: "Follow up", tone: "muted" });
+  if (entryNeedsFollowUp(entry, foods)) badges.push({ text: "Follow up", tone: "muted" });
 
   return (
     <div className={`entry ${open ? "open" : ""}`}>
@@ -311,7 +311,7 @@ export function EntryRow({ entry, open, onToggle, actions, showDay = false }: { 
             <ul className="entry-lines">
               {lines.map((l) => (
                 <li key={l.id}>
-                  <span>{lineIcon(l)}</span> {lineName(l)} <small>{lineDetail(l)}</small>
+                  <span>{lineIcon(l, foods)}</span> {lineName(l, foods)} <small>{lineDetail(l, foods)}</small>
                 </li>
               ))}
             </ul>
@@ -334,13 +334,16 @@ export function EntryRow({ entry, open, onToggle, actions, showDay = false }: { 
 }
 
 export function InboxScreen({ onMenu, actions }: { onMenu: () => void; actions: EntryActions }) {
-  const entries = useEntries();
-  useFoods();
+  const followUp = useFollowUp();
+  const foods = useFoodLookup();
   const { close } = useSteps("list");
   const open = useOpen();
   const [expanded, setExpanded] = useState<string>();
-  const unsure = unsureItemsInUse(entries);
-  const pending = entries.filter(entryNeedsFollowUp).sort((a, b) => sortKey(b.when).localeCompare(sortKey(a.when)));
+  const unsure = followUp.unsureItems.flatMap((u) => {
+    const item = asItem(foods(u.foodId));
+    return item ? [{ ...u, item }] : [];
+  });
+  const pending = [...followUp.entries].sort((a, b) => sortKey(b.when).localeCompare(sortKey(a.when)));
 
   return (
     <FlowShell title="To follow up" canGoBack={false} onBack={close} onClose={close} onMenu={onMenu}>
@@ -350,14 +353,14 @@ export function InboxScreen({ onMenu, actions }: { onMenu: () => void; actions: 
           <h2 className="list-heading">Unsure items</h2>
           <p className="hint">Things logged by name. Fill in one label and every entry using it gets its values.</p>
           <ul className="list">
-            {unsure.map(({ item, entries: used, inFoods }) => (
+            {unsure.map(({ item, entryIds, usedByFoodIds }) => (
               <li key={item.id}>
                 <button className="row row-unsure" onClick={() => open(`/items/${item.id}`)}>
-                  <span className="row-icon">{foodIcon(item)}</span>
+                  <span className="row-icon">{item.icon}</span>
                   <span className="row-main">
                     <span className="row-title">{item.name}</span>
                     <span className="row-sub">
-                      {[used.length > 0 && `Logged ${used.length}×`, inFoods.length > 0 && `in ${inFoods.map((f) => f.name).join(", ")}`, item.barcode && `barcode ${item.barcode}`]
+                      {[entryIds.length > 0 && `Logged ${entryIds.length}×`, usedByFoodIds.length > 0 && `in ${usedByFoodIds.map((id) => foods(id)?.name ?? "?").join(", ")}`, item.barcode && `barcode ${item.barcode}`]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>
@@ -372,7 +375,7 @@ export function InboxScreen({ onMenu, actions }: { onMenu: () => void; actions: 
       {pending.length > 0 && (
         <>
           <h2 className="list-heading">Entries</h2>
-          <p className="hint">Missing calories or an activity.</p>
+          <p className="hint">Missing calories.</p>
           {pending.map((e) => (
             <EntryRow key={e.id} entry={e} open={expanded === e.id} onToggle={() => setExpanded(expanded === e.id ? undefined : e.id)} actions={actions} showDay />
           ))}

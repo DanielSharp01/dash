@@ -1,13 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
-import { activityById, allActivities, starterActivityIds, useActivities } from "../../core/activities";
-import { estimateBurn } from "../../core/burn";
-import { recentActivityIds, saveEntry, useEntries } from "../../core/entries";
-import { undoPoint } from "../../core/followUp";
-import { useProfile } from "../../core/profile";
-import { initialWhen, nowWhen } from "../../core/time";
-import type { Activity, ExerciseEntry, ExerciseMeasureKey, When } from "../../core/types";
-import { formatWeight, preferredDistance, type UnitSystem } from "../../core/units";
-import { bodyKgAt, useWeighIns } from "../../core/weighIns";
+import {
+  type Activity,
+  type ActivityInput,
+  autoActivityIcon,
+  bodyKgAt,
+  estimateBurn,
+  type ExerciseEntry,
+  type ExerciseEntryInput,
+  formatWeight,
+  type MeasureKey,
+  preferredDistance,
+  type UnitSystem,
+  type When,
+} from "@dash/core";
+import { useActivityLookup, useActivityUsage } from "../../queries/activities.queries";
+import { deleteEntry, saveEntry } from "../../queries/entries.queries";
+import { useProfile } from "../../queries/me.queries";
+import { useWeighIns } from "../../queries/weighIns.queries";
+import { useListedActivities } from "../activities";
+import { initialWhen, nowWhen } from "../time";
 import { FlowShell } from "../ui/FlowShell";
 import { NumberInput } from "../ui/NumberInput";
 import { useSteps } from "../ui/useSteps";
@@ -15,7 +26,7 @@ import { WhenPicker } from "../ui/WhenPicker";
 
 type Step = "what" | "measures" | "when";
 
-const measureSpec: Record<ExerciseMeasureKey, { label: string; units: string[]; quick: number[] }> = {
+const measureSpec: Record<MeasureKey, { label: string; units: string[]; quick: number[] }> = {
   distance: { label: "Distance", units: ["km", "m", "mi"], quick: [1, 2, 3, 5, 10] },
   duration: { label: "Duration", units: ["min", "h"], quick: [10, 20, 30, 45, 60] },
   laps: { label: "Laps", units: ["laps"], quick: [10, 20, 30, 40] },
@@ -24,7 +35,7 @@ const measureSpec: Record<ExerciseMeasureKey, { label: string; units: string[]; 
   weight: { label: "Weight", units: ["kg", "lb"], quick: [10, 20, 40, 60] },
 };
 
-const fallbackMeasures: ExerciseMeasureKey[] = ["duration", "distance"];
+const fallbackMeasures: MeasureKey[] = ["duration", "distance"];
 
 export type ExerciseMode = { kind: "new" } | { kind: "edit"; entry: ExerciseEntry } | { kind: "duplicate"; entry: ExerciseEntry };
 
@@ -33,13 +44,14 @@ const roundKcal = (n?: number) => (n === undefined ? undefined : Math.round(n));
 export function ExerciseFlow({ date, mode = { kind: "new" }, onDone }: { date: string; mode?: ExerciseMode; onDone: (saved?: ExerciseEntry, undo?: () => void) => void }) {
   const source = mode.kind === "new" ? undefined : mode.entry;
   const exit = useCallback(() => onDone(), [onDone]);
-  const entries = useEntries();
+  const activities = useActivityLookup();
   const { step, depth, go, back, replace, close } = useSteps<Step>(source ? "measures" : "what", exit);
 
   const [when, setWhen] = useState<When>(() => (mode.kind === "edit" ? mode.entry.when : mode.kind === "duplicate" ? nowWhen() : initialWhen(date)));
   const [query, setQuery] = useState("");
-  const [activity, setActivity] = useState(() => activityById(source?.activityId));
-  const [rawName, setRawName] = useState(source?.rawName);
+  const [activity, setActivity] = useState(() => activities(source?.activityId));
+  // Typed but not in the list: it becomes an activity when the entry is saved.
+  const [newActivity, setNewActivity] = useState<ActivityInput>();
   const [measures, setMeasures] = useState<ExerciseEntry["measures"]>(source?.measures ?? {});
   const { units } = useProfile();
   const body = bodyKgAt(useWeighIns(), when.date);
@@ -49,36 +61,37 @@ export function ExerciseFlow({ date, mode = { kind: "new" }, onDone }: { date: s
 
   // A reload keeps the step in history but not what was picked, so start the pick over.
   useEffect(() => {
-    if (!source && step === "measures" && !activity && !rawName) replace("what");
+    if (!source && step === "measures" && !activity && !newActivity) replace("what");
   }, []);
 
   const pick = (a: Activity | string) => {
     if (typeof a === "string") {
       setActivity(undefined);
-      setRawName(a);
+      setNewActivity({ id: crypto.randomUUID(), name: a, icon: autoActivityIcon(a), iconAuto: true, measures: fallbackMeasures });
     } else {
       setActivity(a);
-      setRawName(undefined);
+      setNewActivity(undefined);
     }
     setMeasures({});
     go("measures");
   };
 
   const save = () => {
-    const undo = undoPoint();
-    const entry: ExerciseEntry = {
+    const activityId = activity?.id ?? newActivity?.id;
+    if (!activityId) return;
+    const kcalNow = manual ? kcal : roundKcal(burn?.kcal);
+    const input: ExerciseEntryInput = {
       id: mode.kind === "edit" ? mode.entry.id : crypto.randomUUID(),
       kind: "exercise",
       when,
-      createdAt: mode.kind === "edit" ? mode.entry.createdAt : new Date().toISOString(),
-      activityId: activity?.id,
-      rawName,
+      activityId,
       measures,
-      kcal: manual ? kcal : roundKcal(burn?.kcal),
-      kcalManual: manual || undefined,
+      ...(kcalNow !== undefined ? { kcal: kcalNow } : {}),
+      kcalManual: manual,
     };
-    saveEntry(entry);
-    onDone(entry, undo);
+    void saveEntry(input, { newActivities: newActivity ? [newActivity] : [], stored: mode.kind === "edit" ? mode.entry : undefined });
+    const shown = { ...input, revision: 0, deleted: false, createdAt: new Date().toISOString() } as ExerciseEntry;
+    onDone(shown, mode.kind === "edit" ? undefined : () => void deleteEntry(shown));
     close();
   };
 
@@ -92,8 +105,8 @@ export function ExerciseFlow({ date, mode = { kind: "new" }, onDone }: { date: s
   if (step === "measures")
     return (
       <FlowShell
-        title={activity?.name ?? `“${rawName}”`}
-        subtitle={!activity && <span className="badge badge-warn">Not in your activities</span>}
+        title={activity?.name ?? newActivity?.name ?? ""}
+        subtitle={newActivity && <span className="badge badge-warn">New activity</span>}
         canGoBack={depth > 1}
         onBack={back}
         onClose={close}
@@ -106,7 +119,7 @@ export function ExerciseFlow({ date, mode = { kind: "new" }, onDone }: { date: s
         }
       >
         <p className="hint">Fill in whatever you know. Everything is optional.</p>
-        {basisFirst(activity).map((key) => (
+        {basisFirst(activity ?? newActivity).map((key) => (
           <MeasureField
             key={key}
             measure={key}
@@ -157,19 +170,19 @@ export function ExerciseFlow({ date, mode = { kind: "new" }, onDone }: { date: s
 
   return (
     <FlowShell title="I exercised" canGoBack={false} onBack={back} onClose={close} when={when} onWhen={() => go("when")}>
-      <ActivityPicker recent={recentActivityIds(entries)} query={query} onQuery={setQuery} onPick={pick} />
+      <ActivityPicker query={query} onQuery={setQuery} onPick={pick} />
     </FlowShell>
   );
 }
 
 /** Logged activities first, starters before anything is logged, and search over the rest. */
-function ActivityPicker({ recent, query, onQuery, onPick }: { recent: string[]; query: string; onQuery: (q: string) => void; onPick: (a: Activity | string) => void }) {
-  useActivities();
+function ActivityPicker({ query, onQuery, onPick }: { query: string; onQuery: (q: string) => void; onPick: (a: Activity | string) => void }) {
+  const lookup = useActivityLookup();
+  const usage = useActivityUsage();
   const q = query.trim().toLowerCase();
-  const all = allActivities();
-  const tiles = [...recent, ...starterActivityIds]
-    .map(activityById)
-    .filter((a, i, list): a is Activity => !!a && !a.deleted && list.indexOf(a) === i)
+  const all = [...useListedActivities()].sort((a, b) => a.name.localeCompare(b.name));
+  const tiles = [...usage.map((u) => lookup(u.activityId)), ...all.filter((a) => a.starter)]
+    .filter((a, i, list): a is Activity => !!a && all.includes(a) && list.indexOf(a) === i)
     .slice(0, 8);
   const matches = q ? all.filter((a) => a.name.toLowerCase().includes(q)) : all.filter((a) => !tiles.includes(a));
 
@@ -195,7 +208,7 @@ function ActivityPicker({ recent, query, onQuery, onPick }: { recent: string[]; 
               <span className="row-icon">✎</span>
               <span className="row-main">
                 <span className="row-title">“{query.trim()}”</span>
-                <span className="row-sub">Not in your activities yet, sort it out later</span>
+                <span className="row-sub">Add it as a new activity; set how it burns later</span>
               </span>
             </button>
           </li>
@@ -217,7 +230,7 @@ function ActivityPicker({ recent, query, onQuery, onPick }: { recent: string[]; 
 }
 
 /** The measure that drives the calories goes first; the rest are only recorded. */
-function basisFirst(activity?: Activity): ExerciseMeasureKey[] {
+function basisFirst(activity?: Pick<Activity, "measures" | "burn">): MeasureKey[] {
   const all = activity?.measures ?? fallbackMeasures;
   const basis = activity?.burn?.basis;
   return basis && all.includes(basis) ? [basis, ...all.filter((m) => m !== basis)] : all;
@@ -232,7 +245,7 @@ function MeasureField({
 }: {
   units: UnitSystem;
   drivesBurn?: boolean;
-  measure: ExerciseMeasureKey;
+  measure: MeasureKey;
   value?: { value: number; unit: string };
   onChange: (v?: { value: number; unit: string }) => void;
 }) {

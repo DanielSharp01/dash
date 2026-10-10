@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { whenIcon, whenLabel } from "../../core/time";
-import type { When } from "../../core/types";
+import type { When } from "@dash/core";
+import { whenIcon, whenLabel } from "../time";
 
 interface Props {
   title: string;

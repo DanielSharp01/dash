@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { type IconGroup, iconGroups, searchIcons } from "../../core/icons";
-import { sourceLabels } from "../../core/label";
-import type { LabelSource } from "../../core/types";
+import { type IconGroup, iconGroups, type LabelSource, searchIcons, sourceLabels } from "@dash/core";
 import { Sheet } from "./Sheet";
 
 /** The current icon as one control; the full set only opens on demand. */

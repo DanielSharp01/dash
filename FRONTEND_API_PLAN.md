@@ -36,7 +36,8 @@ frontend/src/
     lookups.api.ts         barcodes, icons
   queries/
     keys.ts                query keys in one place
-    {group}.queries.ts     useQuery and useMutation hooks per group, with the cache updates
+    run.ts                 runs a mutation in the cache, with a scope per row
+    {group}.queries.ts     query hooks and save functions per group, with the cache updates
   capture/                 screens, flows, editors as now
 ```
 
@@ -73,10 +74,12 @@ Core functions that take a `FoodLookup` get one from `useFoodLookup()`, which bu
 
 Every mutation that touches an aggregate runs in a TanStack mutation `scope` keyed by that aggregate's id, such as `{ id: "food:<id>" }`. Mutations in one scope run one after another, so two quick edits to the same entry don't race. The mutation function reads the revision from the cache when it runs, not when it was queued, so the second edit sends the revision the first one returned.
 
+`useMutation` fixes its options, scope included, per component, so the save functions build each mutation in the `MutationCache` themselves (`queries/run.ts`). The mutation still lives in the cache, so its cache updates run after the screen that started it has closed.
+
 The cache updates for each optimistic write:
 
-- **Create.** `onMutate` inserts the row with `revision: 1` and `deleted: false`. `onSuccess` replaces it with the server's row and merges `newFoods` and `newActivities` into their caches. A 200 instead of 201 means a retry found the row already stored, and the stored row wins.
-- **Replace.** `onMutate` writes the edited row with `revision + 1`. `onSuccess` writes the server's row. On 409, `onError` writes `error.current` and shows "Changed on another device".
+- **Create.** `onMutate` inserts the row with `revision: 0` and `deleted: false`. Revision 0 marks a row that isn't stored yet, so a queued edit decides between POST and PUT when it runs. `onSuccess` replaces it with the server's row and merges `newFoods` and `newActivities` into their caches. A 200 instead of 201 means a retry found the row already stored, and the stored row wins.
+- **Replace.** `onMutate` writes the edited row and keeps the revision it read, which is the one the save sends. `onSuccess` writes the server's row, or, when another edit to the row is queued behind it, only the new revision, so the later edit stays on screen. On 409, `onError` writes `error.current` and shows "Changed on another device".
 - **Delete.** `onMutate` marks the row `deleted` and drops it from the day's entries. The toast's undo calls the restore endpoint.
 - **Entries that move days.** Changing an entry's date removes it from the old day's key and adds it to the new one.
 

@@ -1,18 +1,20 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { ageOn, dailyTargets, type Entry, formatWeight, type Plan, planAt, type PlanVersion, type Pot, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weightUnit } from "@dash/core";
+import { useEntriesBetween } from "../../queries/entries.queries";
+import { savePlan, saveProfile, useMe, useProfile } from "../../queries/me.queries";
+import { addPot, removePot } from "../../queries/pots.queries";
+import { addWeighIn, removeWeighIn, useWeighIns } from "../../queries/weighIns.queries";
+import { ADULT_AGE } from "../body";
+import { todayKey } from "../time";
 import { BirthdayInput, HeightInput, WeightInput } from "../ui/BodyInputs";
 import { FlowShell } from "../ui/FlowShell";
-import { useSteps } from "../ui/useSteps";
-import { ADULT_AGE, ageOn, type Pot, updateProfile, useProfile } from "../../core/profile";
-import { correctPlan, dailyTargets } from "../../core/goals";
-import type { Entry } from "../../core/types";
-import { useEntries } from "../../core/entries";
-import { exportData, importData } from "../../core/persist";
-import { shiftDate, todayKey } from "../../core/time";
-import { formatWeight, toDisplayWeight, type UnitSystem, weightUnit } from "../../core/units";
-import { addWeighIn, removeWeighIn, restoreWeighIns, useWeighIns, type WeighIn, weighInsSnapshot } from "../../core/weighIns";
-import type { Notify } from "../ui/notify";
+import { notify } from "../ui/notify";
 import { NumberInput } from "../ui/NumberInput";
 import { TrashIcon } from "../ui/TrashIcon";
+import { useSteps } from "../ui/useSteps";
+
+/** For settings that describe the body rather than the goal, like calibrating the multiplier. */
+const correctPlan = (versions: PlanVersion[], patch: Partial<Plan>) => void savePlan({ ...planAt(versions), ...patch }, "fix");
 
 function UnitTiles({ value, onChange }: { value: UnitSystem; onChange: (u: UnitSystem) => void }) {
   return (
@@ -32,7 +34,7 @@ function UnitTiles({ value, onChange }: { value: UnitSystem; onChange: (u: UnitS
   );
 }
 
-export function WeighInsScreen({ onMenu, notify }: { onMenu: () => void; notify: Notify }) {
+export function WeighInsScreen({ onMenu }: { onMenu: () => void }) {
   const { close } = useSteps<"list">("list");
   const { units, heightCm, birthday } = useProfile();
   const adult = !birthday || ageOn(birthday) >= ADULT_AGE;
@@ -49,9 +51,14 @@ export function WeighInsScreen({ onMenu, notify }: { onMenu: () => void; notify:
 
   const save = () => {
     if (!kg) return;
-    const before = weighInsSnapshot();
-    addWeighIn({ id: crypto.randomUUID(), date, kg });
-    notify(`Weighed in ${formatWeight(kg, units)}`, () => restoreWeighIns(before));
+    const added = { id: crypto.randomUUID(), date, kg };
+    const replaced = all.find((w) => w.date === date);
+    void addWeighIn(added);
+    notify(`Weighed in ${formatWeight(kg, units)}`, () => {
+      void removeWeighIn(added.id);
+      // The server dropped the one it replaced, so it comes back as a new weigh-in.
+      if (replaced) void addWeighIn({ ...replaced, id: crypto.randomUUID() });
+    });
     setKg(undefined);
     setFormKey((k) => k + 1);
     setDate(todayKey());
@@ -102,9 +109,8 @@ export function WeighInsScreen({ onMenu, notify }: { onMenu: () => void; notify:
                   className="icon-btn small"
                   aria-label="Delete weigh-in"
                   onClick={() => {
-                    const before = weighInsSnapshot();
-                    removeWeighIn(w.id);
-                    notify("Deleted", () => restoreWeighIns(before));
+                    void removeWeighIn(w.id);
+                    notify("Deleted", () => void addWeighIn({ ...w, id: crypto.randomUUID() }));
                   }}
                 >
                   ✕
@@ -120,7 +126,9 @@ export function WeighInsScreen({ onMenu, notify }: { onMenu: () => void; notify:
 
 export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
   const { close } = useSteps<"list">("list");
-  const profile = useProfile();
+  const { user, profile, plan, pots } = useMe();
+  const current = planAt(plan.versions);
+  const updateProfile = (patch: Parameters<typeof saveProfile>[0]) => void saveProfile(patch);
   return (
     <FlowShell title="Settings" canGoBack={false} onBack={close} onClose={close} onMenu={onMenu}>
       <section className="settings-group">
@@ -138,7 +146,7 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
           <span className="field-label">Age</span>
           <BirthdayInput value={profile.birthday} onChange={(birthday) => birthday && updateProfile({ birthday })} />
         </div>
-        <SexField />
+        <SexField sex={profile.sex} onChange={(sex) => updateProfile({ sex })} />
       </section>
 
       <section className="settings-group">
@@ -163,10 +171,10 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
           and your build. Logged exercise is added on top.
         </p>
         <KnownMaintenance />
-        {profile.calibratedFrom ? (
+        {current.calibratedFrom ? (
           <p className="calibrated">
-            × {profile.metabolismMultiplier}, from holding weight on {profile.calibratedFrom.maintenanceKcal.toLocaleString()} kcal
-            {profile.calibratedFrom.loggedExerciseKcal > 0 && ` minus ${profile.calibratedFrom.loggedExerciseKcal} kcal of logged exercise a day`}.
+            × {current.metabolismMultiplier}, from holding weight on {current.calibratedFrom.maintenanceKcal.toLocaleString()} kcal
+            {current.calibratedFrom.loggedExerciseKcal > 0 && ` minus ${current.calibratedFrom.loggedExerciseKcal} kcal of logged exercise a day`}.
           </p>
         ) : null}
         <span className="field-label sub-label">Or start from your day</span>
@@ -175,8 +183,8 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
             <button
               key={m.value}
               className="tile"
-              aria-pressed={!profile.calibratedFrom && profile.metabolismMultiplier === m.value}
-              onClick={() => correctPlan({ metabolismMultiplier: m.value, calibratedFrom: undefined })}
+              aria-pressed={!current.calibratedFrom && current.metabolismMultiplier === m.value}
+              onClick={() => correctPlan(plan.versions, { metabolismMultiplier: m.value, calibratedFrom: undefined })}
             >
               <strong>× {m.value}</strong>
               <small>{m.label}</small>
@@ -187,11 +195,11 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
           Or exactly ×
           <input
             inputMode="decimal"
-            defaultValue={profile.metabolismMultiplier}
-            key={profile.metabolismMultiplier}
+            defaultValue={current.metabolismMultiplier}
+            key={current.metabolismMultiplier}
             onBlur={(e) => {
               const n = Number(e.target.value.replace(",", "."));
-              if (n >= 1 && n <= 2.5 && n !== profile.metabolismMultiplier) correctPlan({ metabolismMultiplier: n, calibratedFrom: undefined });
+              if (n >= 1 && n <= 2.5 && n !== current.metabolismMultiplier) correctPlan(plan.versions, { metabolismMultiplier: n, calibratedFrom: undefined });
             }}
           />
         </label>
@@ -199,21 +207,16 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
 
       <section className="settings-group">
         <h2 className="list-heading">Cooking</h2>
-        <Pots pots={profile.pots} />
+        <Pots pots={pots} />
       </section>
 
       <section className="settings-group">
-        <h2 className="list-heading">Your data</h2>
-        <p className="hint">Everything stays on this device for now.</p>
-        {import.meta.env.DEV && <DevServerBackup />}
+        <h2 className="list-heading">Account</h2>
+        <p className="hint">Signed in as {user.email ?? user.name ?? "you"}.</p>
         <div className="settings-links">
-          <button className="link-btn" onClick={downloadExport}>
-            Export to a file
-          </button>
-          <label className="link-btn file-link">
-            Import from a file…
-            <input type="file" accept="application/json,.json" onChange={(e) => e.target.files?.[0] && importFile(e.target.files[0])} />
-          </label>
+          <a className="link-btn" href="/auth/logout">
+            Sign out
+          </a>
         </div>
       </section>
     </FlowShell>
@@ -233,7 +236,7 @@ function Pots({ pots }: { pots: Pot[] }) {
           <li key={p.id} className="weigh-row">
             <span className="weigh-date">{p.name}</span>
             <b>{p.grams.toLocaleString()} g</b>
-            <button className="icon-btn small trash-btn" aria-label={`Remove ${p.name}`} onClick={() => updateProfile({ pots: pots.filter((x) => x.id !== p.id) })}>
+            <button className="icon-btn small trash-btn" aria-label={`Remove ${p.name}`} onClick={() => void removePot(p)}>
               <TrashIcon />
             </button>
           </li>
@@ -246,7 +249,7 @@ function Pots({ pots }: { pots: Pot[] }) {
           className="btn btn-small"
           disabled={!name.trim() || !grams}
           onClick={() => {
-            updateProfile({ pots: [...pots, { id: crypto.randomUUID(), name: name.trim(), grams: grams! }] });
+            void addPot({ id: crypto.randomUUID(), name: name.trim(), grams: grams! });
             setName("");
             setGrams(undefined);
           }}
@@ -324,8 +327,7 @@ const multipliers = [
   { value: 1.725, label: "Physical job" },
 ];
 
-function SexField() {
-  const { sex } = useProfile();
+function SexField({ sex, onChange }: { sex?: "male" | "female"; onChange: (sex: "male" | "female" | undefined) => void }) {
   return (
     <div className="field">
       <span className="field-label">Sex</span>
@@ -337,7 +339,7 @@ function SexField() {
             [undefined, "Prefer not to say"],
           ] as const
         ).map(([value, label]) => (
-          <button key={label} aria-selected={sex === value} onClick={() => updateProfile({ sex: value })}>
+          <button key={label} aria-selected={sex === value} onClick={() => onChange(value)}>
             {label}
           </button>
         ))}
@@ -348,9 +350,8 @@ function SexField() {
 }
 
 /** Average logged exercise burn per day over the last four weeks, or since logging started if that's sooner. */
-function loggedExercisePerDay(entries: Entry[]) {
+function loggedExercisePerDay(entries: Entry[], from: string) {
   const today = todayKey();
-  const from = shiftDate(today, -27);
   const first = entries.reduce((min, e) => (e.when.date < min ? e.when.date : min), today);
   const start = first > from ? first : from;
   const days = Math.round((dayMs(today) - dayMs(start)) / DAY) + 1;
@@ -363,12 +364,14 @@ function loggedExercisePerDay(entries: Entry[]) {
  * usual workouts are part of that intake, so the logged average comes off before dividing.
  */
 function KnownMaintenance() {
-  const profile = useProfile();
+  const { profile, plan } = useMe();
   const weighIns = useWeighIns();
-  const logged = loggedExercisePerDay(useEntries());
+  const today = todayKey();
+  const from = shiftDate(today, -27);
+  const logged = loggedExercisePerDay(useEntriesBetween(from, today).data ?? [], from);
   const [kcal, setKcal] = useState("");
   const [includesWorkouts, setIncludesWorkouts] = useState(true);
-  const bmr = dailyTargets(profile, weighIns).calc?.bmr;
+  const bmr = dailyTargets(profile, plan.versions, weighIns).calc?.bmr;
   const n = Number(kcal);
   const subtract = includesWorkouts ? logged : 0;
   const multiplier = bmr && n > 0 ? Math.round(((n - subtract) / bmr) * 100) / 100 : undefined;
@@ -396,7 +399,7 @@ function KnownMaintenance() {
               <button
                 className="link"
                 onClick={() => {
-                  correctPlan({ metabolismMultiplier: multiplier, calibratedFrom: { maintenanceKcal: n, loggedExerciseKcal: subtract } });
+                  correctPlan(plan.versions, { metabolismMultiplier: multiplier, calibratedFrom: { maintenanceKcal: n, loggedExerciseKcal: subtract } });
                   setKcal("");
                 }}
               >
@@ -408,81 +411,6 @@ function KnownMaintenance() {
           )}
         </p>
       )}
-    </div>
-  );
-}
-
-function downloadExport() {
-  const blob = new Blob([JSON.stringify(exportData(), null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `dash-${todayKey()}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-async function importFile(file: File) {
-  if (!confirm("Replace everything on this device with this file?")) return;
-  try {
-    await importData(JSON.parse(await file.text()));
-    location.reload();
-  } catch {
-    alert("That file isn't a Dash export.");
-  }
-}
-
-const BACKUP_URL = "/__dash/backup";
-
-/** Only exists on the dev server: one shared file on the dev machine, so the PC and phone can swap data. */
-function DevServerBackup() {
-  const [saved, setSaved] = useState<string | null>();
-  const [status, setStatus] = useState("");
-
-  const refresh = () =>
-    fetch(BACKUP_URL)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b) => setSaved(b?.exportedAt ?? null))
-      .catch(() => setSaved(null));
-
-  useEffect(() => {
-    refresh();
-  }, []);
-
-  const when = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
-
-  return (
-    <div className="dev-backup">
-      <span className="field-label">Dev server</span>
-      <div className="footer-row">
-      <button
-        className="btn"
-        onClick={async () => {
-          if (saved && !confirm(`Overwrite the copy on the dev server from ${when(saved)}?`)) return;
-          const res = await fetch(BACKUP_URL, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(exportData()) });
-          setStatus(res.ok ? "Saved to the dev server." : "Saving failed.");
-          refresh();
-        }}
-      >
-        Push to dev server
-      </button>
-      <button
-        className="btn"
-        disabled={!saved}
-        onClick={async () => {
-          if (!confirm(`Replace everything on this device with the dev server copy from ${when(saved!)}?`)) return;
-          try {
-            await importData(await (await fetch(BACKUP_URL)).json());
-            location.reload();
-          } catch {
-            setStatus("Loading failed. Copies from the old prototype can't be loaded.");
-          }
-        }}
-      >
-        Load from dev server
-      </button>
-      </div>
-      <p className="hint">{status || (saved ? `Dev server copy from ${when(saved)}.` : saved === null ? "No copy on the dev server yet." : "")} Last save wins; nothing is merged.</p>
     </div>
   );
 }

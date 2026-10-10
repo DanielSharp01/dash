@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { displayName, foodById, foodIcon, useFoods } from "../../core/foods";
-import { defaultAmount, formatAmount, unitsFor } from "../../core/label";
-import { useProfile } from "../../core/profile";
-import type { Food, Portion } from "../../core/types";
+import { defaultAmount, displayName, type Food, formatAmount, type Portion, unitsFor } from "@dash/core";
+import { useFoodLookup } from "../../queries/foods.queries";
+import { useProfile } from "../../queries/me.queries";
 import { AddFoodSheet } from "../ui/AddFoodSheet";
 import { AmountInput } from "../ui/AmountInput";
 
 /** The items of a combo or a recipe, each with an amount that opens for editing. */
 export function PortionList({ portions, kinds, addLabel, onChange }: { portions: Portion[]; kinds: Food["kind"][]; addLabel: string; onChange: (p: Portion[]) => void }) {
-  useFoods();
+  const foods = useFoodLookup();
   const { units } = useProfile();
   const [open, setOpen] = useState<number>();
   const [adding, setAdding] = useState(false);
@@ -17,12 +16,12 @@ export function PortionList({ portions, kinds, addLabel, onChange }: { portions:
     <>
       <ul className="list">
         {portions.map((p, i) => {
-          const food = foodById(p.foodId);
+          const food = foods(p.foodId);
           const isOpen = open === i;
           return (
             <li key={`${p.foodId}-${i}`} className={`combo-line ${isOpen ? "open" : ""}`}>
               <button className="row" onClick={() => setOpen(isOpen ? undefined : i)} aria-expanded={isOpen}>
-                <span className="row-icon">{food ? foodIcon(food) : "?"}</span>
+                <span className="row-icon">{food?.icon ?? "?"}</span>
                 <span className="row-main">
                   <span className="row-title">
                     {food ? displayName(food) : "Removed item"} {food?.kind === "item" && food.unsure && <span className="badge badge-warn">Unsure</span>}

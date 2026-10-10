@@ -1,4 +1,4 @@
-import type { DailyTargets } from "../../core/goals";
+import type { DailyTargets } from "@dash/core";
 import { useOpen } from "./useSteps";
 
 /** Weight comes from weigh-ins; height and age live in Settings. */

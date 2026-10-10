@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dash/core": "workspace:*",
+    "@tanstack/react-query": "^5.104.1",
     "barcode-detector": "^3.2.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { basisLabel, mainNutrients, nutrientKeys, nutrientMeta } from "../../core/label";
-import type { FoodUnit, Label, LabelSource, Nutrients } from "../../core/types";
+import { basisLabel, BEGINNING, type FoodUnit, type Label, type LabelSource, mainNutrients, nutrientKeys, nutrientMeta, type Nutrients } from "@dash/core";
 import { NumberInput } from "./NumberInput";
 import { SourceField } from "./Pickers";
 
@@ -40,7 +39,7 @@ export function unitOf(d: LabelDraft): FoodUnit {
 export const hasValues = (d: LabelDraft) => Object.values(d.values).some((v) => v !== undefined);
 
 /** Undefined while nothing is filled in, so a skipped label stays absent instead of all zeros. */
-export function labelFrom(d: LabelDraft, from = ""): Label | undefined {
+export function labelFrom(d: LabelDraft, from: string = BEGINNING): Label | undefined {
   if (!hasValues(d)) return undefined;
   const values = Object.fromEntries(Object.entries(d.values).filter(([, v]) => v !== undefined)) as Nutrients;
   if (d.basis !== "serving") return { from, per: "100", values, source: d.source };

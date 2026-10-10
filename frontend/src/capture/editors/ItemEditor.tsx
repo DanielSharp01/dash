@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { entriesUsing, useEntries } from "../../core/entries";
-import { completeAsCombo, makeEntryOnly, mergeInto } from "../../core/followUp";
-import { foodIcon, saveFood, useFoods, variantsOf } from "../../core/foods";
-import { suggestIcon } from "../../core/icons";
-import { basisLabel, labelAt, round, sameValues } from "../../core/label";
-import { todayKey } from "../../core/time";
-import { BEGINNING, type Combo, type Food, type Item, type Label, type Portion, type Serving } from "../../core/types";
+import { autoFoodIcon, basisLabel, BEGINNING, type Combo, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, type Portion, round, sameValues, type Serving } from "@dash/core";
+import { completeAsCombo, mergeFood } from "../../queries/commands.queries";
+import { saveFood, useFoodUsage } from "../../queries/foods.queries";
+import { undoBy } from "../errors";
+import { ownCopy, useListedFoods, usesOf, variantsOf } from "../foods";
+import { todayKey } from "../time";
 import { PortionList } from "./PortionList";
 import { FoodRow, FoodSearch } from "../ui/FoodSearch";
 import { draftFrom, LabelForm, labelFrom, unitOf } from "../ui/LabelForm";
@@ -14,15 +13,18 @@ import { IconField } from "../ui/Pickers";
 import { Scanner } from "../ui/Scanner";
 import { Sheet } from "../ui/Sheet";
 
+type Undo = (() => void) | undefined;
+
 interface Props {
-  item: Item;
-  onSaved: (item: Item) => void;
+  item: FoodItem;
+  /** Called at once; `saved` settles when the server has it, with an undo for an edit. */
+  onSaved: (item: FoodItem, saved: Promise<{ undoToken?: string }>) => void;
   /** The unsure item turned out to be this item, recipe or combo; its entries have moved over. */
-  onMerged?: (target: Food, undo: () => void) => void;
-  onEntryOnly?: (undo: () => void) => void;
+  onMerged?: (target: Food, undo: Undo) => void;
+  onEntryOnly?: (undo: Undo) => void;
   /** The unsure item was a combo all along; its entries now hold the combo's parts. */
-  onCombo?: (combo: Combo, undo: () => void) => void;
-  onOpenItem?: (item: Item) => void;
+  onCombo?: (combo: Combo, undo: Undo) => void;
+  onOpenItem?: (item: FoodItem) => void;
 }
 
 /** Anything that changes what an amount holds; renaming the serving doesn't. */
@@ -34,13 +36,13 @@ const sameBasis = (a: Label, b: Label) =>
  * whether it was wrong (fix it everywhere) or the product changed (new values from a date).
  */
 export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOpenItem }: Props) {
-  useFoods();
-  const entries = useEntries();
-  const used = entriesUsing(entries, item.id).length > 0;
+  const used = usesOf(useFoodUsage(), item.id) > 0;
+  const listed = useListedFoods();
   const latest = labelAt(item);
   const [name, setName] = useState(item.name);
   const [variant, setVariant] = useState(item.variant ?? "");
-  const [icon, setIcon] = useState(item.icon);
+  // Undefined while the icon follows the name.
+  const [icon, setIcon] = useState(item.iconAuto ? undefined : item.icon);
   const [barcode, setBarcode] = useState(item.barcode ?? "");
   const [draft, setDraft] = useState(() => draftFrom(item.unit, latest, item.unsure ? "package" : "typed"));
   const [servings, setServings] = useState<Serving[]>(item.servings);
@@ -52,25 +54,42 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const [mergeQuery, setMergeQuery] = useState("");
   const [asking, setAsking] = useState(false);
   const [changedFrom, setChangedFrom] = useState(todayKey);
+  const [busy, setBusy] = useState(false);
 
   const next = labelFrom(draft);
   const unit = next ? unitOf(draft) : item.unit;
   const changed = !!latest && !!next && (!sameValues(latest.values, next.values) || !sameBasis(latest, next) || unit !== item.unit);
-  const siblings = variantsOf({ id: item.id, name });
+  const siblings = variantsOf(listed, { id: item.id, name });
   const canComplete = next?.values.kcal !== undefined;
 
-  const build = (labels: Label[], unsure: boolean): Item => ({
-    ...item,
+  const build = (labels: Label[], unsure: boolean): FoodItemInput => ({
+    id: item.id,
+    kind: "item",
     name: name.trim(),
-    variant: variant.trim() || undefined,
-    icon,
-    barcode: barcode.trim() || undefined,
+    ...(variant.trim() ? { variant: variant.trim() } : {}),
+    icon: icon ?? autoFoodIcon(name, "item", unit),
+    iconAuto: icon === undefined,
+    catalogued: true,
+    ...(item.originId ? { originId: item.originId } : {}),
+    ...(barcode.trim() ? { barcode: barcode.trim() } : {}),
     unit,
     labels,
     servings: servings.filter((s) => s.name.trim()).map((s) => ({ ...s, name: s.name.trim() })),
-    notFluid: unit === "ml" && !fluid ? true : undefined,
-    unsure: unsure || undefined,
+    notFluid: unit === "ml" && !fluid,
+    unsure,
   });
+
+  /** Waits for the server, since only it knows every entry a command touches. */
+  const command = async <T,>(run: () => Promise<T>) => {
+    setBusy(true);
+    try {
+      return await run();
+    } catch {
+      return undefined;
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const labelsFor = (change: "fix" | "changed"): Label[] => {
     if (!next) return item.labels;
@@ -81,9 +100,25 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   };
 
   const save = (unsure: boolean, change: "fix" | "changed" = "fix") => {
-    const saved = build(labelsFor(change), unsure);
-    saveFood(saved);
-    onSaved(saved);
+    const input = ownCopy(build(labelsFor(change), unsure), item);
+    onSaved({ ...item, ...input }, saveFood(input));
+  };
+
+  const makeEntryOnly = async () => {
+    const saved = await command(() => saveFood({ ...build(item.labels, false), catalogued: false }));
+    if (saved) onEntryOnly?.(undoBy(saved.undoToken));
+  };
+
+  const saveAsCombo = async () => {
+    const combo: ComboInput = { id: crypto.randomUUID(), kind: "combo", name: name.trim(), icon: icon ?? autoFoodIcon(name, "combo"), iconAuto: icon === undefined, catalogued: true, parts };
+    const result = await command(() => completeAsCombo(item.id, combo));
+    const stored = result?.foods.find((f): f is Combo => f.id === combo.id && f.kind === "combo");
+    if (result && stored) onCombo?.(stored, undoBy(result.undoToken));
+  };
+
+  const merge = async (target: Food) => {
+    const result = await command(() => mergeFood(item.id, target.id));
+    if (result) onMerged?.(target, undoBy(result.undoToken));
   };
 
   const trySave = (unsure: boolean) => {
@@ -94,7 +129,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   return (
     <div className="item-editor">
       <div className="name-row">
-        <IconField value={icon} fallback={suggestIcon(name, ["drink", "food"]) ?? foodIcon({ ...item, icon: undefined })} groups={["food", "drink"]} onChange={setIcon} />
+        <IconField value={icon} fallback={autoFoodIcon(name, "item", unit)} groups={["food", "drink"]} onChange={setIcon} />
         <input className="big-text" placeholder="Name" autoFocus={!item.name} value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       {item.unsure && onCombo && (
@@ -107,6 +142,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           </button>
         </div>
       )}
+      {item.public && <p className="hint">A built-in item. Saving makes it your own copy.</p>}
       {item.unsure && onMerged && (
         <button className="link-btn" onClick={() => setMerging(true)}>
           It's something I already have…
@@ -194,7 +230,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
         <div className="field">
           <span className="field-label">Or</span>
           {onEntryOnly && (
-            <button className="row row-unsure" onClick={() => onEntryOnly(makeEntryOnly(item))}>
+            <button className="row row-unsure" disabled={busy} onClick={makeEntryOnly}>
               <span className="row-icon">✎</span>
               <span className="row-main">
                 <span className="row-title">It was a one-off</span>
@@ -209,11 +245,8 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
         {asCombo ? (
           <button
             className="btn btn-primary btn-block"
-            disabled={!name.trim() || parts.length === 0}
-            onClick={() => {
-              const combo: Combo = { id: crypto.randomUUID(), kind: "combo", name: name.trim(), icon, parts };
-              onCombo?.(combo, completeAsCombo(item, combo));
-            }}
+            disabled={!name.trim() || parts.length === 0 || busy}
+            onClick={saveAsCombo}
           >
             Save as combo
           </button>
@@ -254,9 +287,9 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
             recentIds={[]}
             placeholder="Search items, recipes, combos"
             onPick={(target) => {
-              if (target.id === item.id) return;
+              if (target.id === item.id || busy) return;
               setMerging(false);
-              onMerged?.(target, mergeInto(item, target));
+              void merge(target);
             }}
           />
         </Sheet>

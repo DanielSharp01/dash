@@ -1,14 +1,11 @@
 import { useState } from "react";
+import { type Activity, type ActivityInput, autoActivityIcon, bodyKgAt, type Burn, burnBasisLabel, defaultBurn, estimateBurn, formatWeight, type MeasureKey } from "@dash/core";
+import { useProfile } from "../../queries/me.queries";
+import { useWeighIns } from "../../queries/weighIns.queries";
 import { IconField } from "../ui/Pickers";
-import { suggestIcon } from "../../core/icons";
-import { burnBasisLabel, defaultBurn, estimateBurn } from "../../core/burn";
-import { useProfile } from "../../core/profile";
-import { formatWeight } from "../../core/units";
-import { bodyKgAt, useWeighIns } from "../../core/weighIns";
-import type { Activity, Burn, ExerciseMeasureKey } from "../../core/types";
 import { NumberInput } from "../ui/NumberInput";
 
-const measureLabels: Record<ExerciseMeasureKey, string> = {
+const measureLabels: Record<MeasureKey, string> = {
   duration: "Duration",
   distance: "Distance",
   laps: "Laps",
@@ -17,12 +14,11 @@ const measureLabels: Record<ExerciseMeasureKey, string> = {
   weight: "Weight",
 };
 
-
 /** The measures picked here are the fields offered when logging the activity. */
-export function ActivityEditor({ activity, onSave }: { activity: Activity; onSave: (a: Activity) => void }) {
+export function ActivityEditor({ activity, onSave }: { activity: Activity; onSave: (a: ActivityInput) => void }) {
   const [name, setName] = useState(activity.name);
-  const [icon, setIcon] = useState<string | undefined>(activity.icon);
-  const [measures, setMeasures] = useState<ExerciseMeasureKey[]>(activity.measures);
+  const [icon, setIcon] = useState(activity.iconAuto ? undefined : activity.icon);
+  const [measures, setMeasures] = useState<MeasureKey[]>(activity.measures);
   const [burn, setBurn] = useState<Burn | undefined>(activity.burn);
   const { units } = useProfile();
   const bodyKg = bodyKgAt(useWeighIns()).kg;
@@ -43,20 +39,22 @@ export function ActivityEditor({ activity, onSave }: { activity: Activity; onSav
       bodyKg,
     );
 
-  const toggle = (key: ExerciseMeasureKey) =>
-    setMeasures(measures.includes(key) ? measures.filter((m) => m !== key) : (Object.keys(measureLabels) as ExerciseMeasureKey[]).filter((k) => k === key || measures.includes(k)));
+  const toggle = (key: MeasureKey) =>
+    setMeasures(measures.includes(key) ? measures.filter((m) => m !== key) : (Object.keys(measureLabels) as MeasureKey[]).filter((k) => k === key || measures.includes(k)));
 
   return (
     <div className="item-editor">
       <div className="name-row">
-        <IconField value={icon} fallback={suggestIcon(name, ["activity"]) ?? "🏃"} groups={["activity"]} onChange={setIcon} />
+        <IconField value={icon} fallback={autoActivityIcon(name)} groups={["activity"]} onChange={setIcon} />
         <input className="big-text" autoFocus={!activity.name} placeholder="e.g. Padel" value={name} onChange={(e) => setName(e.target.value)} />
       </div>
+
+      {activity.public && <p className="hint">A built-in activity. Saving makes it your own copy.</p>}
 
       <div className="field">
         <span className="field-label">What you track</span>
         <div className="chip-row">
-          {(Object.keys(measureLabels) as ExerciseMeasureKey[]).map((key) => (
+          {(Object.keys(measureLabels) as MeasureKey[]).map((key) => (
             <button key={key} className="chip" aria-pressed={measures.includes(key)} onClick={() => toggle(key)}>
               {measures.includes(key) ? "✓ " : ""}
               {measureLabels[key]}
@@ -94,7 +92,18 @@ export function ActivityEditor({ activity, onSave }: { activity: Activity; onSav
       </div>
 
       <div className="flow-footer">
-        <button className="btn btn-primary btn-block" disabled={!name.trim() || measures.length === 0} onClick={() => onSave({ ...activity, name: name.trim(), icon: icon ?? suggestIcon(name, ["activity"]) ?? "🏃", measures, burn: activeBurn && factor && factor > 0 ? activeBurn : undefined })}>
+        <button className="btn btn-primary btn-block" disabled={!name.trim() || measures.length === 0} onClick={() =>
+            onSave({
+              id: activity.id,
+              name: name.trim(),
+              icon: icon ?? autoActivityIcon(name),
+              iconAuto: icon === undefined,
+              measures,
+              ...(activeBurn && factor && factor > 0 ? { burn: activeBurn } : {}),
+              ...(activity.originId ? { originId: activity.originId } : {}),
+            })
+          }
+        >
           Save
         </button>
       </div>

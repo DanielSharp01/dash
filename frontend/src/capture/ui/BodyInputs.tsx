@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ADULT_AGE, ageOn, birthdayFrom } from "../../core/profile";
-import { fromDisplayWeight, fromFeet, toDisplayWeight, toFeet, type UnitSystem, weightUnit } from "../../core/units";
+import { ageOn, fromDisplayWeight, fromFeet, toDisplayWeight, toFeet, type UnitSystem, weightUnit } from "@dash/core";
+import { ADULT_AGE, birthdayFrom } from "../body";
 
 const parse = (v: string) => {
   const n = Number(v.replace(",", "."));
