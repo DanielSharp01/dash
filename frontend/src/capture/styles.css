@@ -2102,7 +2102,9 @@ input[type="checkbox"]:focus-visible {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 100%;
+  /* Overlaps the water by a pixel: the fill's height is a percentage, so on high-density screens
+     the edges land between pixels and a dark hairline showed through the seam. */
+  bottom: calc(100% - 1px);
   height: 5px;
   background: var(--fluid);
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='5'%3E%3Cpath d='M0 3Q5.5 0 11 3T22 3V5H0Z'/%3E%3C/svg%3E") 0 0 / 22px 5px repeat-x;
@@ -2290,12 +2292,19 @@ input[type="checkbox"]:focus-visible {
 
 .entry-time {
   width: 38px;
+  font-size: 0.74rem;
+}
+
+.entry-meridiem {
+  margin-top: -4px;
+  font-size: 0.66rem;
 }
 
 .entry-time-wide {
   width: 72px;
 }
 
+/* rem, not em, so it keeps its size when the times around it shrink. */
 .entry-time-none {
   opacity: 0.55;
   font-size: 0.6rem;

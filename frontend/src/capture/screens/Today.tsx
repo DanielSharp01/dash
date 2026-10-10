@@ -232,6 +232,17 @@ function Timeline({ entries, actions }: { entries: Entry[]; actions: EntryAction
   );
 }
 
+/** "4:05 pm" is too wide for the time column, so am/pm goes on a line of its own. */
+function ClockTime({ time }: { time: string }) {
+  const [clock, meridiem] = time.split(" ");
+  return (
+    <>
+      {clock}
+      {meridiem && <small className="entry-meridiem">{meridiem}</small>}
+    </>
+  );
+}
+
 export function lineName(l: Line, foods: FoodLookup) {
   const food = foods(l.foodId);
   if (food) return displayName(food);
@@ -312,7 +323,7 @@ export function EntryRow({ entry, open, onToggle, actions, showDay = false }: { 
     <div className={`entry ${open ? "open" : ""}`}>
       <button className="entry-main" onClick={onToggle} aria-expanded={open}>
         {time ? (
-          <span className={`entry-time ${showDay ? "entry-time-wide" : ""}`}>{time}</span>
+          <span className={`entry-time ${showDay ? "entry-time-wide" : ""}`}>{showDay ? time : <ClockTime time={time} />}</span>
         ) : (
           <span className="entry-time entry-time-none">No time</span>
         )}
