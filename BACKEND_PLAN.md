@@ -510,10 +510,11 @@ type Response = { foods: Food[] };
 type Response = {
   usage: {
     foodId: Id;
-    lastLoggedAt: string;
+    lastLoggedAt?: string;              // absent when only ever part of a bigger entry
     ate30d: number;                     // entries in the last 30 days, by verb
     drank30d: number;
     usualAmount?: Amount;               // from the last time it was logged on its own
+    uses: number;                       // live entries with a line on it, plus entries logged as the combo
   }[];
 };
 ```
@@ -553,6 +554,12 @@ type Response = { batch: StoredBatch } & Created;
 
 ```ts
 type Response = { activities: Activity[] };
+```
+
+**`GET /api/activities/usage`.** Exercise recents: each activity's last live entry, newest first.
+
+```ts
+type Response = { usage: { activityId: Id; lastLoggedAt: string }[] };
 ```
 
 **`POST /api/activities`**, **`PUT /api/activities/:id`**, **`DELETE /api/activities/:id`**, **`POST /api/activities/:id/restore`**
@@ -671,7 +678,7 @@ type Response = { foods: number; entries: number; activities: number; weighIns: 
 
 ### Sign-in
 
-These already exist and stay as they are: `GET /auth/google/authorize?returnTo=`, `GET /auth/google/callback`, `GET /auth/logout`. They sit outside `/api` because they redirect rather than return JSON.
+`GET /auth/google/authorize?returnTo=`, `GET /auth/google/callback` and `GET /auth/logout`. They sit outside `/api` because they redirect rather than return JSON. The redirect URI sent to Google is `${API_HOST}/auth/google/callback`, from the `API_HOST` setting (the origin the browser sees), never from the request, so a proxy in front can't change it. The swagger route adds `API_HOST` as the document's server.
 
 ## Code layout
 
@@ -758,5 +765,5 @@ These were agreed, but they belong with the switch from IndexedDB to the API:
 
 ### Next steps
 
-1. Switch the capture app onto the API: replace `frontend/src/core` with `@dash/core`, apply the deferred prototype changes above, and add revision and 409 handling.
+1. Switch the capture app onto the API, as planned in [FRONTEND_API_PLAN.md](FRONTEND_API_PLAN.md).
 2. Phase 5, reporting: range totals with core on the server for the dashboard.
