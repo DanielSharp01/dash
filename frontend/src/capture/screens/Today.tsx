@@ -248,7 +248,7 @@ export function EntryRow({ entry, open, onToggle, actions, showDay = false }: { 
     const f = entry as FoodEntry;
     lines = f.lines;
     const single = f.lines.length === 1 && !f.comboId ? f.lines[0] : undefined;
-    title = f.title ?? (single ? lineName(single) : `${f.lines.length} things`);
+    title = foodById(f.comboId)?.name ?? f.title ?? (single ? lineName(single) : `${f.lines.length} things`);
     icon = f.comboId ? (foodById(f.comboId) ? foodIcon(foodById(f.comboId)!) : "🍱") : single ? lineIcon(single) : "🍱";
     detail = single ? lineDetail(single) : f.lines.map(lineName).join(", ");
     macros = entryContents(f);

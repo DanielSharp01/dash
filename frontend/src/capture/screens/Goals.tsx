@@ -6,6 +6,7 @@ import { todayKey } from "../../core/time";
 import { useWeighIns } from "../../core/weighIns";
 import { useState } from "react";
 import { macroPresets, type MacroPreset, type Plan, useProfile } from "../../core/profile";
+import { BEGINNING } from "../../core/types";
 import { fluidUnit, formatFluid, formatWeight, fromDisplayFluid, fromDisplayWeight, toDisplayFluid, type UnitSystem } from "../../core/units";
 import { NumberInput } from "../ui/NumberInput";
 import { MissingDetails } from "../ui/MissingDetails";
@@ -54,7 +55,7 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
             {change === "changed" && (
               <label className="measure-def">
                 Starting
-                <input className="text-input" type="date" min={since || undefined} value={from} onChange={(e) => setFrom(e.target.value)} />
+                <input className="text-input" type="date" min={since === BEGINNING ? undefined : since} value={from} onChange={(e) => setFrom(e.target.value)} />
               </label>
             )}
             {change === "changed" && <p className="hint">{fromValid ? "Days before keep the goal they had." : "Pick a day on or after the current goal started."}</p>}
@@ -179,7 +180,7 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
             {[...history].reverse().map((h) => (
               <li key={h.from}>
                 <span>
-                  <b>{h.from ? `Since ${new Date(`${h.from}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}` : "Before"}</b>
+                  <b>{h.from !== BEGINNING ? `Since ${new Date(`${h.from}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}` : "Before"}</b>
                   {describePlan(h.plan, units)}
                 </span>
               </li>

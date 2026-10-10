@@ -1,6 +1,6 @@
 import { createStore } from "./createStore";
 import { suggestIcon } from "./icons";
-import type { Batch, Combo, Food, Item, Recipe } from "./types";
+import { BEGINNING, type Batch, type Combo, type Food, type Item, type Recipe } from "./types";
 
 const drink = (id: string, name: string, icon: string, kcal: number, caffeine: number, serving: string): Item => ({
   id,
@@ -8,7 +8,7 @@ const drink = (id: string, name: string, icon: string, kcal: number, caffeine: n
   name,
   icon,
   unit: "ml",
-  labels: [{ from: "", per: "100", values: { kcal, fat: 0, carbs: 0, protein: 0, caffeine }, source: "reference" }],
+  labels: [{ from: BEGINNING, per: "100", values: { kcal, fat: 0, carbs: 0, protein: 0, caffeine }, source: "reference" }],
   servings: [{ name: serving, size: 250 }],
 });
 
@@ -19,7 +19,7 @@ const food = (id: string, name: string, variant: string, icon: string, values: I
   variant,
   icon,
   unit: "g",
-  labels: [{ from: "", per: "100", values, source: "reference" }],
+  labels: [{ from: BEGINNING, per: "100", values, source: "reference" }],
   servings,
 });
 

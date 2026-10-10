@@ -8,7 +8,7 @@ import { batchPerUnit, type Contents, lineContents, lineFood, withBase } from ".
 import { lookupBarcode, type Found } from "../../core/openFoodFacts";
 import { useProfile } from "../../core/profile";
 import { initialWhen, nowWhen, todayKey } from "../../core/time";
-import type { Amount, Combo, Food, FoodData, FoodEntry, Item, Line, Nutrients, Portion, Recipe, Serving, When } from "../../core/types";
+import { type Amount, BEGINNING, type Combo, type Food, type FoodData, type FoodEntry, type Item, type Line, type Nutrients, type Portion, type Recipe, type Serving, type When } from "../../core/types";
 import { PortionList } from "../editors/PortionList";
 import { ItemEditor } from "../editors/ItemEditor";
 import { AmountInput } from "../ui/AmountInput";
@@ -247,11 +247,11 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     const combo = newCombo();
     if (!combo) return;
     if (keep) saveFood(combo);
-    commit(lines, { comboId: keep ? combo.id : undefined, title: combo.name });
+    commit(lines, keep ? { comboId: combo.id, title: undefined } : { comboId: undefined, title: combo.name });
   };
 
   const quickLog = (f: Food) => {
-    if (f.kind === "combo") return commit(comboLines(f), { comboId: f.id, title: f.name });
+    if (f.kind === "combo") return commit(comboLines(f), { comboId: f.id, title: undefined });
     commit([lineFor(f, usualFor(f, entries, units))], { comboId: undefined, title: undefined });
   };
 
@@ -338,7 +338,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
                     id: newId(),
                     rawName: note.trim() || undefined,
                     amount: { value: 1, unit: "piece" },
-                    own: { unit: "piece", labels: [{ from: "", per: "serving", values: calories, source: "typed" }], servings: [] },
+                    own: { unit: "piece", labels: [{ from: BEGINNING, per: "serving", values: calories, source: "typed" }], servings: [] },
                   },
                 ],
                 { comboId: undefined, title: undefined },

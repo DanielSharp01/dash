@@ -5,7 +5,7 @@ import { foodIcon, saveFood, useFoods, variantsOf } from "../../core/foods";
 import { suggestIcon } from "../../core/icons";
 import { basisLabel, labelAt, round, sameValues } from "../../core/label";
 import { todayKey } from "../../core/time";
-import type { Combo, Food, Item, Label, Portion, Serving } from "../../core/types";
+import { BEGINNING, type Combo, type Food, type Item, type Label, type Portion, type Serving } from "../../core/types";
 import { PortionList } from "./PortionList";
 import { FoodRow, FoodSearch } from "../ui/FoodSearch";
 import { draftFrom, LabelForm, labelFrom, unitOf } from "../ui/LabelForm";
@@ -74,7 +74,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
 
   const labelsFor = (change: "fix" | "changed"): Label[] => {
     if (!next) return item.labels;
-    if (!latest) return [{ ...next, from: "" }];
+    if (!latest) return [{ ...next, from: BEGINNING }];
     if (!changed) return [...item.labels.slice(0, -1), { ...next, from: latest.from }];
     if (change === "fix") return [...item.labels.slice(0, -1), { ...next, from: latest.from }];
     return [...item.labels.filter((l) => l.from < changedFrom), { ...next, from: changedFrom }];
@@ -154,7 +154,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
                 <ul>
                   {[...item.labels].reverse().map((l) => (
                     <li key={l.from}>
-                      <b>{l.from ? `From ${new Date(`${l.from}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}` : "Before"}</b>{" "}
+                      <b>{l.from !== BEGINNING ? `From ${new Date(`${l.from}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}` : "Before"}</b>{" "}
                       {l.values.kcal ?? "?"} kcal
                     </li>
                   ))}
@@ -280,7 +280,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
               <span className="row-sub">Past days keep the old values</span>
               <label className="measure-def">
                 New values from
-                <input type="date" value={changedFrom} min={latest.from || undefined} max={todayKey()} onChange={(e) => e.target.value && setChangedFrom(e.target.value)} />
+                <input type="date" value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={(e) => e.target.value && setChangedFrom(e.target.value)} />
               </label>
             </span>
             <button className="btn btn-primary btn-small" onClick={() => save(false, "changed")}>

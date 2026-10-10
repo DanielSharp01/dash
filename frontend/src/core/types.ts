@@ -17,9 +17,15 @@ export type FoodUnit = "g" | "ml" | "piece";
 /** Provenance only: a typed value is as known as a printed one. */
 export type LabelSource = "package" | "database" | "reference" | "typed";
 
+/**
+ * A version start before every date key: the plain string sorts below any "YYYY-MM-DD",
+ * and it is how Postgres spells its earliest date, so it passes through the API unchanged.
+ */
+export const BEGINNING = "-infinity";
+
 /** Values as printed on the package: per 100 of the item's unit, or per serving. */
 export interface Label {
-  /** Date key the values apply from; "" is as far back as known. */
+  /** Date key the values apply from; BEGINNING is as far back as known. */
   from: string;
   per: "100" | "serving";
   /** In the item's unit. Absent on a piece item, where the serving is one piece. */
@@ -134,7 +140,7 @@ export interface FoodEntry {
   /** Which verb logged it; decides fluid for things that aren't identified yet. */
   via: "ate" | "drank";
   comboId?: string;
-  /** The combo's name when it was logged, kept if the combo is renamed or removed. */
+  /** Names lines logged together without saving a combo; with a combo, its current name shows instead. */
   title?: string;
   lines: Line[];
 }

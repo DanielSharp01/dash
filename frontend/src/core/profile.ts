@@ -25,7 +25,7 @@ export interface Profile {
   macroPlan: MacroPlan;
   /**
    * Earlier versions of the plan fields, so past days are judged by the goal they had. A change
-   * applies from the day it's made; "" is the plan before the first change.
+   * applies from the day it's made; BEGINNING is the plan before the first change.
    */
   planHistory?: { from: string; plan: Plan }[];
   /** Weighed once, so a finished dish can be weighed in its pot. */

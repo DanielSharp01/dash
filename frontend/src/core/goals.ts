@@ -1,4 +1,5 @@
 import { ageOn, currentProfile, type Plan, type Profile, updateProfile, useProfile } from "./profile";
+import { BEGINNING } from "./types";
 import { bodyKgAt, useWeighIns, type WeighIn } from "./weighIns";
 
 const KCAL_PER_KG = 7700;
@@ -45,7 +46,7 @@ export const collapseHistory = (history: { from: string; plan: Plan }[]) =>
 export function savePlan(next: Plan, change: "fix" | { from: string }) {
   const p = currentProfile();
   if (samePlan(next, currentPlan(p))) return;
-  const history = p.planHistory?.length ? p.planHistory : [{ from: "", plan: currentPlan(p) }];
+  const history = p.planHistory?.length ? p.planHistory : [{ from: BEGINNING, plan: currentPlan(p) }];
   const updated =
     change === "fix"
       ? [...history.slice(0, -1), { ...history[history.length - 1], plan: next }]
@@ -56,7 +57,7 @@ export function savePlan(next: Plan, change: "fix" | { from: string }) {
 /** For settings that describe the body rather than the goal, like calibrating the multiplier. */
 export const correctPlan = (patch: Partial<Plan>) => savePlan({ ...currentPlan(currentProfile()), ...patch }, "fix");
 
-export const latestPlanStart = (p: Profile) => p.planHistory?.[p.planHistory.length - 1]?.from ?? "";
+export const latestPlanStart = (p: Profile) => p.planHistory?.[p.planHistory.length - 1]?.from ?? BEGINNING;
 
 export { currentPlan };
 

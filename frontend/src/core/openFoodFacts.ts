@@ -1,4 +1,4 @@
-import type { Label, Nutrients, Serving } from "./types";
+import { BEGINNING, type Label, type Nutrients, type Serving } from "./types";
 
 export interface Found {
   name: string;
@@ -55,7 +55,7 @@ export async function lookupBarcode(code: string, signal?: AbortSignal): Promise
       name: p.product_name.trim(),
       brand: p.brands?.split(",")[0]?.trim() || undefined,
       unit,
-      label: values.kcal !== undefined ? { from: "", per: "100", values, source: "database" } : undefined,
+      label: values.kcal !== undefined ? { from: BEGINNING, per: "100", values, source: "database" } : undefined,
       servings,
     };
   } catch {

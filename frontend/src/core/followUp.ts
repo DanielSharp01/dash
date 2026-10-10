@@ -46,7 +46,7 @@ export function mergeInto(item: Item, target: Food): () => void {
     mapLines((e) => {
       if (!e.lines.some((l) => l.itemId === item.id)) return e;
       const lines = e.lines.flatMap((l) => (l.itemId === item.id ? comboAsLines(target, l.amount.value ?? 1) : [l]));
-      return e.lines.length === 1 ? { ...e, lines, comboId: target.id, title: target.name } : { ...e, lines };
+      return e.lines.length === 1 ? { ...e, lines, comboId: target.id, title: undefined } : { ...e, lines };
     });
     return undo;
   }
@@ -88,7 +88,7 @@ export function completeAsCombo(item: Item, combo: Combo): () => void {
   mapLines((e) => {
     if (!e.lines.some((l) => l.itemId === item.id)) return e;
     const lines = e.lines.flatMap((l) => (l.itemId === item.id ? comboAsLines(combo, l.amount.value ?? 1) : [l]));
-    return e.lines.length === 1 ? { ...e, lines, comboId: combo.id, title: combo.name } : { ...e, lines };
+    return e.lines.length === 1 ? { ...e, lines, comboId: combo.id, title: undefined } : { ...e, lines };
   });
   restoreFoods(foodsSnapshot().filter((f) => f.id !== item.id));
   return undo;
@@ -106,7 +106,11 @@ export function makeEntryOnly(item: Item): () => void {
 /** Past entries still point at a used food, so it's only hidden; an unused one is removed. Returns an undo. */
 export function deleteFood(food: Food): () => void {
   const undo = snapshot();
-  const used = entriesUsing(entriesSnapshot(), food.id).length > 0 || foodsSnapshot().some((f) => (f.kind === "combo" || f.kind === "recipe") && usesFood(f, food.id));
+  const entries = entriesSnapshot();
+  const used =
+    entriesUsing(entries, food.id).length > 0 ||
+    entries.some((e) => e.kind === "food" && e.comboId === food.id) ||
+    foodsSnapshot().some((f) => (f.kind === "combo" || f.kind === "recipe") && usesFood(f, food.id));
   if (used) saveFood({ ...food, deleted: true });
   else restoreFoods(foodsSnapshot().filter((f) => f.id !== food.id));
   return undo;
