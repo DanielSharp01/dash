@@ -1,23 +1,24 @@
 import type { ReactNode } from "react";
-import { whenIcon, whenLabel } from "../data/time";
-import type { When } from "../data/types";
+import { whenIcon, whenLabel } from "../../core/time";
+import type { When } from "../../core/types";
 
 interface Props {
   title: string;
+  /** What is being logged, under the title: an item's variant or a recipe's batch. */
+  subtitle?: ReactNode;
   canGoBack: boolean;
   onBack: () => void;
   onClose: () => void;
   when?: When;
   onWhen?: () => void;
   footer?: ReactNode;
-  /** Top-level screens show the menu instead of a close button; on desktop the sidebar replaces both. */
+  /** Top-level screens show the menu instead of a close button. */
   onMenu?: () => void;
-  /** Extra header buttons, e.g. "log again" on the edit screen. */
   actions?: ReactNode;
   children: ReactNode;
 }
 
-export function FlowShell({ title, canGoBack, onBack, onClose, onMenu, when, onWhen, footer, actions, children }: Props) {
+export function FlowShell({ title, subtitle, canGoBack, onBack, onClose, onMenu, when, onWhen, footer, actions, children }: Props) {
   return (
     <div className="flow">
       <header className="flow-header">
@@ -26,7 +27,7 @@ export function FlowShell({ title, canGoBack, onBack, onClose, onMenu, when, onW
             ‹
           </button>
         ) : onMenu ? (
-          <button className="icon-btn menu-btn" onClick={onMenu} aria-label="Menu">
+          <button className="icon-btn" onClick={onMenu} aria-label="Menu">
             ☰
           </button>
         ) : (
@@ -34,10 +35,13 @@ export function FlowShell({ title, canGoBack, onBack, onClose, onMenu, when, onW
             ✕
           </button>
         )}
-        <h1>{title}</h1>
+        <div className="flow-title">
+          <h1>{title}</h1>
+          {subtitle && <span>{subtitle}</span>}
+        </div>
         {when && onWhen && (
           <button className="when-chip" onClick={onWhen}>
-            {whenIcon(when, true)} {whenLabel(when, false, true)}
+            {whenIcon(when, true)} {whenLabel(when, true, true)}
           </button>
         )}
         {actions}

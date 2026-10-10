@@ -113,3 +113,11 @@ export function sortKey(w: When) {
   const h = Number(w.time.slice(0, 2));
   return `${w.date} ${h < dayEndsAt() ? `${h + 24}${w.time.slice(2)}` : w.time}`;
 }
+
+/** Moving a capture to another day keeps its time of day; "now" only means now on today. */
+export function withDate(w: When, date: string): When {
+  if (w.kind === "now" || w.kind === "exact") return date === todayKey() && w.kind === "now" ? w : { date, kind: "exact", time: w.time };
+  return { ...w, date };
+}
+
+export const dayMs = (key: string) => new Date(`${key}T12:00:00`).getTime();

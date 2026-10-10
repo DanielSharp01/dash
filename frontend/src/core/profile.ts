@@ -28,7 +28,14 @@ export interface Profile {
    * applies from the day it's made; "" is the plan before the first change.
    */
   planHistory?: { from: string; plan: Plan }[];
-  onboarded: boolean;
+  /** Weighed once, so a finished dish can be weighed in its pot. */
+  pots: Pot[];
+}
+
+export interface Pot {
+  id: string;
+  name: string;
+  grams: number;
 }
 
 export type MacroPreset = "balanced" | "high-protein" | "low-carb" | "keto" | "low-fat";
@@ -58,7 +65,7 @@ export interface Goal {
   targetKg?: number;
 }
 
-const defaults: Profile = { units: "metric", metabolismMultiplier: 1.2, goal: { kgPerWeek: 0.5 }, dayEndsAt: 0, fluidGoalMl: 2000, macroPlan: macroPresets.balanced.plan, onboarded: false };
+const defaults: Profile = { units: "metric", metabolismMultiplier: 1.2, goal: { kgPerWeek: 0.5 }, dayEndsAt: 0, fluidGoalMl: 2000, macroPlan: macroPresets.balanced.plan, pots: [] };
 
 let profile: Profile = load();
 const listeners = new Set<() => void>();

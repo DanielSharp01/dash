@@ -1,20 +1,36 @@
 import { useState } from "react";
-import { dayParts, nowWhen, todayKey } from "../data/time";
-import type { When } from "../data/types";
+import { dayParts, nowWhen, shiftDate, todayKey, withDate } from "../../core/time";
+import type { When } from "../../core/types";
 
-/** The day is fixed by the timeline the flow was opened from; only the time is picked here. */
+/** Any day can be picked, with yesterday one tap away for the morning-after case. */
 export function WhenPicker({ value, onChange, onDone }: { value: When; onChange: (w: When) => void; onDone: () => void }) {
   const [exactOpen, setExactOpen] = useState(value.kind === "exact");
-  const isToday = value.date === todayKey();
+  const today = todayKey();
+  const yesterday = shiftDate(today, -1);
+  const isToday = value.date === today;
   const selectedPart = value.kind === "part" ? value.part : undefined;
 
   const pick = (w: When) => {
     onChange(w);
     onDone();
   };
+  const setDate = (date: string) => onChange(date === today && value.kind === "now" ? nowWhen() : withDate(value, date));
 
   return (
     <div className="when">
+      <div className="segmented">
+        <button aria-selected={isToday} onClick={() => setDate(today)}>
+          Today
+        </button>
+        <button aria-selected={value.date === yesterday} onClick={() => setDate(yesterday)}>
+          Yesterday
+        </button>
+        <label className="date-choice" aria-selected={!isToday && value.date !== yesterday}>
+          {!isToday && value.date !== yesterday ? new Date(`${value.date}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "Other day"}
+          <input type="date" max={today} value={value.date} onChange={(e) => e.target.value && setDate(e.target.value)} />
+        </label>
+      </div>
+
       <div className="tile-grid">
         {isToday && (
           <button className="tile tile-wide" aria-pressed={value.kind === "now"} onClick={() => pick(nowWhen())}>
@@ -23,12 +39,7 @@ export function WhenPicker({ value, onChange, onDone }: { value: When; onChange:
           </button>
         )}
         {dayParts.map((p) => (
-          <button
-            key={p.part}
-            className="tile"
-            aria-pressed={selectedPart === p.part}
-            onClick={() => pick({ date: value.date, kind: "part", part: p.part })}
-          >
+          <button key={p.part} className="tile" aria-pressed={selectedPart === p.part} onClick={() => pick({ date: value.date, kind: "part", part: p.part })}>
             <span className="tile-icon">{p.icon}</span>
             <span className="tile-label">{p.label}</span>
             <span className="tile-sub">{p.range}</span>

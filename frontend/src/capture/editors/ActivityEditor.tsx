@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { activityIcons, IconPicker } from "./IconPicker";
-import { burnBasisLabel, defaultBurn, estimateBurn } from "../data/burn";
-import { useProfile } from "../data/profile";
-import { formatWeight } from "../data/units";
-import { bodyKgAt, useWeighIns } from "../data/weighIns";
-import type { Activity, Burn, ExerciseMeasureKey } from "../data/types";
-import { NumberInput } from "./NumberInput";
+import { IconField } from "../ui/Pickers";
+import { suggestIcon } from "../../core/icons";
+import { burnBasisLabel, defaultBurn, estimateBurn } from "../../core/burn";
+import { useProfile } from "../../core/profile";
+import { formatWeight } from "../../core/units";
+import { bodyKgAt, useWeighIns } from "../../core/weighIns";
+import type { Activity, Burn, ExerciseMeasureKey } from "../../core/types";
+import { NumberInput } from "../ui/NumberInput";
 
 const measureLabels: Record<ExerciseMeasureKey, string> = {
   duration: "Duration",
@@ -18,9 +19,9 @@ const measureLabels: Record<ExerciseMeasureKey, string> = {
 
 
 /** The measures picked here are the fields offered when logging the activity. */
-export function ActivityEditor({ activity, onSave, onPublish }: { activity: Activity; onSave: (a: Activity) => void; onPublish?: () => void }) {
+export function ActivityEditor({ activity, onSave }: { activity: Activity; onSave: (a: Activity) => void }) {
   const [name, setName] = useState(activity.name);
-  const [icon, setIcon] = useState(activity.icon);
+  const [icon, setIcon] = useState<string | undefined>(activity.icon);
   const [measures, setMeasures] = useState<ExerciseMeasureKey[]>(activity.measures);
   const [burn, setBurn] = useState<Burn | undefined>(activity.burn);
   const { units } = useProfile();
@@ -47,14 +48,9 @@ export function ActivityEditor({ activity, onSave, onPublish }: { activity: Acti
 
   return (
     <div className="item-editor">
-      <label className="field">
-        <span className="field-label">Name</span>
+      <div className="name-row">
+        <IconField value={icon} fallback={suggestIcon(name, ["activity"]) ?? "🏃"} groups={["activity"]} onChange={setIcon} />
         <input className="big-text" autoFocus={!activity.name} placeholder="e.g. Padel" value={name} onChange={(e) => setName(e.target.value)} />
-      </label>
-
-      <div className="field">
-        <span className="field-label">Icon</span>
-        <IconPicker value={icon} options={activityIcons} onChange={setIcon} />
       </div>
 
       <div className="field">
@@ -90,25 +86,15 @@ export function ActivityEditor({ activity, onSave, onPublish }: { activity: Acti
             </label>
             <p className="hint">
               {activeBurn.basis === "duration" && "Rest is 1, walking about 3.5, running 8–10. "}
-              {example && `At ${formatWeight(bodyKg, units)} that's ≈${Math.round(example.kcal)} kcal for ${example.from}.`}
+              {example && `At ${formatWeight(bodyKg, units)} that's about ${Math.round(example.kcal)} kcal for ${example.from}.`}
             </p>
           </>
         )}
         {bases.length === 0 && <p className="hint">Track distance, reps or duration to have calories calculated.</p>}
       </div>
 
-      {onPublish && (
-        <button className="row row-unsure" onClick={onPublish}>
-          <span className="row-icon">📚</span>
-          <span className="row-main">
-            <span className="row-title">Publish to library</span>
-            <span className="row-sub">Moves it from your activities to the library; this can't be undone</span>
-          </span>
-        </button>
-      )}
-
       <div className="flow-footer">
-        <button className="btn btn-primary btn-block" disabled={!name.trim() || measures.length === 0} onClick={() => onSave({ ...activity, name: name.trim(), icon, measures, burn: activeBurn && factor && factor > 0 ? activeBurn : undefined })}>
+        <button className="btn btn-primary btn-block" disabled={!name.trim() || measures.length === 0} onClick={() => onSave({ ...activity, name: name.trim(), icon: icon ?? suggestIcon(name, ["activity"]) ?? "🏃", measures, burn: activeBurn && factor && factor > 0 ? activeBurn : undefined })}>
           Save
         </button>
       </div>

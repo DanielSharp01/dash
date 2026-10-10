@@ -1,0 +1,9 @@
+{
+  "name": "Dash",
+  "short_name": "Dash",
+  "start_url": "/capture/",
+  "scope": "/capture/",
+  "display": "standalone",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115"
+}

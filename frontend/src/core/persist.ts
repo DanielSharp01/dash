@@ -2,9 +2,10 @@
  * Stores keep their state in memory and render synchronously; IndexedDB sits behind them.
  * Everything is read once before the app mounts, and every change is written through.
  */
-const DB = "dash";
+// Its own database, so a dashboard on the same origin can never read or clear capture data.
+const DB = "dash-capture";
 const STORE = "kv";
-const EXPORT_VERSION = 1;
+const EXPORT_VERSION = 2;
 
 const cache = new Map<string, unknown>();
 let db: IDBDatabase | undefined;
@@ -63,7 +64,7 @@ export function exportData() {
 /** Replaces everything; the caller reloads so every store starts from the imported data. */
 export async function importData(file: unknown) {
   const parsed = file as ReturnType<typeof exportData>;
-  if (parsed?.app !== "dash" || typeof parsed.data !== "object") throw new Error("Not a Dash export");
+  if (parsed?.app !== "dash" || parsed.version !== EXPORT_VERSION || typeof parsed.data !== "object") throw new Error("Not a Dash export");
   await tx("readwrite", (s) => {
     s.clear();
     for (const [k, v] of Object.entries(parsed.data)) s.put(v, k);
