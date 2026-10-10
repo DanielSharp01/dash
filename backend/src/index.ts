@@ -1,21 +1,23 @@
 import { createApp, onError } from "./app";
 import { env } from "./config/env";
+import { runMigrations } from "./db/migrate";
 import { initializeRedis } from "./providers/redis";
 import { seedPublicItems } from "./seeds";
 
 const app = createApp();
 
 await initializeRedis();
+if (env.MIGRATE_ON_START) await runMigrations();
 await seedPublicItems();
 
 const server = await app.mount({
   onError,
   port: env.PORT,
-  hostname: "localhost",
+  hostname: env.HOST,
 });
 
-console.info(`Server running at http://localhost:${env.PORT}/api`);
-console.info(`Docs at http://localhost:${env.PORT}/api/docs`);
+console.info(`Server running at http://${env.HOST}:${env.PORT}/api`);
+console.info(`Docs at http://${env.HOST}:${env.PORT}/api/docs`);
 
 for (const event of ["SIGTERM", "SIGINT"] as const) {
   process.on(event, async () => {
