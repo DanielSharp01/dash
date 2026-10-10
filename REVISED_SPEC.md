@@ -29,6 +29,16 @@ Follow-up appears in both apps on purpose. Completing an item is easiest when th
 
 [research/two-app-delivery.md](research/two-app-delivery.md) proposes serving both from `dash.danielsharp01.com`, with capture under `/capture/`.
 
+### History editor
+
+The phone handles label changes with one question: was it wrong, or did the product change? Anything beyond that is fixed on the dashboard, in an editor for history:
+
+- **Label timeline.** An item's label versions on a date axis, with the entries that used each one. A version's values or start date can be edited, a version split at a date, or two neighbouring versions merged, for example when "the product changed" was really a typo.
+- **Merging items.** Moving all history from one item to another: duplicates, variants that turn out to be the same product, or a barcode attached to the wrong item.
+- **Reconverting amounts.** Recalculating the recorded grams of selected entries from the current serving definitions, e.g. when every "1 pack" since September was really 150 g. Recorded amounts never change on their own.
+- **Recipe batches.** Comparing batches side by side, correcting an old batch's ingredients or weight, and moving entries to another batch.
+- **Impact preview.** Before any of these is saved, the days whose totals change and by how much, with undo afterwards.
+
 ### Offline is not in the MVP
 
 Both apps assume a connection. The two users are online whenever they have their phones, so the capture app writes straight to the backend. It has no local outbox, sync status or cached catalogue.
@@ -91,7 +101,7 @@ For an unsure entry the verb decides: anything logged through I drank counts its
 
 ## Capture flow
 
-The flow is the same for I ate and I drank. I drank opens on cards instead of a list, and its amounts default to ml.
+The flow is the same for I ate and I drank. Both open on cards, with search and scan above them. I drank orders cards by how often each drink is had, and a tap logs the usual amount. I ate puts cooked dishes that aren't eaten up first, then the most recently eaten, and a tap opens the amount with the usual portion filled in, because food portions vary more than drinks.
 
 ```
  What?   search + scan, recent items, "+ New" row
@@ -109,7 +119,7 @@ The flow is the same for I ate and I drank. I drank opens on cards instead of a 
 
 A scan with no match returns to this screen with the barcode attached and "+ New with this barcode" as the top row. A miss often means another brand of something already in the catalogue, so the person can still pick an existing item.
 
-**New.** Name (prefilled from the search), barcode (prefilled from a scan), and the label. The label can be skipped, so "chicken stew, one bowl" stays a five-second capture. New always makes an item; recipes come from I cooked. A dish eaten elsewhere, such as a restaurant stew, is an item or an entry-only capture.
+**New.** Name (prefilled from the search), barcode (prefilled from a scan), and a choice between an item and a combo. An item gets a label, which can be skipped, so "chicken stew, one bowl" stays a five-second capture. A combo, such as a sandwich, lists what's in it instead; at the end it can be saved as a combo for next time or just logged. Recipes come from I cooked, not from New. A dish eaten elsewhere, such as a restaurant stew, is an item or an entry-only capture.
 
 **Amount.** Quick buttons from the item's servings and common amounts, and a typed value. The header shows the time, the item name and its variant on every screen after What. Tapping the time opens the time picker. The time picker can target any day, with "Yesterday" as a one-tap choice for the common morning-after case.
 
@@ -129,6 +139,10 @@ A skipped label can only be added as unsure or entry only. Entry only replaces t
 
 The phone can edit the label of a picked item. This covers the moment the person notices, package in hand, that Dash says 120 kcal and the label says 140. Editing asks once: "Was it wrong, or did the product change?" Wrong fixes the label for every entry that used it. Changed starts a new label version from today, so past days keep the old values. The full item editor, on either app, can set a different start date.
 
+A logged amount is also recorded in the item's own unit, grams, millilitres or pieces, as it came to on the day. Redefining a serving or its piece count afterwards doesn't change what past entries weighed. It still asks the same question as a change in values, since any substantial change to the label is either a mistake or a new product. An amount that couldn't be converted when logged, such as "1 bowl" before the bowl had a size, stays open and picks up the size once it is given. Recipe batch ingredients are recorded the same way; combo parts are not, because a combo is a template.
+
+An unsure item can be completed three ways: as an item, by filling in its label; as a combo, by listing what was in it, so a "sandwich" logged by name gets its parts; or by swapping it for something already in the catalogue, an item, recipe or combo, including one just added. In the last two cases its entries take the new parts or target, scaled by the amount logged, and the unsure item is removed.
+
 The same label editor completes unsure items from the inbox. The phone's full item editor adds servings, variants, merging and version history.
 
 ## Recipes
@@ -145,7 +159,7 @@ Cooking takes a while, so an unfinished recipe is saved as a draft and the captu
 
 When finished, the recipe appears first in I ate's recent items. Finishing can offer "Log a portion now" for a dish eaten straight away.
 
-Each cooking is its own preparation with its own ingredients and values, grouped under the recipe's name as SPEC.md's recipe groups describe. Logging picks the latest preparation by default.
+Each cooking is its own preparation with its own ingredients and values, grouped under the recipe's name as SPEC.md's recipe groups describe. Logging picks the newest batch that isn't eaten up. Logging a portion can mark it as the last of the batch; the batch editor has the same toggle for corrections.
 
 A recipe cannot contain another recipe in the MVP.
 
@@ -201,6 +215,16 @@ The MVP has no onboarding flow. A person opens the app and logs.
 
 A guided first run can return later as polish.
 
+### Seed catalogue
+
+The server provides a starting catalogue, so common foods don't have to be typed in by hand. The prototype seeds only Water, Coffee and Tea in the frontend.
+
+- **Generic foods** come from a reference table and carry that source: rice, pasta, potatoes, oats, eggs, milk, common fruit and vegetables, and similar staples. Foods whose values change with cooking come as raw and cooked variants, e.g. rice (raw) and rice (cooked), because their values per 100 g differ about threefold.
+- **Drinks** include at least Water, Coffee and Tea. Their small values are real reference values, not rounded to zero, so they count as known.
+- **Activities** stay a short list until each one's calorie factor has been checked against its source. The prototype's 25 built-in activities and their factors are unverified rules of thumb; the server starts with the few that have been checked, with Walk, Run and Cycle first, and grows as more are verified.
+
+Seeded entries behave like any other: a person can edit them, and the server can update its copy without touching anyone's edits or past entries.
+
 ## Icons and pickers
 
 Every item and activity has an icon from one consistent set, found or made, instead of system emoji. Platform emoji render differently on each device, which is part of why the prototype reads as emoji-heavy. User-uploaded photos would be more direct but raise privacy, storage and licensing questions, so they stay out of the MVP.
@@ -208,6 +232,8 @@ Every item and activity has an icon from one consistent set, found or made, inst
 Candidate sets keyed by emoji codepoint, such as OpenMoji (CC BY-SA) or Microsoft Fluent Emoji (MIT), keep the prototype's stored emoji valid as icon ids. Unicode has gaps for this domain, such as yoghurt, protein bars or plant milk. Custom icons fill those gaps in the same style, with their own ids. Choosing the set needs a look at its food, drink and sport coverage side by side.
 
 Icons are not shown as a large grid on the item or activity form. The form shows the current icon as one small control, and tapping it opens a picker: search, recently used, and categories. Dash suggests an icon from the name, so most items never need the picker.
+
+The suggestion comes from a keyword list: each icon carries names in one or more languages, and the item's name is matched against them. The prototype hard-codes an English list in the frontend. In the product, the list lives on the server so that an administrator can add icons, names and translations, such as Hungarian dish names, without a release. The app keeps the last copy it fetched and falls back to a built-in list, so suggestions still work if the server is unreachable. Changing the list only affects suggestions: icons already chosen or saved stay as they are.
 
 The same pattern applies to the label's source and to time. The form shows the current value in one compact control; a picker opens only when the person wants to change it.
 
@@ -231,7 +257,7 @@ Remove the prototype's one-way "publish to library" action for items and activit
 | SPEC.md, "Daily dashboard", and capture_spec.md, "Daily totals": estimates distinguished from calculated values | Values are known or missing; no estimated state |
 | capture_spec.md, "After saving": done with estimate | Removed; entries are needs follow-up or done |
 | capture_spec.md, quick flow step 4: optional calorie and macro estimates | Replaced by an optional label on the New screen, or entry only |
-| capture_spec.md, MRU list | Applies to I ate. I drank uses cards ordered by use |
+| capture_spec.md, MRU list | Cards on both: I ate by most recent with leftovers first, I drank by frequency |
 | SPEC.md, "Drinks, fluids, and caffeine": coffee additions open | Coffee is a combo: a saved set of items logged together, each amount adjustable |
 | SPEC.md, "Drinks": all drink volume counts as fluid | ml items count 100% by default, with a toggle; g and piece items have no fluid |
 | SPEC.md, "Recipes, variants": tags as the initial grouping | Recipes are captured through I cooked, with ingredient lists, sized by cooked weight or portions; each cooking is a preparation in a recipe group; variants stay for related items |
@@ -255,4 +281,5 @@ Remove the prototype's one-way "publish to library" action for items and activit
 
 - **New or existing.** When a search or scan misses, how does a person say "this is another version of something I have"? This covers variants, attaching a barcode to an existing item, and prompting raw or cooked when someone logs plain rice by weight.
 - **Recipe depth.** Should recipes inside recipes, such as a stock used in a stew, come after the MVP?
+- **Icon list administration.** Who counts as an administrator, and whether the icon list edits through the dashboard or a separate admin page?
 - **Shared package boundary.** Types and pure functions only, or also data access?
