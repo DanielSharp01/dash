@@ -93,6 +93,8 @@ The MVP has no density conversion. Because an item's unit follows its label, nut
 
 Density returns later for recipe ingredients measured by volume, such as a tablespoon of oil or a cup of flour. It should not come back for drinks.
 
+Until then, a spoon is a serving on the item: `tbsp` = 15 ml on the oil. Later the dashboard lets a person define such units once and reuse them across items, for example `tbsp` and `tsp` for every ml item, and with density for g items too, so a teaspoon of sugar converts without a serving on each item.
+
 ### Fluid
 
 Items measured in ml count 100% of their volume as fluid by default, with a toggle to turn it off for things like oil or syrup. Items in g or pieces have no fluid. Most fluid intake is tracked by drinking, so this loses little.
