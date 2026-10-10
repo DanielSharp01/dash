@@ -2736,6 +2736,13 @@ input[type="checkbox"]:focus-visible {
   text-align: center;
 }
 
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .loading {
   min-height: 100dvh;
 }
