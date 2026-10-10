@@ -38,3 +38,6 @@ function Login() {
 }
 
 createRoot(document.getElementById("root")!).render(<Login />);
+
+// Browsers only offer to install the app once a service worker controls it.
+void navigator.serviceWorker?.register("/sw.js");

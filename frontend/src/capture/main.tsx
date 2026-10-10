@@ -40,6 +40,9 @@ createRoot(document.getElementById("root")!).render(
   </QueryClientProvider>,
 );
 
+// Browsers only offer to install the app once a service worker controls it.
+void navigator.serviceWorker?.register("/sw.js");
+
 if (import.meta.env.DEV) {
   import("./DevTools").then(({ mountDevTools }) => mountDevTools());
 }
