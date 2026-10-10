@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { asItem, asRecipe, type Contents, dayTotals, displayName, type Entry, entryContents, lineContents, entryNeedsFollowUp, type FoodLookup, formatAmount, formatFluid, type Line, type Part, shiftDate } from "@dash/core";
+import { asItem, asRecipe, type Contents, dayTotals, displayName, type Entry, entryContents, lineContents, entryNeedsFollowUp, type FoodLookup, formatAmount, formatFluid, type Line, type Part, recapWorthShowing, shiftDate } from "@dash/core";
 import { useActivityLookup } from "../../queries/activities.queries";
 import { useDayEntries, useFollowUp, useFollowUpCount } from "../../queries/entries.queries";
 import { useFoodLookup } from "../../queries/foods.queries";
@@ -14,6 +14,8 @@ import { Breakdown, type BreakdownRow, ingredientRows, kcalText } from "../ui/Br
 import { MiniMacros, macroMeta } from "../ui/MiniMacros";
 import { MissingDetails } from "../ui/MissingDetails";
 import { useOpen, useSteps } from "../ui/useSteps";
+import { stripEmoji, stripLabel } from "../ui/RecapOverlay";
+import { playRecap, useDayRecap } from "../recap";
 
 export interface EntryActions {
   onEdit: (e: Entry) => void;
@@ -147,9 +149,33 @@ function DaySummary({ entries, day }: { entries: Entry[]; day: string }) {
             </span>
           )}
         </div>
+        <RecapStrip day={day} />
       </div>
       <FluidBar part={t.fluid} goalMl={goals.fluidMl} units={units} />
     </section>
+  );
+}
+
+/** Mornings keep yesterday's result on Today, for anyone who closed the recap too quickly. */
+const YESTERDAY_STRIP_UNTIL_HOUR = 12;
+
+function RecapStrip({ day }: { day: string }) {
+  const today = todayKey();
+  const date = day < today ? day : new Date().getHours() < YESTERDAY_STRIP_UNTIL_HOUR ? shiftDate(today, -1) : undefined;
+  const recap = useDayRecap(date);
+  if (!recap || !recapWorthShowing(recap)) return null;
+  const { tone } = recap.day;
+  const streak = recap.streak.logged >= 2 ? ` · 🔥 ${recap.streak.logged} days` : "";
+  return (
+    <button className={`recap-strip recap-tone-${tone}`} data-recap-strip onClick={() => playRecap({ date: recap.day.date, intro: false, automatic: false })}>
+      <span aria-hidden>{stripEmoji[tone]}</span>
+      <span className="recap-strip-text">
+        {day === today ? "Yesterday: " : ""}
+        {stripLabel[tone]}
+        {streak}
+      </span>
+      <span className="recap-strip-go">Recap ›</span>
+    </button>
   );
 }
 

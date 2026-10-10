@@ -1,7 +1,10 @@
-import type { ActivityInput, Burn, ExerciseEntryInput } from "./schemas";
+import type { ActivityInput, Burn, ExerciseEntryInput, MeasureKey, MeasureValue } from "./schemas";
 
 const toKm: Record<string, number> = { km: 1, m: 0.001, mi: 1.609 };
 const toHours: Record<string, number> = { min: 1 / 60, h: 1 };
+
+export const durationMinutes = (measures: Partial<Record<MeasureKey, MeasureValue>>) =>
+  measures.duration ? measures.duration.value * (toHours[measures.duration.unit] ?? 1 / 60) * 60 : undefined;
 
 export const burnBasisLabel: Record<Burn["basis"], string> = { distance: "Distance", reps: "Reps", duration: "Duration" };
 

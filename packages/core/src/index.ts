@@ -8,6 +8,7 @@ export * from "./goals";
 export * from "./icons";
 export * from "./label";
 export * from "./nutrition";
+export * from "./recap";
 export * from "./time";
 export * from "./units";
 export * from "./weighIns";

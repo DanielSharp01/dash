@@ -48,4 +48,6 @@ export function entriesChanged(qc: QueryClient) {
   void qc.invalidateQueries({ queryKey: keys.activityUsage, exact: true });
   void qc.invalidateQueries({ queryKey: ["entries", "food"] });
   void qc.invalidateQueries({ queryKey: ["entries", "range"] });
+  // Months of entries; reloaded when the recap or its strip is next shown, not on every log.
+  void qc.invalidateQueries({ queryKey: ["recap"], refetchType: "none" });
 }

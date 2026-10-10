@@ -2,7 +2,7 @@ import { deepEqual } from "./equal";
 import { bodyKgAt } from "./weighIns";
 import { BEGINNING, type MacroPlan, type MacroPreset, type Plan, type PlanVersion, type ProfileInput, type WeighIn } from "./schemas";
 
-const KCAL_PER_KG = 7700;
+export const KCAL_PER_KG = 7700;
 /** Below this, eating enough protein and micronutrients gets hard; common clinical floor for unsupervised diets. */
 export const MIN_KCAL = 1200;
 const FALLBACK = { kcal: 1800, protein: 110, carbs: 200, fat: 60 };

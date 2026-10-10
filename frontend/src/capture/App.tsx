@@ -12,6 +12,7 @@ import { GoalsScreen } from "./screens/Goals";
 import { SettingsScreen, WeighInsScreen } from "./screens/Profile";
 import { type EntryActions, InboxScreen, Today } from "./screens/Today";
 import { Drawer } from "./ui/Drawer";
+import { RecapHost } from "./ui/RecapHost";
 import { dismiss, notify, useNotice } from "./ui/notify";
 import { UpdateBar } from "./ui/UpdateBar";
 import { useOpen } from "./ui/useSteps";
@@ -105,6 +106,8 @@ export function App() {
         <Route path="/settings" element={<SettingsScreen onMenu={openMenu} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      <RecapHost />
 
       <Drawer open={drawer} onOpenChange={setDrawer} swipeToOpen={current !== undefined}>
         {sections.map((s) => {

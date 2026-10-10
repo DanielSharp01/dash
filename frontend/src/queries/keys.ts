@@ -8,6 +8,7 @@ export const keys = {
   day: (date: string) => ["entries", date] as const,
   entriesOfFood: (foodId: string) => ["entries", "food", foodId] as const,
   entriesBetween: (from: string, to: string) => ["entries", "range", from, to] as const,
+  recapHistory: (to: string) => ["recap", to] as const,
   followUp: ["follow-up"] as const,
   weighIns: ["weigh-ins"] as const,
   barcode: (code: string) => ["barcode", code] as const,

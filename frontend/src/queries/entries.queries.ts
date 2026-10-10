@@ -1,5 +1,5 @@
 import { queryOptions, useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import type { Activity, ActivityInput, Entry, EntryInput, Food, FoodInput } from "@dash/core";
+import { RECAP_WINDOW_DAYS, shiftDate, type Activity, type ActivityInput, type Entry, type EntryInput, type Food, type FoodInput } from "@dash/core";
 import * as entriesApi from "../api/entries.api";
 import { queryClient as qc } from "./client";
 import { cachedActivity, cachedEntry, cachedFood, entriesChanged, putActivities, putEntries, putFoods } from "./cache";
@@ -16,6 +16,14 @@ export const useDayEntries = (date: string) => useQuery(dayQuery(date));
 
 export const useEntriesBetween = (from: string, to: string) =>
   useQuery({ queryKey: keys.entriesBetween(from, to), queryFn: () => entriesApi.getEntries({ from, to }).then((r) => r.entries) });
+
+/** Everything a recap of a day up to `to` looks back on. */
+export const useRecapHistory = (to: string, enabled: boolean) =>
+  useQuery({
+    queryKey: keys.recapHistory(to),
+    queryFn: () => entriesApi.getEntries({ from: shiftDate(to, -RECAP_WINDOW_DAYS), to }).then((r) => r.entries),
+    enabled,
+  });
 
 /** Entries with a line on the food, for an editor's "used by". */
 export const useEntriesOfFood = (foodId: string) =>
