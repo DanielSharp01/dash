@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { pendingRecapDay, recapWorthShowing } from "@dash/core";
-import { closeRecap, currentRecap, forgetRecapSeen, markRecapSeen, playRecap, recapSeenFor, useDayRecap, useRecapRequest } from "../recap";
+import { queryClient } from "../../queries/client";
+import { forgetRecapSeen, markRecapSeen, meQuery, recapSeenOn } from "../../queries/me.queries";
+import { closeRecap, currentRecap, playRecap, useDayRecap, useRecapRequest } from "../recap";
 import { dayParam, todayKey } from "../time";
 import { type RecapActions, RecapOverlay } from "./RecapOverlay";
 import { useOpen } from "./useSteps";
@@ -41,13 +43,18 @@ export function RecapHost() {
   const onToday = location.pathname === "/";
   useEffect(() => {
     if (!onToday) return;
-    const check = () => {
+    const check = async () => {
       if (document.visibilityState !== "visible" || currentRecap()) return;
-      const date = pendingRecapDay(todayKey(), recapSeenFor());
+      // Another device may have played it since /me was loaded.
+      const me = await queryClient.fetchQuery(meQuery).catch(() => undefined);
+      if (currentRecap()) return;
+      const date = pendingRecapDay(todayKey(), recapSeenOn());
       if (!date) return;
+      // Turned off, the day still counts as seen, so turning it back on doesn't bring up an old one.
+      if (me?.profile.autoRecap === false) return markRecapSeen(date);
       playRecap({ date, intro: true, automatic: true });
     };
-    check();
+    void check();
     document.addEventListener("visibilitychange", check);
     return () => document.removeEventListener("visibilitychange", check);
   }, [onToday]);

@@ -2,57 +2,14 @@ import { durationMinutes } from "./burn";
 import type { FoodLookup } from "./foods";
 import type { DailyTargets } from "./goals";
 import { dayTotals } from "./nutrition";
-import type { Entry } from "./schemas";
+import type { DayRecap, DayResult, Entry, RecapTone } from "./schemas";
 import { shiftDate } from "./time";
-
-export type RecapTone = "great" | "close" | "over" | "light" | "empty";
 
 /** Under half the budget is more likely a forgotten meal than a great day, so it isn't celebrated. */
 const LIGHT_SHARE = 0.5;
 const CLOSE_SHARE = 1.1;
 /** How far back streaks look; a longer run is still counted, just capped here. */
 export const RECAP_WINDOW_DAYS = 120;
-
-export interface DayResult {
-  date: string;
-  logged: boolean;
-  tone: RecapTone;
-  eaten: number;
-  /** The day's target plus what exercise burned. */
-  budget: number;
-  burned: number;
-  /** How long the exercise took; absent when nothing burned or some of it has no duration. */
-  exerciseMinutes?: number;
-  /** Things logged without calories; `eaten` is then a lower bound. */
-  missing: number;
-  /** Below maintenance plus exercise. Absent while the profile lacks what maintenance needs. */
-  deficit?: number;
-  goalDeficit?: number;
-}
-
-export interface DayRecap {
-  day: DayResult;
-  /** Nothing was logged before this day, so there is no history to compare with. */
-  first: boolean;
-  streak: {
-    logged: number;
-    onTarget: number;
-    /** The runs as they stood the day before, to say which one just ended. */
-    loggedBefore: number;
-    onTargetBefore: number;
-    best: number;
-  };
-  week: {
-    /** The Monday the week starts on. */
-    from: string;
-    /** Monday up to the recapped day. */
-    days: DayResult[];
-    /** The recapped day is a Sunday, so this is the whole week. */
-    complete: boolean;
-    deficit?: number;
-    goal?: number;
-  };
-}
 
 export function dayResult(date: string, entries: Entry[], targets: DailyTargets, foods: FoodLookup): DayResult {
   const t = dayTotals(entries, foods);

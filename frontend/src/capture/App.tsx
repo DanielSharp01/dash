@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import type { Entry } from "@dash/core";
 import { deleteEntry, restoreEntry, useDayEntries, useFollowUpCount } from "../queries/entries.queries";
-import { useMe } from "../queries/me.queries";
+import { saveProfile, useMe } from "../queries/me.queries";
 import { dayParam, todayKey } from "./time";
 import { CookFlow } from "./flows/CookFlow";
 import { EatFlow } from "./flows/EatFlow";
@@ -40,7 +40,12 @@ const sections: { target: NavTarget; path: string; match: string[]; icon: string
 
 export function App() {
   // Days and times need the person's rollover hour, so nothing renders before /me is in.
-  useMe();
+  const { profile } = useMe();
+  // The server needs the person's time zone to tell when their day is over, e.g. for a recap.
+  useEffect(() => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timeZone && profile.timeZone !== timeZone) void saveProfile({ timeZone });
+  }, [profile.timeZone]);
   const toast = useNotice();
   const [drawer, setDrawer] = useState(false);
   const followUpCount = useFollowUpCount();

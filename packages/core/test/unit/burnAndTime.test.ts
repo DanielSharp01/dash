@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateBurn, sortKey } from "../../src/index";
+import { estimateBurn, logicalDateIn, sortKey } from "../../src/index";
 
 describe("estimateBurn", () => {
   it("scales distance by body weight and converts the unit", () => {
@@ -26,5 +26,19 @@ describe("sortKey", () => {
     const unknown = sortKey({ date: "2026-09-01", kind: "day" }, 3);
     expect([unknown, late, evening].sort()).toEqual([evening, late, unknown]);
     expect(sortKey({ date: "2026-09-01", kind: "exact", time: "01:30" }, 0) < evening).toBe(true);
+  });
+});
+
+describe("logicalDateIn", () => {
+  // 22:30 UTC on 9 October is already 00:30 on the 10th in Budapest (UTC+2 in October).
+  const lateEvening = new Date("2026-10-09T22:30:00Z");
+
+  it("reads the date on the person's wall clock, not the server's", () => {
+    expect(logicalDateIn(lateEvening, "Europe/Budapest", 0)).toBe("2026-10-10");
+    expect(logicalDateIn(lateEvening, "America/New_York", 0)).toBe("2026-10-09");
+  });
+
+  it("keeps the previous day until the rollover hour", () => {
+    expect(logicalDateIn(lateEvening, "Europe/Budapest", 3)).toBe("2026-10-09");
   });
 });

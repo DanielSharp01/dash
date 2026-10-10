@@ -30,6 +30,26 @@ export function saveProfile(patch: Partial<ProfileInput>) {
   });
 }
 
+/** On the server, so a recap seen on one device doesn't play again on another. */
+export const recapSeenOn = () => me()?.recapSeenOn;
+
+export function markRecapSeen(day: string) {
+  const seen = recapSeenOn();
+  if (seen && seen >= day) return;
+  patchMe({ recapSeenOn: day });
+  // A failed save only means the recap may play once more, so it isn't retried or reported.
+  void meApi.postRecapSeen(day).catch(() => undefined);
+}
+
+export function forgetRecapSeen() {
+  qc.setQueryData<MeResponse>(keys.me, (old) => {
+    if (!old) return old;
+    const { recapSeenOn: _, ...rest } = old;
+    return rest;
+  });
+  return meApi.deleteRecapSeen();
+}
+
 /** "fix" rewrites the current plan; a date starts a new one there. Saving the current plan does nothing. */
 export function savePlan(plan: Plan, change: "fix" | { from: string }) {
   const history = me()?.plan;

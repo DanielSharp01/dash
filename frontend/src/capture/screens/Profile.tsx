@@ -173,6 +173,18 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
             </button>
           </div>
         </div>
+        <div className="field">
+          <span className="field-label">Day recap</span>
+          <div className="segmented small">
+            <button aria-selected={profile.autoRecap} onClick={() => updateProfile({ autoRecap: true })}>
+              Plays itself
+            </button>
+            <button aria-selected={!profile.autoRecap} onClick={() => updateProfile({ autoRecap: false })}>
+              From the strip
+            </button>
+          </div>
+          <p className="hint">Once a day is over, its recap plays the next time you open Dash. Otherwise it waits in the strip under the day's summary.</p>
+        </div>
       </section>
 
       <section className="settings-group">

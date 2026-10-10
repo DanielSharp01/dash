@@ -12,6 +12,15 @@ const isCalendarDate = (s: string) => {
 };
 
 export const idSchema = z.uuid();
+function isTimeZone(name: string) {
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: name });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isCalendarDate, "Not a calendar date");
 export const versionStartSchema = z.union([dateKeySchema, z.literal(BEGINNING)]);
 export const clockTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
@@ -261,6 +270,10 @@ export const profileInputSchema = z.object({
   dayEndsAt: z.number().int().min(0).max(6),
   /** Defaulted because older backups and servers don't have it. */
   clock: clockSchema.default("24h"),
+  /** Off, yesterday's recap waits in the summary strip instead of playing when the day rolls over. */
+  autoRecap: z.boolean().default(true),
+  /** IANA name from the device, so the server knows when the person's day is over. */
+  timeZone: z.string().max(64).refine(isTimeZone, "Not a time zone").optional(),
 });
 export const profileSchema = profileInputSchema.extend({ revision: z.number().int().min(1) });
 
@@ -297,6 +310,8 @@ export const meResponseSchema = z.object({
   profile: profileSchema,
   plan: planHistorySchema,
   pots: z.array(potSchema),
+  /** The last day whose recap was seen, on any device. */
+  recapSeenOn: dateKeySchema.optional(),
 });
 
 export const updateProfileRequestSchema = profileInputSchema.extend(revisionField);
@@ -307,6 +322,53 @@ export const savePlanRequestSchema = z.object({
   change: z.union([z.literal("fix"), z.object({ from: dateKeySchema })]),
   revision: z.number().int().min(1),
 });
+
+export const recapToneSchema = z.enum(["great", "close", "over", "light", "empty"]);
+
+export const dayResultSchema = z.object({
+  date: dateKeySchema,
+  logged: z.boolean(),
+  tone: recapToneSchema,
+  eaten: z.number(),
+  /** The day's target plus what exercise burned. */
+  budget: z.number(),
+  burned: z.number(),
+  /** Things logged without calories; `eaten` is then a lower bound. */
+  missing: z.number().int(),
+  /** How long the exercise took; absent when nothing burned or some of it has no duration. */
+  exerciseMinutes: z.number().optional(),
+  /** Below maintenance plus exercise. Absent while the profile lacks what maintenance needs. */
+  deficit: z.number().optional(),
+  goalDeficit: z.number().optional(),
+});
+
+export const dayRecapSchema = z.object({
+  day: dayResultSchema,
+  /** Nothing was logged before this day, so there is no history to compare with. */
+  first: z.boolean(),
+  streak: z.object({
+    logged: z.number().int(),
+    onTarget: z.number().int(),
+    /** The runs as they stood the day before, to say which one just ended. */
+    loggedBefore: z.number().int(),
+    onTargetBefore: z.number().int(),
+    best: z.number().int(),
+  }),
+  week: z.object({
+    /** The Monday the week starts on. */
+    from: dateKeySchema,
+    /** Monday up to the recapped day. */
+    days: z.array(dayResultSchema),
+    /** The recapped day is a Sunday, so this is the whole week. */
+    complete: z.boolean(),
+    deficit: z.number().optional(),
+    goal: z.number().optional(),
+  }),
+});
+
+export const recapQuerySchema = z.object({ day: dateKeySchema });
+export const recapSeenRequestSchema = z.object({ day: dateKeySchema });
+export const recapSeenResponseSchema = z.object({ recapSeenOn: dateKeySchema });
 
 export const weighInsResponseSchema = z.object({ weighIns: z.array(weighInSchema) });
 
@@ -472,3 +534,6 @@ export type FollowUp = z.infer<typeof followUpResponseSchema>;
 export type UndoResult = z.infer<typeof undoResponseSchema>;
 export type BarcodeResult = z.infer<typeof barcodeResponseSchema>;
 export type IconEntry = z.infer<typeof iconsResponseSchema>["icons"][number];
+export type RecapTone = z.infer<typeof recapToneSchema>;
+export type DayResult = z.infer<typeof dayResultSchema>;
+export type DayRecap = z.infer<typeof dayRecapSchema>;

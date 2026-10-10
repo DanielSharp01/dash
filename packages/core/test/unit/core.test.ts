@@ -148,7 +148,7 @@ describe("schemas", () => {
 });
 
 describe("dailyTargets", () => {
-  const profile = { units: "metric", heightCm: 180, birthday: "1990-01-01", dayEndsAt: 0, clock: "24h" } as const;
+  const profile = { units: "metric", heightCm: 180, birthday: "1990-01-01", dayEndsAt: 0, clock: "24h", autoRecap: true } as const;
   const weighIns = [{ id: uid(), date: "2026-01-01", kg: 110 }];
   const withPlan = (patch: Partial<typeof defaultPlan>) => [{ from: BEGINNING, plan: { ...defaultPlan, ...patch } }];
 

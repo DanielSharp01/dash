@@ -40,33 +40,6 @@ export const useRecapRequest = () =>
     () => request,
   );
 
-// Per device until the backend keeps it, so a phone and a desktop each play it once.
-const SEEN_KEY = "dash.recapSeenFor";
-
-export function recapSeenFor() {
-  try {
-    return localStorage.getItem(SEEN_KEY) ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-export function markRecapSeen(date: string) {
-  try {
-    if ((recapSeenFor() ?? "") < date) localStorage.setItem(SEEN_KEY, date);
-  } catch {
-    // Private mode: it plays again next time, which is harmless.
-  }
-}
-
-export function forgetRecapSeen() {
-  try {
-    localStorage.removeItem(SEEN_KEY);
-  } catch {
-    // Nothing stored to forget.
-  }
-}
-
 /**
  * `fresh` waits out a refetch of stale history instead of answering from it; a log saved since
  * the last load would otherwise be missing from the answer.

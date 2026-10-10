@@ -14,6 +14,7 @@ import {
   replacePlanVersions,
   updateProfile,
 } from "../repositories/settings.repo";
+import { opt } from "../repositories/mapping";
 import { claimId, expectRevision, notFound, sameId } from "./common";
 
 export async function me(userId: string) {
@@ -26,7 +27,7 @@ export async function me(userId: string) {
     listPots(db, userId),
   ]);
   if (!user) throw notFound();
-  return { user, profile: profile!, plan: { versions, revision: profileRow!.planRevision }, pots };
+  return { user, profile: profile!, plan: { versions, revision: profileRow!.planRevision }, pots, ...opt("recapSeenOn", profileRow!.recapSeenOn) };
 }
 
 export async function saveProfile(userId: string, req: ProfileInput & { revision: number }) {

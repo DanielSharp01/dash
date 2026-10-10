@@ -1,0 +1,1 @@
+ALTER TABLE "profiles" ADD COLUMN "auto_recap" boolean DEFAULT true NOT NULL;

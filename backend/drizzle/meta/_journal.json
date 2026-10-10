@@ -15,6 +15,20 @@
       "when": 1791651012255,
       "tag": "0001_clock",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791660492015,
+      "tag": "0002_recap",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791661153675,
+      "tag": "0003_auto_recap",
+      "breakpoints": true
     }
   ]
 }

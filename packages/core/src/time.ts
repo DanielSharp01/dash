@@ -17,6 +17,14 @@ export const logicalDate = (d: Date, dayEndsAt: number) => {
   return toDateKey(shifted);
 };
 
+/** `logicalDate` on the person's wall clock, for code that doesn't run in their time zone. */
+export function logicalDateIn(now: Date, timeZone: string, dayEndsAt: number) {
+  const format = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" });
+  const part = Object.fromEntries(format.formatToParts(now).map((p) => [p.type, p.value]));
+  const date = `${part.year}-${part.month}-${part.day}`;
+  return Number(part.hour) < dayEndsAt ? shiftDate(date, -1) : date;
+}
+
 export const partOfTime = (time: string, dayEndsAt: number): DayPart => {
   const h = Number(time.slice(0, 2));
   if (h < dayEndsAt) return "night";

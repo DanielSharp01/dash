@@ -70,6 +70,10 @@ export const profilesTable = pgTable(
     sex: sexEnum(),
     dayEndsAt: smallint().notNull().default(0),
     clock: clockEnum().notNull().default("24h"),
+    autoRecap: boolean().notNull().default(true),
+    timeZone: text(),
+    /** Not part of the revisioned profile: devices only ever move it forward. */
+    recapSeenOn: day(),
     revision: revision(),
     /** Bumped by every plan change; guards plan_versions as one document. */
     planRevision: integer().notNull().default(1),

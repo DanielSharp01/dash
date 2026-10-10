@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { BEGINNING, defaultPlan, type Plan, type PlanVersion, type Pot, type Profile, type ProfileInput, type WeighIn } from "@dash/core";
 import { planVersionsTable, potsTable, profilesTable, weighInsTable } from "../db/schema";
 import type { Executor } from "../providers/db";
@@ -14,6 +14,8 @@ const toProfile = (row: ProfileRow): Profile => ({
   ...opt("sex", row.sex),
   dayEndsAt: row.dayEndsAt,
   clock: row.clock,
+  autoRecap: row.autoRecap,
+  ...opt("timeZone", row.timeZone),
   revision: row.revision,
 });
 
@@ -75,11 +77,27 @@ export async function updateProfile(ex: Executor, userId: string, input: Profile
       sex: input.sex ?? null,
       dayEndsAt: input.dayEndsAt,
       clock: input.clock,
+      autoRecap: input.autoRecap,
+      timeZone: input.timeZone ?? null,
       revision,
     })
     .where(eq(profilesTable.userId, userId))
     .returning();
   return toProfile(row!);
+}
+
+/** Only moves forward, so a device that saw an older recap can't bring a newer one back. */
+export async function markRecapSeen(ex: Executor, userId: string, day: string) {
+  const [row] = await ex
+    .update(profilesTable)
+    .set({ recapSeenOn: sql`greatest(coalesce(${profilesTable.recapSeenOn}, ${day}::date), ${day}::date)` })
+    .where(eq(profilesTable.userId, userId))
+    .returning({ recapSeenOn: profilesTable.recapSeenOn });
+  return row!.recapSeenOn!;
+}
+
+export async function clearRecapSeen(ex: Executor, userId: string) {
+  await ex.update(profilesTable).set({ recapSeenOn: null }).where(eq(profilesTable.userId, userId));
 }
 
 export async function getPlanVersions(ex: Executor, userId: string) {
