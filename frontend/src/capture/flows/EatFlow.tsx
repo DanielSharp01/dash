@@ -711,6 +711,9 @@ function previewNew(n: NewFood, amount: Amount, date: string): Contents {
   return mergeContents({}, c && Object.fromEntries(Object.entries(c).map(([k, v]) => [k, { value: v, complete: true }])));
 }
 
+/** One decimal only where it matters, as labels print it; a whole pot's "168.3 g" doesn't fit a chip. */
+const grams = (n: number) => (n < 10 ? Math.round(n * 10) / 10 : Math.round(n));
+
 export function NutritionPreview({ contents: c }: { contents: Contents }) {
   const kcal = c.kcal;
   const known = kcal && (kcal.complete || kcal.value > 0);
@@ -735,7 +738,7 @@ export function NutritionPreview({ contents: c }: { contents: Contents }) {
               <span className="macro-icon" aria-hidden>
                 {short}
               </span>
-              <b>{has ? `${v.complete ? "" : "≥"}${Math.round(v.value * 10) / 10} g` : "?"}</b>
+              <b>{has ? `${v.complete ? "" : "≥"}${grams(v.value)} g` : "?"}</b>
               <small>{label}</small>
             </span>
           );
