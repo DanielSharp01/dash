@@ -119,6 +119,10 @@ The flow is the same for I ate and I drank. Both open on cards, with search and 
 
 A scan with no match returns to this screen with the barcode attached and "+ New with this barcode" as the top row. A miss often means another brand of something already in the catalogue, so the person can still pick an existing item.
 
+A barcode is not unique. Stores reuse codes, a product keeps its code through a recipe change, and the person's own items, public items and a product database can all hold the same one. A scan therefore narrows the list to every item with that code, the person's own first, and the person picks. A single match still needs a tap, since it may be the wrong product.
+
+Later idea: once national product databases are available, a person could subscribe to the ones for the countries they shop in, so a scan searches those too. The MVP has the person's items, public items, and Open Food Facts.
+
 **New.** Name (prefilled from the search), barcode (prefilled from a scan), and a choice between an item and a combo. An item gets a label, which can be skipped, so "chicken stew, one bowl" stays a five-second capture. A combo, such as a sandwich, lists what's in it instead; at the end it can be saved as a combo for next time or just logged. Recipes come from I cooked, not from New. A dish eaten elsewhere, such as a restaurant stew, is an item or an entry-only capture.
 
 **Amount.** Quick buttons from the item's servings and common amounts, and a typed value. The header shows the time, the item name and its variant on every screen after What. Tapping the time opens the time picker. The time picker can target any day, with "Yesterday" as a one-tap choice for the common morning-after case.
@@ -223,7 +227,7 @@ The server provides a starting catalogue, so common foods don't have to be typed
 - **Drinks** include at least Water, Coffee and Tea. Their small values are real reference values, not rounded to zero, so they count as known.
 - **Activities** stay a short list until each one's calorie factor has been checked against its source. The prototype's 25 built-in activities and their factors are unverified rules of thumb; the server starts with the few that have been checked, with Walk, Run and Cycle first, and grows as more are verified.
 
-Seeded entries behave like any other: a person can edit them, and the server can update its copy without touching anyone's edits or past entries.
+Seeded items and activities are public and read-only. Anyone can log them directly. A person who wants different values or servings duplicates one into a personal item, which never changes with the public one. Corrections to a public item reach everyone who logs it: a fixed mistake changes past days too, while a changed product starts a new label version and leaves past days alone.
 
 ## Icons and pickers
 
