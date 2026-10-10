@@ -15,8 +15,8 @@ importers:
         specifier: ^0.1.0
         version: 0.1.0
       '@danielsharp/drizzle':
-        specifier: ^0.1.1
-        version: 0.1.1(@danielsharp/zod@0.1.0(zod@4.4.3))(drizzle-orm@0.44.7(@types/pg@8.23.1)(pg@8.23.0))(zod@4.4.3)
+        specifier: ^0.2.0
+        version: 0.2.0(@danielsharp/zod@0.1.0(zod@4.4.3))(drizzle-orm@0.44.7(@types/pg@8.23.1)(pg@8.23.0))(zod@4.4.3)
       '@danielsharp/http-auth':
         specifier: ^0.1.2
         version: 0.1.2(@danielsharp/auth@0.1.1(google-auth-library@11.0.2))(@danielsharp/typeline-http@0.1.2(@danielsharp/typeline@0.1.2)(@danielsharp/zod@0.1.0(zod@4.4.3))(zod@4.4.3))(zod@4.4.3)
@@ -93,8 +93,8 @@ packages:
   '@danielsharp/common@0.1.0':
     resolution: {integrity: sha512-H962/HlISGGMzxWsOLHrT8mWECOH9Pc11WGpkvOX7JnwXVTtA4n7xR5lE8TCiwlBIrCzdGETAG+TdxpvR4cX0w==}
 
-  '@danielsharp/drizzle@0.1.1':
-    resolution: {integrity: sha512-n6SJVX14ob5UnkE8lKjaaQi6hvyQoyjHQ+2SBfsjU02QkorvZLBI94LUVjdLba43Fg8YgX28rzmqtRdz8hjFTQ==}
+  '@danielsharp/drizzle@0.2.0':
+    resolution: {integrity: sha512-iJQ6DkMcZbW7671Kk+S9YJm5YtqnAgaBy6s7EIwtVQCJvp1ijeskRgyNQpnstbn4xiqRvNMo1AhrzWM8MUlihg==}
     peerDependencies:
       '@danielsharp/zod': 0.1.0
       drizzle-orm: ^0.44.0
@@ -1478,7 +1478,7 @@ snapshots:
 
   '@danielsharp/common@0.1.0': {}
 
-  '@danielsharp/drizzle@0.1.1(@danielsharp/zod@0.1.0(zod@4.4.3))(drizzle-orm@0.44.7(@types/pg@8.23.1)(pg@8.23.0))(zod@4.4.3)':
+  '@danielsharp/drizzle@0.2.0(@danielsharp/zod@0.1.0(zod@4.4.3))(drizzle-orm@0.44.7(@types/pg@8.23.1)(pg@8.23.0))(zod@4.4.3)':
     dependencies:
       '@danielsharp/zod': 0.1.0(zod@4.4.3)
       drizzle-orm: 0.44.7(@types/pg@8.23.1)(pg@8.23.0)

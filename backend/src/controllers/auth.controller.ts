@@ -9,7 +9,11 @@ import { stop, selectInput, tapInput } from "@danielsharp/typeline";
 import { authedRouter, rootRouter } from "../routers";
 import z from "zod";
 import { authCookie, google, session } from "../providers/auth";
+import { db } from "../providers/db";
+import { UserRepository } from "../repositories/user.repo";
 import { issuePkce, OAuthError } from "@danielsharp/auth";
+
+const users = new UserRepository(db);
 
 export function authController() {
   rootRouter.get("/auth/google/authorize", (line) =>
@@ -91,7 +95,8 @@ export function authController() {
               redirectUri: `${req.url.origin}/auth/google/callback`,
               nonce,
             });
-            return { session: session.issue(identity), returnTo: query.state };
+            const user = await users.upsertFromGoogle(identity);
+            return { session: await session.issue({ userId: user.id, google: identity }), returnTo: query.state };
           } catch (error) {
             if (OAuthError.is(error)) {
               res.redirect("/login?error=oauth_error");
@@ -121,8 +126,8 @@ export function authController() {
   authedRouter.get("/auth/me", (line) =>
     line.pipe(
       selectInput(
-        (x) => x.auth,
-        jsonResSend(z.object({ sub: z.string() }), 200),
+        ({ auth }) => ({ id: auth.userId, email: auth.google.email ?? null, name: auth.google.name ?? null }),
+        jsonResSend(z.object({ id: z.string(), email: z.string().nullable(), name: z.string().nullable() }), 200),
       ),
     ),
   );

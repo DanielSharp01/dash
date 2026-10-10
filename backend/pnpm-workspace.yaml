@@ -3,4 +3,4 @@ allowBuilds:
   esbuild: set this to true or false
 minimumReleaseAgeExclude:
   - '@danielsharp/typeline@0.1.2'
-  - '@danielsharp/drizzle@0.1.1'
+  - '@danielsharp/drizzle@0.2.0'

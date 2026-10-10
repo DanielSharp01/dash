@@ -11,7 +11,7 @@
   "dependencies": {
     "@danielsharp/auth": "^0.1.1",
     "@danielsharp/common": "^0.1.0",
-    "@danielsharp/drizzle": "^0.1.1",
+    "@danielsharp/drizzle": "^0.2.0",
     "@danielsharp/http-auth": "^0.1.2",
     "@danielsharp/redis": "^0.1.0",
     "@danielsharp/typeline": "^0.1.2",
