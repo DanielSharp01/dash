@@ -340,6 +340,8 @@ export const dayResultSchema = z.object({
   /** Below maintenance plus exercise. Absent while the profile lacks what maintenance needs. */
   deficit: z.number().optional(),
   goalDeficit: z.number().optional(),
+  /** Grams eaten against the day's targets; `missing` counts things logged without that macro. */
+  macros: z.record(z.enum(["protein", "carbs", "fat"]), z.object({ eaten: z.number(), target: z.number(), missing: z.number().int() })),
 });
 
 export const dayRecapSchema = z.object({

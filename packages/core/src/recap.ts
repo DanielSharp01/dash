@@ -48,6 +48,11 @@ export function dayResult(date: string, entries: Entry[], targets: DailyTargets,
     budget,
     burned: t.burned,
     missing: t.kcal.missing,
+    macros: {
+      protein: { eaten: t.protein.value, target: targets.protein, missing: t.protein.missing },
+      carbs: { eaten: t.carbs.value, target: targets.carbs, missing: t.carbs.missing },
+      fat: { eaten: t.fat.value, target: targets.fat, missing: t.fat.missing },
+    },
     ...(exerciseMinutes !== undefined ? { exerciseMinutes } : {}),
     ...(goalDeficit !== undefined ? { goalDeficit, deficit: budget + goalDeficit - eaten } : {}),
   };
@@ -119,3 +124,39 @@ export function pendingRecapDay(today: string, seenFor: string | undefined) {
 
 /** A day with nothing logged only gets a recap when it ended a run; after a long gap it would just nag. */
 export const recapWorthShowing = (r: DayRecap) => r.day.logged || r.streak.loggedBefore > 0;
+
+export type Macro = keyof DayResult["macros"];
+export interface MacroCall {
+  macro: Macro;
+  way: "heavy" | "short";
+  /** Far enough off to say "a lot" rather than "slightly". */
+  strong: boolean;
+}
+
+const KCAL_PER_GRAM: Record<Macro, number> = { protein: 4, carbs: 4, fat: 9 };
+/** How far off the plan a macro has to be to mention, and to call it a lot. */
+const SLIGHTLY_OFF = 0.2;
+const A_LOT_OFF = 0.4;
+
+/**
+ * What the day's macros leaned towards, or undefined when too much of it has no macros to tell.
+ * Carbs and fat are judged by their share of what was eaten, so a big or small day doesn't skew them.
+ * Protein is judged by grams, because the need doesn't shrink with the calories; only falling short
+ * counts, scaled down on a day that isn't over yet or ended under budget.
+ */
+export function macroCalls(day: DayResult): MacroCall[] | undefined {
+  const { macros, eaten, budget } = day;
+  if ((Object.keys(macros) as Macro[]).some((m) => macros[m].missing > 0 || macros[m].target <= 0) || eaten <= 0) return undefined;
+  const calls: MacroCall[] = [];
+  const plannedKcal = (Object.keys(macros) as Macro[]).reduce((sum, m) => sum + macros[m].target * KCAL_PER_GRAM[m], 0);
+  for (const m of ["carbs", "fat"] as const) {
+    const share = (macros[m].eaten * KCAL_PER_GRAM[m]) / eaten;
+    const planned = (macros[m].target * KCAL_PER_GRAM[m]) / plannedKcal;
+    const off = share / planned - 1;
+    if (Math.abs(off) >= SLIGHTLY_OFF) calls.push({ macro: m, way: off > 0 ? "heavy" : "short", strong: Math.abs(off) >= A_LOT_OFF });
+  }
+  const proteinDue = macros.protein.target * Math.min(1, eaten / budget);
+  const proteinOff = 1 - macros.protein.eaten / proteinDue;
+  if (proteinOff >= SLIGHTLY_OFF) calls.push({ macro: "protein", way: "short", strong: proteinOff >= A_LOT_OFF });
+  return calls;
+}

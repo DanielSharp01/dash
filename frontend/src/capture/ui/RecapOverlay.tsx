@@ -1,5 +1,5 @@
 import { type CSSProperties, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { type DayRecap, type DayResult, KCAL_PER_KG, type RecapTone, shiftDate } from "@dash/core";
+import { type DayRecap, type DayResult, KCAL_PER_KG, type MacroCall, macroCalls, type RecapTone, shiftDate } from "@dash/core";
 
 const fmt = (n: number) => Math.round(n).toLocaleString();
 const kg = (kcal: number) => (Math.abs(kcal) / KCAL_PER_KG).toFixed(2);
@@ -278,6 +278,7 @@ function DayCard({ recap, name, preview, active, settled, actions }: { recap: Da
       <DayRing day={day} unsure={unsure} active={active} settled={settled} />
       <div className="recap-stagger" style={{ "--after": `${revealAt(day) - 300}ms` } as CSSProperties}>
         <DayStats day={day} />
+        <MacroNote day={day} />
         {day.burned > 0 && <p className="recap-note good">{exerciseLine(day)}</p>}
         {recap.first && <p className="recap-note good">🌱 Day one logged. Streaks start tomorrow.</p>}
         {!recap.first && day.tone === "over" && (week.deficit ?? 0) > 0 && <p className="recap-note plain">You're still {fmt(week.deficit!)} kcal down this week 👍</p>}
@@ -289,6 +290,43 @@ function DayCard({ recap, name, preview, active, settled, actions }: { recap: Da
       </div>
       {!recap.first && <p className="recap-hint">Tap to continue</p>}
     </>
+  );
+}
+
+const macroWord: Record<MacroCall["macro"], { heavy: string; short: string }> = {
+  protein: { heavy: "protein", short: "protein" },
+  carbs: { heavy: "carb", short: "carbs" },
+  fat: { heavy: "fat", short: "fat" },
+};
+
+function macroClause({ macro, way, strong }: MacroCall) {
+  const word = macroWord[macro][way];
+  if (way === "heavy") return `was ${strong ? "very" : "slightly"} ${word} heavy`;
+  return strong ? `lacked a lot of ${word}` : `was a bit short on ${word}`;
+}
+
+function MacroNote({ day }: { day: DayResult }) {
+  const calls = macroCalls(day);
+  if (!calls) return null;
+  if (!calls.length) return <p className="recap-note good">💪 Great job on the macros.</p>;
+  const clauses = calls.map(macroClause);
+  const joined = clauses.length > 1 ? `${clauses.slice(0, -1).join(", ")} and ${clauses.at(-1)}` : clauses[0];
+  const protein = day.macros.protein;
+  const proteinShort = calls.some((c) => c.macro === "protein");
+  return (
+    <p className="recap-note plain">
+      🥗 Your day {joined}
+      {proteinShort ? (
+        <>
+          {" "}
+          <span className="nowrap">
+            ({fmt(protein.eaten)} of {fmt(protein.target)} g).
+          </span>
+        </>
+      ) : (
+        "."
+      )}
+    </p>
   );
 }
 

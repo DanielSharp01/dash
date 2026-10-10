@@ -3388,6 +3388,11 @@ a.btn {
   font-size: 0.85rem;
   font-weight: 600;
   text-align: center;
+  text-wrap: balance;
+}
+
+.recap-note .nowrap {
+  white-space: nowrap;
 }
 
 .recap-note.good {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BEGINNING, dayRecap, dayResult, defaultPlan, lookupOf, pendingRecapDay, recapWorthShowing, shiftDate, weekStart, type DailyTargets, type Entry, type FoodItem } from "../../src/index";
+import { BEGINNING, dayRecap, dayResult, defaultPlan, lookupOf, macroCalls, pendingRecapDay, recapWorthShowing, shiftDate, weekStart, type DailyTargets, type DayResult, type Entry, type FoodItem } from "../../src/index";
 
 let counter = 500;
 const uid = () => `00000000-0000-4000-8000-${String(counter++).padStart(12, "0")}`;
@@ -192,5 +192,38 @@ describe("recapWorthShowing", () => {
     expect(recapWorthShowing(dayRecap(day(3), [ate(day(2), 1800)], targetsOn, lookup))).toBe(true);
     expect(recapWorthShowing(dayRecap(day(3), [ate(day(0), 1800)], targetsOn, lookup))).toBe(false);
     expect(recapWorthShowing(dayRecap(day(3), [ate(day(3), 1800)], targetsOn, lookup))).toBe(true);
+  });
+});
+
+describe("macroCalls", () => {
+  /** Against the fixture's 115 g protein, 200 g carbs and 60 g fat. */
+  const day = (grams: { protein: number; carbs: number; fat: number }, eaten = 1800, missing = 0): DayResult => ({
+    ...dayResult(MON, [ate(MON, eaten)], targets, lookup),
+    eaten,
+    macros: {
+      protein: { eaten: grams.protein, target: targets.protein, missing },
+      carbs: { eaten: grams.carbs, target: targets.carbs, missing: 0 },
+      fat: { eaten: grams.fat, target: targets.fat, missing: 0 },
+    },
+  });
+
+  it("has nothing to say about a day that matches the plan", () => {
+    expect(macroCalls(day({ protein: 115, carbs: 200, fat: 60 }))).toEqual([]);
+  });
+
+  it("calls a day heavy on what takes up more of its calories than planned", () => {
+    expect(macroCalls(day({ protein: 115, carbs: 260, fat: 60 }))).toEqual([{ macro: "carbs", way: "heavy", strong: false }]);
+    expect(macroCalls(day({ protein: 50, carbs: 200, fat: 90 }))).toEqual([
+      { macro: "fat", way: "heavy", strong: true },
+      { macro: "protein", way: "short", strong: true },
+    ]);
+  });
+
+  it("expects only the protein a day under budget had room for", () => {
+    expect(macroCalls(day({ protein: 50, carbs: 100, fat: 30 }, 900))).toEqual([]);
+  });
+
+  it("stays quiet while something eaten has no macros", () => {
+    expect(macroCalls(day({ protein: 115, carbs: 200, fat: 60 }, 1800, 1))).toBeUndefined();
   });
 });
