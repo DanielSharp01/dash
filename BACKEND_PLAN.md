@@ -717,10 +717,17 @@ This plan was agreed over one long discussion on 10 October 2026. A new session 
 
 ### Where things stand
 
-- **Nothing in the backend is built yet** beyond the scaffold: Google sign-in, Redis sessions, the `users` table, swagger. No migrations are committed, and `backend/drizzle/` doesn't exist yet.
-- **The prototype already uses `BEGINNING = "-infinity"`** (`frontend/src/core/types.ts`) for label and plan versions with no start date. `persist.ts` upgrades stored `""` values on load, and the export format is version 3.
-- **The prototype counts `entries.comboId` as a use** when deleting a food, and shows a saved combo's current name. `FoodEntry.title` is now set only on one-off combos.
-- **All of the above is uncommitted** on `fix/backend-startup`, together with this file and a REVISED_SPEC.md edit.
+- **Phases 1–4 of the backend are built** on `feat/backend-api`: `packages/core` (zod schemas, nutrition, follow-up, goals, burn, icons), the schema and first migration, every endpoint above, public item seeding, preview and undo, the barcode proxy, icons and import.
+- **The repo is a pnpm workspace** (`backend`, `frontend`, `packages/core`); `bun.lock` is gone.
+- **The capture app hasn't switched yet.** It still runs on its own `frontend/src/core` in the prototype shapes. The switch replaces that folder with `@dash/core`, together with the deferred changes below.
+- **Tests:** `packages/core/test/unit` holds the domain unit tests. `backend/test/integration` (repositories, seeds, constraints) and `backend/test/e2e` (HTTP endpoints) run against a `dash_test` database that the global setup recreates on every run. They need Postgres and Redis outside the sandbox.
+
+### Deviations from the plan above
+
+- **Foreign keys are `on delete no action`, not `restrict`.** RESTRICT fails a user delete that cascades through entries and foods in one statement; NO ACTION checks at the end of the statement and protects a purge job just as well.
+- **Merge takes an item as its source.** The target can be an item, recipe or combo. Ingredients can't move into a recipe; into a combo they expand only when every part is an item.
+- **Lines and batches have a composite foreign key** `(batch_id, food_id) → batches (id, recipe_id)`, so a line's batch is always a batch of its recipe.
+- **Unedited built-in activities in an import** map to the public Walk, Run and Cycle where they exist. The rest become personal activities built from the prototype's definitions.
 
 ### Prototype changes deferred to phase 1
 
@@ -749,10 +756,7 @@ These were agreed, but they belong with the switch from IndexedDB to the API:
 - **Checks.** `pnpm check` and `pnpm test` in `backend/`. `npx tsc -b` and `npx vite build` in `frontend/`. Repository and service tests need a real Postgres. There's no compose file yet, so ask how the user runs Postgres and Redis locally before adding one.
 - **Drizzle details to verify early.** `date` columns in `mode: "string"` return `-infinity` unchanged. Composite foreign keys use `foreignKey({ columns, foreignColumns })`. Postgres check constraints are written in `check()`.
 
-### Suggested first steps
+### Next steps
 
-1. Extract `packages/core` from `frontend/src/core` (no stores, no React) and get both apps building against it.
-2. Write `schema.ts` for phase 1, generate the first migration, and add a `db:migrate` script.
-3. Build `GET /api/me`, profile, plan and weigh-ins end to end, with tests. That proves the repository/service/controller pattern on simple tables before foods and entries.
-4. Then foods, batches, activities, entries, public item seeding, `usage`, `follow-up`, and `import`, in that order.
-
+1. Switch the capture app onto the API: replace `frontend/src/core` with `@dash/core`, apply the deferred prototype changes above, and add revision and 409 handling.
+2. Phase 5, reporting: range totals with core on the server for the dashboard.

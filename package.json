@@ -1,0 +1,9 @@
+{
+  "name": "dash",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "pnpm -r check",
+    "test": "pnpm -r test"
+  }
+}

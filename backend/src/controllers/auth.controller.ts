@@ -1,16 +1,16 @@
 import { randomUUID } from "node:crypto";
 import {
-  jsonResSend,
   resRedirect,
   validateCookies,
   validateQuery,
 } from "@danielsharp/typeline-http";
 import { stop, selectInput, tapInput } from "@danielsharp/typeline";
-import { authedRouter, rootRouter } from "../routers";
+import { rootRouter } from "../routers";
 import z from "zod";
 import { authCookie, google, session } from "../providers/auth";
 import { db } from "../providers/db";
 import { UserRepository } from "../repositories/user.repo";
+import { ensureProfile } from "../repositories/settings.repo";
 import { issuePkce, OAuthError } from "@danielsharp/auth";
 
 const users = new UserRepository(db);
@@ -96,6 +96,7 @@ export function authController() {
               nonce,
             });
             const user = await users.upsertFromGoogle(identity);
+            await ensureProfile(db, user.id);
             return { session: await session.issue({ userId: user.id, google: identity }), returnTo: query.state };
           } catch (error) {
             if (OAuthError.is(error)) {
@@ -121,14 +122,5 @@ export function authController() {
       })
       .pipe((_, ctx) => authCookie.clear(ctx))
       .pipe(selectInput(() => "/login", resRedirect(302))),
-  );
-
-  authedRouter.get("/auth/me", (line) =>
-    line.pipe(
-      selectInput(
-        ({ auth }) => ({ id: auth.userId, email: auth.google.email ?? null, name: auth.google.name ?? null }),
-        jsonResSend(z.object({ id: z.string(), email: z.string().nullable(), name: z.string().nullable() }), 200),
-      ),
-    ),
   );
 }

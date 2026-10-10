@@ -1,6 +1,10 @@
+packages:
+  - backend
+  - frontend
+  - packages/*
 allowBuilds:
-  '@scarf/scarf': set this to true or false
-  esbuild: set this to true or false
+  '@scarf/scarf': false
+  esbuild: true
 minimumReleaseAgeExclude:
   - '@danielsharp/typeline@0.1.2'
   - '@danielsharp/drizzle@0.2.0'

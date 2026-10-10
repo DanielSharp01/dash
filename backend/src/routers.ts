@@ -1,4 +1,4 @@
-import { router, swagger } from "@danielsharp/typeline-http";
+import { router } from "@danielsharp/typeline-http";
 import { auth } from "./providers/auth";
 
 export const rootRouter = router();

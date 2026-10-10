@@ -16,3 +16,7 @@ export const redis = createRedisConnection(redisClient, {
 export async function initializeRedis() {
   await redisClient.connect();
 }
+
+export async function closeRedis() {
+  await redisClient.close();
+}

@@ -1,21 +1,15 @@
-import { defaultErrorHandler } from "@danielsharp/typeline-http";
-import { authErrorMapper } from "@danielsharp/http-auth";
-import { controllers } from "./controllers";
-import { rootRouter } from "./routers";
+import { createApp, onError } from "./app";
 import { env } from "./config/env";
-import { logger } from "./providers/logger";
 import { initializeRedis } from "./providers/redis";
+import { seedPublicItems } from "./seeds";
 
-controllers();
+const app = createApp();
 
 await initializeRedis();
+await seedPublicItems();
 
-rootRouter.compile();
-const server = await rootRouter.mount({
-  onError: defaultErrorHandler((error) => {
-    logger.error("Error", error as any);
-    return authErrorMapper(error) ?? undefined;
-  }),
+const server = await app.mount({
+  onError,
   port: env.PORT,
   hostname: "localhost",
 });
