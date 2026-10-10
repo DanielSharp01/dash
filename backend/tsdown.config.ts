@@ -7,5 +7,5 @@ export default defineConfig({
   dts: false,
   sourcemap: true,
   // The workspace package ships TypeScript source, so it is bundled rather than imported at runtime.
-  noExternal: ["@dash/core"],
+  deps: { alwaysBundle: ["@dash/core"] },
 });

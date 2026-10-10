@@ -41,9 +41,9 @@ export default defineConfig(({ mode }) => {
     build: {
       rollupOptions: {
         input: {
-          main: resolve(__dirname, "index.html"),
-          capture: resolve(__dirname, "capture/index.html"),
-          login: resolve(__dirname, "login/index.html"),
+          main: resolve(import.meta.dirname, "index.html"),
+          capture: resolve(import.meta.dirname, "capture/index.html"),
+          login: resolve(import.meta.dirname, "login/index.html"),
         },
       },
     },
