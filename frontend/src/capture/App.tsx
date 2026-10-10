@@ -13,6 +13,7 @@ import { SettingsScreen, WeighInsScreen } from "./screens/Profile";
 import { type EntryActions, InboxScreen, Today } from "./screens/Today";
 import { Drawer } from "./ui/Drawer";
 import { dismiss, notify, useNotice } from "./ui/notify";
+import { UpdateBar } from "./ui/UpdateBar";
 import { useOpen } from "./ui/useSteps";
 
 /** The day a page is about: "?day=" when it's a valid past day, otherwise today. */
@@ -81,6 +82,7 @@ export function App() {
 
   return (
     <>
+      <UpdateBar />
       <Routes>
         <Route path="/" element={<Today day={day} setDay={setDay} onMenu={openMenu} actions={actions} />} />
         <Route path="/log/ate" element={<LogFood via="ate" finish={finish} />} />

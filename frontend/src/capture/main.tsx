@@ -6,6 +6,7 @@ import { activitiesQuery, activityUsageQuery } from "../queries/activities.queri
 import { queryClient, setMutationErrorHandler } from "../queries/client";
 import { followUpQuery } from "../queries/entries.queries";
 import { foodsQuery, foodUsageQuery } from "../queries/foods.queries";
+import { keys } from "../queries/keys";
 import { meQuery } from "../queries/me.queries";
 import { weighInsQuery } from "../queries/weighIns.queries";
 import { App } from "./App";
@@ -14,6 +15,9 @@ import { LoadError } from "./ui/LoadError";
 import "./styles.css";
 
 setMutationErrorHandler(showSaveError);
+
+// A lazily loaded file (the barcode scanner) is gone after a deploy; that's the update pill's cue too.
+addEventListener("vite:preloadError", () => void queryClient.refetchQueries({ queryKey: keys.deployedBuild }));
 
 // Started together, so the screens' suspense doesn't wait for them one after another.
 void queryClient.prefetchQuery(meQuery);

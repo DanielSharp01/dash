@@ -12,6 +12,7 @@ export const keys = {
   weighIns: ["weigh-ins"] as const,
   barcode: (code: string) => ["barcode", code] as const,
   icons: ["icons"] as const,
+  deployedBuild: ["deployed-build"] as const,
 };
 
 export const isDayKey = (key: readonly unknown[]): key is readonly ["entries", string] =>

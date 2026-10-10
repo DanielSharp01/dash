@@ -31,7 +31,39 @@ function pageFallback(): Plugin {
   };
 }
 
-export default defineConfig(({ mode }) => {
+/**
+ * Stamps the bundle and dist/version.json with the same build id, so an open tab can tell a
+ * deploy happened. The Docker build has no .git, hence a timestamp unless BUILD_ID is set.
+ * The dev server serves its own version.json; opening /__dev/bump-version fakes a deploy.
+ */
+function buildVersion(command: "build" | "serve"): Plugin {
+  const id = command === "serve" ? "dev" : (process.env.BUILD_ID ?? new Date().toISOString());
+  let served = id;
+  return {
+    name: "dash-build-version",
+    config: () => ({ define: { __BUILD_ID__: JSON.stringify(id) } }),
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url === "/__dev/bump-version") {
+          served = `dev-${Date.now()}`;
+          res.end("Version bumped. Switch back to the app's tab to see the update notice.");
+        } else if (req.url?.startsWith("/version.json")) {
+          res.setHeader("content-type", "application/json");
+          res.end(JSON.stringify({ build: served }));
+        } else {
+          // A page load is the reload that "installs" the fake deploy, since the bundle stays "dev".
+          if (req.headers.accept?.includes("text/html")) served = id;
+          next();
+        }
+      });
+    },
+    generateBundle() {
+      if (command === "build") this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify({ build: id }) });
+    },
+  };
+}
+
+export default defineConfig(({ command, mode }) => {
   // Same origin through the proxy: no CORS, and the __Host- auth cookie works.
   // The "" prefix also loads PROXY_SESSION, which stays unprefixed so it can never reach the bundle.
   const env = loadEnv(mode, process.cwd(), "");
@@ -46,7 +78,7 @@ export default defineConfig(({ mode }) => {
   };
   const proxy = { "/api": route, "/auth": route };
   return {
-    plugins: [pageFallback(), react(), ...(https ? [basicSsl()] : [])],
+    plugins: [pageFallback(), buildVersion(command), react(), ...(https ? [basicSsl()] : [])],
     server: { proxy },
     preview: { proxy },
     build: {

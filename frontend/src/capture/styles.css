@@ -227,7 +227,7 @@ h1 {
 
 .home-header {
   position: sticky;
-  top: 0;
+  top: var(--update-bar-h);
   z-index: 2;
   display: flex;
   align-items: center;
@@ -567,6 +567,33 @@ h1 {
   white-space: nowrap;
 }
 
+/* Above everything in the page's flow; the sticky headers move down by its height so it never covers them. */
+.update-bar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  height: var(--update-bar-h);
+  padding: 8px 16px 0;
+  background: var(--bg);
+}
+
+.update-bar button {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius);
+  background: var(--close);
+  color: #1a1300;
+  font-size: 0.9rem;
+}
+
+:root {
+  --update-bar-h: 0px;
+}
+
+:root:has(.update-bar) {
+  --update-bar-h: 52px;
+}
+
 .toast button {
   color: var(--accent);
   font-weight: 700;
@@ -588,7 +615,7 @@ h1 {
 
 .flow-header {
   position: sticky;
-  top: 0;
+  top: var(--update-bar-h);
   z-index: 2;
   display: flex;
   align-items: center;
@@ -627,7 +654,7 @@ h1 {
 
 .search-bar {
   position: sticky;
-  top: var(--header-h);
+  top: calc(var(--header-h) + var(--update-bar-h));
   z-index: 1;
   display: flex;
   gap: 8px;
@@ -1544,7 +1571,7 @@ h1 {
 }
 
 .item-picker .search-bar {
-  top: var(--header-h);
+  top: calc(var(--header-h) + var(--update-bar-h));
 }
 
 .version-choice {
