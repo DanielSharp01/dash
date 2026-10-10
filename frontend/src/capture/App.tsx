@@ -11,6 +11,7 @@ import { ActivityRoute, BatchRoute, CatalogueScreen, type CatalogueTab, ComboRou
 import { GoalsScreen } from "./screens/Goals";
 import { SettingsScreen, WeighInsScreen } from "./screens/Profile";
 import { type EntryActions, InboxScreen, Today } from "./screens/Today";
+import { Drawer } from "./ui/Drawer";
 import { dismiss, notify, useNotice } from "./ui/notify";
 import { useOpen } from "./ui/useSteps";
 
@@ -103,20 +104,18 @@ export function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {drawer && (
-        <Drawer onClose={() => setDrawer(false)}>
-          {sections.map((s) => {
-            const count = s.target === "inbox" ? followUpCount : 0;
-            return (
-              <button key={s.target} className="drawer-link" aria-current={current === s.target ? "page" : undefined} onClick={() => go(s)}>
-                <span aria-hidden>{s.icon}</span>
-                {s.label}
-                {count > 0 && <span className="badge badge-warn">{count}</span>}
-              </button>
-            );
-          })}
-        </Drawer>
-      )}
+      <Drawer open={drawer} onOpenChange={setDrawer} swipeToOpen={current !== undefined}>
+        {sections.map((s) => {
+          const count = s.target === "inbox" ? followUpCount : 0;
+          return (
+            <button key={s.target} className="drawer-link" aria-current={current === s.target ? "page" : undefined} onClick={() => go(s)}>
+              <span aria-hidden>{s.icon}</span>
+              {s.label}
+              {count > 0 && <span className="badge badge-warn">{count}</span>}
+            </button>
+          );
+        })}
+      </Drawer>
 
       {toast && (
         <div className="toast" role="status" key={toast.id}>
@@ -144,23 +143,6 @@ export function App() {
         </div>
       )}
     </>
-  );
-}
-
-function Drawer({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    addEventListener("keydown", onKey);
-    return () => removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <div className="drawer-backdrop" onClick={onClose}>
-      <nav className="drawer" onClick={(e) => e.stopPropagation()} aria-label="Main">
-        <div className="drawer-brand">Dash</div>
-        {children}
-      </nav>
-    </div>
   );
 }
 
