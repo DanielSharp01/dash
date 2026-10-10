@@ -2319,24 +2319,36 @@ input[type="checkbox"]:focus-visible {
 
 .entry-time {
   width: 38px;
-  font-size: 0.74rem;
+  align-items: center;
+  text-align: center;
+}
+
+.entry-clock {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 
 .entry-meridiem {
-  margin-top: -4px;
-  font-size: 0.66rem;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
 }
 
 .entry-time-wide {
   width: 72px;
+  align-items: flex-start;
+  text-align: left;
 }
 
-/* rem, not em, so it keeps its size when the times around it shrink. */
-.entry-time-none {
-  opacity: 0.55;
-  font-size: 0.6rem;
-  white-space: nowrap;
-  padding-top: 4px;
+/* As wide as the AM/PM it stands in for; a lone "?" made a smaller pill. */
+.entry-time-none .entry-meridiem {
+  min-width: 2.9em;
 }
 
 .entry-icon {

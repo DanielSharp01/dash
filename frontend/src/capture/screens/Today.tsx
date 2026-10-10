@@ -6,7 +6,7 @@ import { useFoodLookup } from "../../queries/foods.queries";
 import { useProfile } from "../../queries/me.queries";
 import { batchLabel, cookingNow, useListedFoods } from "../foods";
 import { useDailyTargets } from "../targets";
-import { dayHeading, dayParam, dayParts, formatTime, partOf, sortKey, todayKey, whenLabel } from "../time";
+import { dayHeading, dayParam, dayParts, formatTime, partOf, sortKey, todayKey, uses12h, whenLabel } from "../time";
 import { FlowShell } from "../ui/FlowShell";
 import { Ring } from "../ui/Ring";
 import { TrashIcon } from "../ui/TrashIcon";
@@ -261,11 +261,12 @@ function Timeline({ entries, actions }: { entries: Entry[]; actions: EntryAction
 /** "4:05 pm" is too wide for the time column, so am/pm goes on a line of its own. */
 function ClockTime({ time }: { time: string }) {
   const [clock, meridiem] = time.split(" ");
+  if (!meridiem) return clock;
   return (
-    <>
+    <span className="entry-clock">
       {clock}
-      {meridiem && <small className="entry-meridiem">{meridiem}</small>}
-    </>
+      <small className="entry-meridiem">{meridiem.toUpperCase()}</small>
+    </span>
   );
 }
 
@@ -351,7 +352,9 @@ export function EntryRow({ entry, open, onToggle, actions, showDay = false }: { 
         {time ? (
           <span className={`entry-time ${showDay ? "entry-time-wide" : ""}`}>{showDay ? time : <ClockTime time={time} />}</span>
         ) : (
-          <span className="entry-time entry-time-none">No time</span>
+          <span className="entry-time entry-time-none" aria-label="No time">
+            <ClockTime time={uses12h() ? "–:–– ?" : "–:––"} />
+          </span>
         )}
         <span className="entry-icon">{icon}</span>
         <span className="entry-body">
