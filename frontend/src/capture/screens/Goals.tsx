@@ -24,6 +24,8 @@ import { WeightInput } from "../ui/BodyInputs";
 import { FlowShell } from "../ui/FlowShell";
 import { MissingDetails } from "../ui/MissingDetails";
 import { NumberInput } from "../ui/NumberInput";
+import { DateChip, tapCard } from "../ui/DateChip";
+import { Sheet } from "../ui/Sheet";
 import { useSteps } from "../ui/useSteps";
 
 const paces: Record<UnitSystem, number[]> = { metric: [0, 0.25, 0.5, 0.75], imperial: [0, 0.5, 1, 1.5] };
@@ -40,13 +42,17 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
   const goal = draft.goal;
   const t = dailyTargets(profile, [{ from: BEGINNING, plan: draft }], useWeighIns());
   const dirty = !samePlan(draft, current);
-  const [change, setChange] = useState<"fix" | "changed">();
+  const [asking, setAsking] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [from, setFrom] = useState(todayKey);
   const since = history.versions.at(-1)?.from ?? BEGINNING;
   const fromValid = !!from && from >= since;
   const finish = t.calc && targetDate(t.calc.bodyKg, goal);
   const versions = history.versions;
+  const saveAs = (change: "fix" | { from: string }) => {
+    void savePlan(draft, change);
+    setAsking(false);
+  };
   const targetTooHigh = !!t.calc && goal.targetKg !== undefined && goal.targetKg >= t.calc.bodyKg;
 
   return (
@@ -59,22 +65,6 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
       footer={
         dirty && (
           <div className="plan-save">
-            <div className="segmented small">
-              <button aria-selected={change === "fix"} onClick={() => setChange("fix")}>
-                Fix a mistake
-              </button>
-              <button aria-selected={change === "changed"} onClick={() => setChange("changed")}>
-                New goal from…
-              </button>
-            </div>
-            {change === "fix" && <p className="hint">Rewrites the current goal; past days are judged by it too.</p>}
-            {change === "changed" && (
-              <label className="measure-def">
-                Starting
-                <input className="text-input" type="date" min={since === BEGINNING ? undefined : since} value={from} onChange={(e) => setFrom(e.target.value)} />
-              </label>
-            )}
-            {change === "changed" && <p className="hint">{fromValid ? "Days before keep the goal they had." : "Pick a day on or after the current goal started."}</p>}
             <div className="plan-save-buttons">
               <button
                 className="btn"
@@ -85,14 +75,7 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
               >
                 Discard
               </button>
-              <button
-                className="btn btn-primary btn-block"
-                disabled={!change || (change === "changed" && !fromValid)}
-                onClick={() => {
-                  void savePlan(draft, change === "fix" ? "fix" : { from });
-                  setChange(undefined);
-                }}
-              >
+              <button className="btn btn-primary btn-block" onClick={() => setAsking(true)}>
                 Save
               </button>
             </div>
@@ -100,8 +83,25 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
         )
       }
     >
+      {asking && (
+        <Sheet title="Save the goal" onClose={() => setAsking(false)}>
+          <button className="row row-choice" onClick={() => saveAs("fix")}>
+            <span className="row-main">
+              <span className="row-title">Edit current goal</span>
+              <span className="row-sub">Past days are judged by it too</span>
+            </span>
+          </button>
+          <div className="row row-choice" {...tapCard(() => saveAs({ from }), !fromValid)}>
+            <span className="row-main">
+              <span className="row-title">New goal</span>
+              <span className="row-sub">{fromValid ? "Days before keep the goal they had" : "Pick a day on or after the current goal started"}</span>
+              <DateChip prefix="Starting" value={from} min={since === BEGINNING ? undefined : since} onChange={setFrom} />
+            </span>
+          </div>
+        </Sheet>
+      )}
       <section className="goal-budget">
-        <div className="kcal-total">
+        <div className="kcal-total goal-budget-card">
           <strong>{fmt(t.kcal)}</strong>
           <span>kcal a day</span>
         </div>

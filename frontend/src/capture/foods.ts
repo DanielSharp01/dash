@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { asItem, autoFoodIcon, currentBatch, isFinished, type Amount, type Batch, type Food, type FoodInput, type FoodItem, type FoodLookup, type FoodUsage, type Recipe } from "@dash/core";
+import { autoFoodIcon, currentBatch, isFinished, type Amount, type Batch, type Food, type FoodInput, type FoodItem, type FoodLookup, type FoodUsage, type Recipe } from "@dash/core";
 import { asNewFood, useFoods } from "../queries/foods.queries";
 
 /**
@@ -36,9 +36,11 @@ export const batchLabel = (b: Pick<Batch, "madeOn">) => new Date(`${b.madeOn}T12
 export const variantsOf = (list: Food[], item: Pick<FoodItem, "id" | "name">) =>
   list.filter((f): f is FoodItem => f.kind === "item" && f.id !== item.id && !f.unsure && f.name.trim().toLowerCase() === item.name.trim().toLowerCase());
 
+const isFluidItem = (f: Food | undefined) => f?.kind === "item" && f.unit === "ml" && !f.notFluid;
+
 export function isDrink(f: Food, foods: FoodLookup) {
-  if (f.kind === "item") return f.unit === "ml";
-  return f.kind === "combo" && f.parts.some((p) => asItem(foods(p.foodId))?.unit === "ml");
+  if (f.kind === "item") return isFluidItem(f);
+  return f.kind === "combo" && f.parts.some((p) => isFluidItem(foods(p.foodId)));
 }
 
 const byLastLogged = (a: FoodUsage, b: FoodUsage) => (b.lastLoggedAt ?? "").localeCompare(a.lastLoggedAt ?? "");

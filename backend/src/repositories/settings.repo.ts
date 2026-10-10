@@ -13,6 +13,7 @@ const toProfile = (row: ProfileRow): Profile => ({
   ...opt("birthday", row.birthday),
   ...opt("sex", row.sex),
   dayEndsAt: row.dayEndsAt,
+  clock: row.clock,
   revision: row.revision,
 });
 
@@ -73,6 +74,7 @@ export async function updateProfile(ex: Executor, userId: string, input: Profile
       birthday: input.birthday ?? null,
       sex: input.sex ?? null,
       dayEndsAt: input.dayEndsAt,
+      clock: input.clock,
       revision,
     })
     .where(eq(profilesTable.userId, userId))

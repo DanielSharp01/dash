@@ -21,6 +21,12 @@
   --serious-bg: #fde3e2;
   --serious: #a3262a;
   --danger: #d33a3a;
+  --close: #d98a00;
+  --close-deep: #8f5a00;
+  /* The ring's amber is too light for text on white. */
+  --close-text: #a86700;
+  --over: #d33a3a;
+  --over-deep: #8a1717;
   --protein: #d64a6a;
   --protein-bg: #fde8ed;
   --carbs: #b87a00;
@@ -62,6 +68,11 @@
     --fat: #3d8fcf;
     --fat-bg: #142a3d;
     --kcal: #5b8cff;
+    --close: #f0a43a;
+    --close-deep: #9c6418;
+    --close-text: var(--close);
+    --over: #ef5350;
+    --over-deep: #a32626;
     --fluid: #2bb5ba;
     --food: var(--carbs);
     --drink: var(--fat);
@@ -322,6 +333,14 @@ h1 {
 .ring-sub {
   font-size: 0.78rem;
   color: var(--muted);
+}
+
+.ring-big.tone-close {
+  color: var(--close-text);
+}
+
+.ring-big.tone-over {
+  color: var(--over);
 }
 
 .macro-rings {
@@ -1102,19 +1121,32 @@ h1 {
 
 .exact-time {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 16px;
 }
 
-.exact-time input {
-  flex: 1;
-  min-width: 0;
+.time-input {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.time-input select {
   height: var(--tap);
+  min-width: 64px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
   background: var(--surface);
-  padding: 0 14px;
+  color: var(--text);
+  padding: 0 10px;
   font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-input .time-meridiem {
+  margin: 0 0 0 4px;
 }
 
 /* Exercise */
@@ -1808,14 +1840,18 @@ h1 {
 }
 
 .goal-budget {
+  margin-bottom: 14px;
+}
+
+.goal-budget-card {
   background: var(--surface);
   border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-bottom: 10px;
+  padding: 12px 16px;
 }
 
 .goal-budget .hint {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
+  text-align: center;
 }
 
 .goal-math {
@@ -1888,7 +1924,7 @@ h1 {
 
 .sub-label {
   display: block;
-  margin-top: 14px;
+  margin: 14px 0 8px;
 }
 
 .calibrated {
@@ -2179,6 +2215,11 @@ input[type="checkbox"]:focus-visible {
   color: var(--warn);
 }
 
+/* Centred on a row of its own above the chips, like the goal's daily budget. */
+.nutrition .kcal-total {
+  flex: 1 1 100%;
+}
+
 /* Quick add: three verbs and a smaller cook button */
 
 .quick-add {
@@ -2255,6 +2296,13 @@ input[type="checkbox"]:focus-visible {
   width: 72px;
 }
 
+.entry-time-none {
+  opacity: 0.55;
+  font-size: 0.6rem;
+  white-space: nowrap;
+  padding-top: 4px;
+}
+
 .entry-icon {
   width: 32px;
   height: 32px;
@@ -2274,19 +2322,99 @@ input[type="checkbox"]:focus-visible {
   justify-content: flex-end;
 }
 
-.entry-lines {
-  list-style: none;
-  margin: 0 0 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
+.breakdown {
+  margin: 0 0 12px;
+  padding: 10px 12px 4px;
+  border-radius: 12px;
   background: var(--surface-2);
-  font-size: 0.88rem;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
-.entry-lines small {
+.breakdown-flow {
+  margin: 12px 0 0;
+  background: var(--surface);
+}
+
+.breakdown-title {
+  margin: 0 0 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.breakdown ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.breakdown > ul > li + li {
+  border-top: 1px solid var(--line);
+}
+
+.breakdown-line {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.breakdown-icon {
+  font-size: 1.15rem;
+  text-align: center;
+}
+
+.breakdown-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.breakdown-name small {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.breakdown-macros {
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.breakdown-kcal {
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--eat-ink);
+}
+
+.breakdown .breakdown-parts {
+  margin: -4px 0 6px 36px;
+}
+
+.breakdown-parts .breakdown-line {
+  grid-template-columns: 20px 1fr auto;
+  padding: 4px 0;
+}
+
+.breakdown-parts .breakdown-icon {
+  font-size: 0.95rem;
+}
+
+.breakdown-parts .breakdown-name {
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.breakdown-parts .breakdown-kcal {
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -2368,6 +2496,34 @@ input[type="checkbox"]:focus-visible {
 
 .row-static .measure-def {
   margin-top: 8px;
+}
+
+.row-choice {
+  padding: 12px;
+  cursor: pointer;
+}
+
+.row-choice[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.date-chip {
+  position: relative;
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+.date-chip .value-chip {
+  background: var(--bg);
+}
+
+/* Only there for showPicker; the chip is what people see and tap. */
+.date-chip input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .row-create {
@@ -2675,7 +2831,7 @@ input[type="checkbox"]:focus-visible {
 }
 
 .settings-group .list-heading {
-  margin-top: 12px;
+  margin: 12px 2px 14px;
 }
 
 .settings-group .row,

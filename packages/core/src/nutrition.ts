@@ -58,13 +58,22 @@ export function batchTotal(batch: Pick<Batch, "ingredients" | "madeOn">, foods: 
   return batch.ingredients.reduce<Contents>((sum, p) => add(sum, portionContents(p, batch.madeOn, foods)), {});
 }
 
+export const scaleContents = (c: Contents, by: number): Contents =>
+  Object.fromEntries(Object.entries(c).map(([k, v]) => [k, { value: v.value * by, complete: v.complete }]));
+
+/** What part of the whole batch an amount is; undefined while it's still cooking or the amount can't be sized. */
+export function batchShare(batch: Pick<Batch, "yield">, amount: Amount): number | undefined {
+  const y = batch.yield;
+  if (!y || amount.value === undefined) return undefined;
+  const unit = "grams" in y ? "g" : "portion";
+  const qty = amount.unit === unit ? amount.value : unit === "g" ? quantity(grams, amount) : undefined;
+  return qty === undefined ? undefined : qty / ("grams" in y ? y.grams : y.portions);
+}
+
 function recipeContents(recipe: Recipe, batchId: string | undefined, amount: Amount, foods: FoodLookup): Contents | undefined {
   const batch = recipe.batches.find((b) => b.id === batchId);
-  const sized = batch && batchPerUnit(batch, foods);
-  if (!sized || amount.value === undefined) return undefined;
-  const qty = amount.unit === sized.unit ? amount.value : sized.unit === "g" ? quantity(grams, amount) : undefined;
-  if (qty === undefined) return undefined;
-  return Object.fromEntries(Object.entries(sized.per).map(([k, v]) => [k, { value: v.value * qty, complete: v.complete }]));
+  const share = batch && batchShare(batch, amount);
+  return share === undefined ? undefined : scaleContents(batchTotal(batch!, foods), share);
 }
 
 export function portionContents(p: Portion, date: string, foods: FoodLookup): Contents | undefined {

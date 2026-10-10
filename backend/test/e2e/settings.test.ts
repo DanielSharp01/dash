@@ -20,7 +20,7 @@ describe("session", () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
       user: { id: u.id },
-      profile: { units: "metric", dayEndsAt: 0, revision: 1 },
+      profile: { units: "metric", dayEndsAt: 0, clock: "24h", revision: 1 },
       plan: { versions: [{ from: BEGINNING, plan: defaultPlan }], revision: 1 },
       pots: [],
     });
@@ -31,9 +31,9 @@ describe("profile", () => {
   it("saves with the revision it read and refuses a stale one", async () => {
     const u = await newUser();
     await u.get("/me");
-    const saved = await u.put("/profile", { units: "imperial", heightCm: 180, birthday: "1990-03-04", sex: "female", dayEndsAt: 3, revision: 1 });
+    const saved = await u.put("/profile", { units: "imperial", heightCm: 180, birthday: "1990-03-04", sex: "female", dayEndsAt: 3, clock: "12h", revision: 1 });
     expect(saved.status).toBe(200);
-    expect(saved.body).toEqual({ units: "imperial", heightCm: 180, birthday: "1990-03-04", sex: "female", dayEndsAt: 3, revision: 2 });
+    expect(saved.body).toEqual({ units: "imperial", heightCm: 180, birthday: "1990-03-04", sex: "female", dayEndsAt: 3, clock: "12h", revision: 2 });
 
     const stale = await u.put("/profile", { units: "metric", dayEndsAt: 0, revision: 1 });
     expect(stale.status).toBe(409);

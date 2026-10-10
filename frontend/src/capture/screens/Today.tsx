@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { asItem, asRecipe, type Contents, dayTotals, displayName, type Entry, entryContents, entryNeedsFollowUp, type FoodLookup, formatAmount, formatFluid, type Line, type Part, shiftDate } from "@dash/core";
+import { asItem, asRecipe, type Contents, dayTotals, displayName, type Entry, entryContents, lineContents, entryNeedsFollowUp, type FoodLookup, formatAmount, formatFluid, type Line, type Part, shiftDate } from "@dash/core";
 import { useActivityLookup } from "../../queries/activities.queries";
 import { useDayEntries, useFollowUp, useFollowUpCount } from "../../queries/entries.queries";
 import { useFoodLookup } from "../../queries/foods.queries";
 import { useProfile } from "../../queries/me.queries";
 import { batchLabel, cookingNow, useListedFoods } from "../foods";
 import { useDailyTargets } from "../targets";
-import { dayHeading, dayParam, dayParts, partOf, sortKey, todayKey, whenLabel } from "../time";
+import { dayHeading, dayParam, dayParts, formatTime, partOf, sortKey, todayKey, whenLabel } from "../time";
 import { FlowShell } from "../ui/FlowShell";
 import { Ring } from "../ui/Ring";
 import { TrashIcon } from "../ui/TrashIcon";
+import { Breakdown, type BreakdownRow, ingredientRows, kcalText } from "../ui/Breakdown";
+import { MiniMacros, macroMeta } from "../ui/MiniMacros";
 import { MissingDetails } from "../ui/MissingDetails";
 import { useOpen, useSteps } from "../ui/useSteps";
 
@@ -93,12 +95,6 @@ export function Today({ day, setDay, onMenu, actions }: { day: string; setDay: (
   );
 }
 
-const macroMeta = [
-  { key: "protein", label: "Protein", short: "P" },
-  { key: "carbs", label: "Carbs", short: "C" },
-  { key: "fat", label: "Fat", short: "F" },
-] as const;
-
 /** "≥" on what's eaten and "≤" on what's left whenever something logged has no value yet. */
 function DaySummary({ entries, day }: { entries: Entry[]; day: string }) {
   const goals = useDailyTargets(day);
@@ -107,13 +103,24 @@ function DaySummary({ entries, day }: { entries: Entry[]; day: string }) {
   const budget = goals.kcal + t.burned;
   const left = budget - t.kcal.value;
   const unsure = t.kcal.missing > 0;
+  const tone = kcalTone(t.kcal.value, budget);
 
   return (
     <section className="summary">
       <div className="summary-main">
         <div className="summary-rings">
-          <Ring value={t.kcal.value} target={budget} uncertain={unsure} size={140} stroke={13} color="var(--kcal)" label="Calories" unit="kcal">
-            <span className="ring-big">
+          <Ring
+            value={t.kcal.value}
+            target={budget}
+            uncertain={unsure}
+            size={140}
+            stroke={13}
+            color={toneColors[tone].ring}
+            overColor={toneColors[tone].lap}
+            label="Calories"
+            unit="kcal"
+          >
+            <span className={`ring-big tone-${tone}`}>
               {unsure && left > 0 ? "≤" : ""}
               {fmt(Math.abs(left))}
             </span>
@@ -145,6 +152,24 @@ function DaySummary({ entries, day }: { entries: Entry[]; day: string }) {
     </section>
   );
 }
+
+/** Amber from close to the budget until a little over it, red once well past it. */
+const CLOSE_SHARE = 0.9;
+const HEAVY_SHARE = 1.1;
+
+type KcalTone = "ok" | "close" | "over";
+
+function kcalTone(eaten: number, budget: number): KcalTone {
+  if (budget <= 0) return "ok";
+  const share = eaten / budget;
+  return share > HEAVY_SHARE ? "over" : share >= CLOSE_SHARE ? "close" : "ok";
+}
+
+const toneColors: Record<KcalTone, { ring: string; lap: string }> = {
+  ok: { ring: "var(--kcal)", lap: "var(--kcal)" },
+  close: { ring: "var(--close)", lap: "var(--close-deep)" },
+  over: { ring: "var(--over)", lap: "var(--over-deep)" },
+};
 
 function MacroRow({ part, goal, label, short }: { part: Part; goal: number; label: string; short: string }) {
   const unsure = part.missing > 0;
@@ -227,12 +252,6 @@ function lineDetail(l: Line, foods: FoodLookup) {
   return batch ? `${amount} · ${batchLabel(batch)} batch` : amount;
 }
 
-const kcalText = (c: Contents) => {
-  const k = c.kcal;
-  if (!k || (!k.complete && k.value === 0)) return "? kcal";
-  return `${k.complete ? "" : "≥"}${Math.round(k.value)} kcal`;
-};
-
 export function EntryRow({ entry, open, onToggle, actions, showDay = false }: { entry: Entry; open: boolean; onToggle: () => void; actions: EntryActions; showDay?: boolean }) {
   const foods = useFoodLookup();
   const activities = useActivityLookup();
@@ -242,11 +261,29 @@ export function EntryRow({ entry, open, onToggle, actions, showDay = false }: { 
   let detail: string;
   let kcal = "";
   let macros: Contents | undefined;
-  let lines: Line[] = [];
+  let breakdown: { title: string; rows: BreakdownRow[] } | undefined;
 
   if (entry.kind === "food") {
-    lines = entry.lines;
     const single = entry.lines.length === 1 && !entry.comboId ? entry.lines[0] : undefined;
+    const date = entry.when.date;
+    const ingredients = (l: Line) => {
+      const recipe = asRecipe(foods(l.foodId));
+      return recipe ? ingredientRows(recipe, l.batchId, l.amount, foods) : undefined;
+    };
+    if (single) {
+      const inside = ingredients(single);
+      if (inside) breakdown = { title: inside.whole ? "In the whole batch" : "In this portion", rows: inside.rows };
+    } else {
+      const rows = entry.lines.map((l) => ({
+        key: l.id,
+        icon: lineIcon(l, foods),
+        name: lineName(l, foods),
+        amount: lineDetail(l, foods),
+        contents: lineContents(l, date, foods),
+        parts: ingredients(l)?.rows,
+      }));
+      breakdown = { title: "What's in it", rows };
+    }
     const combo = foods(entry.comboId);
     title = combo?.name ?? (single ? lineName(single, foods) : `${entry.lines.length} things`);
     icon = combo?.icon ?? (single ? lineIcon(single, foods) : "🍱");
@@ -268,31 +305,22 @@ export function EntryRow({ entry, open, onToggle, actions, showDay = false }: { 
     if (entry.kcal !== undefined) kcal = `${entry.kcal} kcal`;
   }
   if (entryNeedsFollowUp(entry, foods)) badges.push({ text: "Follow up", tone: "muted" });
+  // Within a day the part-of-day heading already says "Morning", so only clock times are shown.
+  const time = showDay ? whenLabel(entry.when, true) : entry.when.kind === "now" || entry.when.kind === "exact" ? formatTime(entry.when.time) : undefined;
 
   return (
     <div className={`entry ${open ? "open" : ""}`}>
       <button className="entry-main" onClick={onToggle} aria-expanded={open}>
-        {/* Within a day the part-of-day heading already says "Morning", so only clock times are shown. */}
-        <span className={`entry-time ${showDay ? "entry-time-wide" : ""}`}>
-          {showDay ? whenLabel(entry.when, true) : entry.when.kind === "now" || entry.when.kind === "exact" ? entry.when.time : ""}
-        </span>
+        {time ? (
+          <span className={`entry-time ${showDay ? "entry-time-wide" : ""}`}>{time}</span>
+        ) : (
+          <span className="entry-time entry-time-none">No time</span>
+        )}
         <span className="entry-icon">{icon}</span>
         <span className="entry-body">
           <span className="row-title">{title}</span>
           <span className="row-sub">{detail}</span>
-          {macros && (
-            <span className="entry-macros">
-              {macroMeta.map((m) => {
-                const v = macros![m.key];
-                const has = v && (v.complete || v.value > 0);
-                return (
-                  <span key={m.key} className={`mini-macro macro-${m.key}`} title={m.label}>
-                    <i aria-hidden /> {m.short} {has ? `${v.complete ? "" : "≥"}${Math.round(v.value)}` : "?"} g
-                  </span>
-                );
-              })}
-            </span>
-          )}
+          {macros && <MiniMacros contents={macros} />}
           {badges.length > 0 && (
             <span className="badges">
               {badges.map((b) => (
@@ -307,15 +335,7 @@ export function EntryRow({ entry, open, onToggle, actions, showDay = false }: { 
       </button>
       {open && (
         <div className="entry-open">
-          {lines.length > 1 && (
-            <ul className="entry-lines">
-              {lines.map((l) => (
-                <li key={l.id}>
-                  <span>{lineIcon(l, foods)}</span> {lineName(l, foods)} <small>{lineDetail(l, foods)}</small>
-                </li>
-              ))}
-            </ul>
-          )}
+          {breakdown && <Breakdown title={breakdown.title} rows={breakdown.rows} />}
           <div className="entry-actions">
             <button className="btn btn-small" onClick={() => actions.onEdit(entry)}>
               Edit

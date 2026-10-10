@@ -249,6 +249,7 @@ export const planVersionSchema = z.object({ from: versionStartSchema, plan: plan
 export const planHistorySchema = z.object({ versions: z.array(planVersionSchema), revision: z.number().int().min(1) });
 
 export const unitSystemSchema = z.enum(["metric", "imperial"]);
+export const clockSchema = z.enum(["24h", "12h"]);
 
 export const profileInputSchema = z.object({
   units: unitSystemSchema,
@@ -258,6 +259,8 @@ export const profileInputSchema = z.object({
   sex: z.enum(["male", "female"]).optional(),
   /** Hour (0–6) when the day rolls over; staying up past midnight still counts as the evening before. */
   dayEndsAt: z.number().int().min(0).max(6),
+  /** Defaulted because older backups and servers don't have it. */
+  clock: clockSchema.default("24h"),
 });
 export const profileSchema = profileInputSchema.extend({ revision: z.number().int().min(1) });
 
@@ -442,6 +445,7 @@ export type Plan = z.infer<typeof planSchema>;
 export type PlanVersion = z.infer<typeof planVersionSchema>;
 export type PlanHistory = z.infer<typeof planHistorySchema>;
 export type UnitSystem = z.infer<typeof unitSystemSchema>;
+export type Clock = z.infer<typeof clockSchema>;
 export type ProfileInput = z.infer<typeof profileInputSchema>;
 export type Profile = z.infer<typeof profileSchema>;
 export type Pot = z.infer<typeof potSchema>;

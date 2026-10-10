@@ -3,6 +3,7 @@ import {
   applyPlanChange,
   BEGINNING,
   comboAsLines,
+  dailyTargets,
   dayTotals,
   defaultPlan,
   entryNeedsFollowUp,
@@ -143,5 +144,23 @@ describe("schemas", () => {
     const { revision: _r, deleted: _d, public: _p, starter: _s, ...input } = milk;
     expect(foodInputSchema.safeParse(input).success).toBe(true);
     expect(foodInputSchema.safeParse({ ...input, labels: [milk.labels[0], milk.labels[0]] }).success).toBe(false);
+  });
+});
+
+describe("dailyTargets", () => {
+  const profile = { units: "metric", heightCm: 180, birthday: "1990-01-01", dayEndsAt: 0, clock: "24h" } as const;
+  const weighIns = [{ id: uid(), date: "2026-01-01", kg: 110 }];
+  const withPlan = (patch: Partial<typeof defaultPlan>) => [{ from: BEGINNING, plan: { ...defaultPlan, ...patch } }];
+
+  it("caps a target weight at the healthy maximum for protein, like the current weight", () => {
+    const capped = dailyTargets(profile, withPlan({ goal: { kgPerWeek: 0.5, targetKg: 95 } }), weighIns, "2026-06-01");
+    const healthyMaxKg = 25 * 1.8 ** 2;
+    expect(capped.protein).toBe(Math.round(defaultPlan.macroPlan.proteinPerKg * healthyMaxKg));
+  });
+
+  it("shrinks fat rather than letting the macros outgrow the calories", () => {
+    const t = dailyTargets(profile, withPlan({ macroPlan: { preset: "high-protein", proteinPerKg: 4, fatPct: 0.3 } }), weighIns, "2026-06-01");
+    expect(t.carbs).toBe(0);
+    expect(Math.abs(t.protein * 4 + t.fat * 9 + t.carbs * 4 - t.kcal)).toBeLessThanOrEqual(10);
   });
 });

@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { autoFoodIcon, basisLabel, BEGINNING, type Combo, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, type Portion, round, sameValues, type Serving } from "@dash/core";
 import { completeAsCombo, mergeFood } from "../../queries/commands.queries";
-import { saveFood, useFoodUsage } from "../../queries/foods.queries";
+import { saveFood, useFoodUsage, useFoods } from "../../queries/foods.queries";
 import { undoBy } from "../errors";
 import { ownCopy, useListedFoods, usesOf, variantsOf } from "../foods";
 import { todayKey } from "../time";
 import { PortionList } from "./PortionList";
 import { FoodRow, FoodSearch } from "../ui/FoodSearch";
+import { DateChip, tapCard } from "../ui/DateChip";
 import { draftFrom, LabelForm, labelFrom, unitOf } from "../ui/LabelForm";
 import { NumberInput } from "../ui/NumberInput";
 import { IconField } from "../ui/Pickers";
@@ -36,7 +37,9 @@ const sameBasis = (a: Label, b: Label) =>
  * whether it was wrong (fix it everywhere) or the product changed (new values from a date).
  */
 export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOpenItem }: Props) {
-  const used = usesOf(useFoodUsage(), item.id) > 0;
+  // Usage only counts entries; a recipe batch also took this label on the day it was made.
+  const inBatch = useFoods().some((f) => f.kind === "recipe" && f.batches.some((b) => b.ingredients.some((p) => p.foodId === item.id)));
+  const used = usesOf(useFoodUsage(), item.id) > 0 || inBatch;
   const listed = useListedFoods();
   const latest = labelAt(item);
   const [name, setName] = useState(item.name);
@@ -301,28 +304,22 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
             It said {latest.values.kcal ?? "?"} kcal {basisLabel(latest, item.unit)}, now {next.values.kcal ?? "?"} kcal {basisLabel(next, unit)}. Entries already logged
             use the old label.
           </p>
-          <button className="row" onClick={() => save(false, "fix")}>
+          {next.values.kcal !== undefined && latest.values.kcal !== undefined && next.values.kcal !== latest.values.kcal && sameBasis(latest, next) && (
+            <p className="hint">That's {round(((next.values.kcal - latest.values.kcal) / (latest.values.kcal || 1)) * 100, 0)}% different.</p>
+          )}
+          <button className="row row-choice" onClick={() => save(false, "fix")}>
             <span className="row-main">
               <span className="row-title">It was wrong</span>
               <span className="row-sub">Fix it everywhere, including past days</span>
             </span>
           </button>
-          <div className="row row-static">
+          <div className="row row-choice" {...tapCard(() => save(false, "changed"))}>
             <span className="row-main">
               <span className="row-title">The product changed</span>
               <span className="row-sub">Past days keep the old values</span>
-              <label className="measure-def">
-                New values from
-                <input type="date" value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={(e) => e.target.value && setChangedFrom(e.target.value)} />
-              </label>
+              <DateChip prefix="New values from" value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
             </span>
-            <button className="btn btn-primary btn-small" onClick={() => save(false, "changed")}>
-              Save
-            </button>
           </div>
-          {next.values.kcal !== undefined && latest.values.kcal !== undefined && next.values.kcal !== latest.values.kcal && sameBasis(latest, next) && (
-            <p className="hint">That's {round(((next.values.kcal - latest.values.kcal) / (latest.values.kcal || 1)) * 100, 0)}% different.</p>
-          )}
         </Sheet>
       )}
     </div>

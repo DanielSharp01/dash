@@ -10,6 +10,8 @@ interface Props {
   color: string;
   label: string;
   unit: string;
+  /** Going past the target fills the ring and starts a second lap in this color, full at double. */
+  overColor?: string;
   children?: ReactNode;
 }
 
@@ -17,11 +19,13 @@ interface Props {
  * A progress ring. When something eaten has no value, the unfilled part turns into a
  * fuzzy stripe in the series color: the ring can't claim what's left is really left.
  */
-export function Ring({ value, target, uncertain, size, stroke, color, label, unit, children }: Props) {
+export function Ring({ value, target, uncertain, size, stroke, color, label, unit, overColor, children }: Props) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
+  const over = !!overColor && target > 0 && value > target;
   const scale = Math.max(target, value);
-  const filled = scale ? (value / scale) * c : 0;
+  const filled = over ? c : scale ? (value / scale) * c : 0;
+  const secondLap = over ? Math.min((value - target) / target, 1) * c : 0;
   const patternId = `fuzz-${label.replace(/\W/g, "")}`;
   const description = `${label}: ${uncertain ? "at least " : ""}${Math.round(value)} of ${target} ${unit}`;
 
@@ -44,6 +48,7 @@ export function Ring({ value, target, uncertain, size, stroke, color, label, uni
             stroke={uncertain ? `url(#${patternId})` : undefined}
           />
           {filled > 0 && <circle cx={size / 2} cy={size / 2} r={r} style={{ stroke: color }} strokeDasharray={`${filled} ${c}`} />}
+          {secondLap > 0 && <circle cx={size / 2} cy={size / 2} r={r} style={{ stroke: overColor }} strokeDasharray={`${secondLap} ${c}`} />}
         </g>
       </svg>
       <div className="ring-center">{children}</div>

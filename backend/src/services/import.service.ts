@@ -112,6 +112,7 @@ const legacyProfile = z.looseObject({
   birthday: z.unknown().optional(),
   sex: z.unknown().optional(),
   dayEndsAt: z.unknown().optional(),
+  clock: z.unknown().optional(),
   goal: z.unknown().optional(),
   metabolismMultiplier: z.unknown().optional(),
   calibratedFrom: z.unknown().optional(),
@@ -299,7 +300,7 @@ export async function importExport(userId: string, req: ImportRequest) {
 
     await ensureProfile(tx, userId);
     const row = (await getProfileRow(tx, userId, { lock: true }))!;
-    const profile = strict(profileInputSchema, { units: p.units ?? "metric", heightCm: p.heightCm, birthday: p.birthday, sex: p.sex, dayEndsAt: p.dayEndsAt ?? 0 }, "the profile");
+    const profile = strict(profileInputSchema, { units: p.units ?? "metric", heightCm: p.heightCm, birthday: p.birthday, sex: p.sex, dayEndsAt: p.dayEndsAt ?? 0, clock: p.clock }, "the profile");
     await updateProfile(tx, userId, profile, row.revision + 1);
     const current = { goal: p.goal, metabolismMultiplier: p.metabolismMultiplier, calibratedFrom: p.calibratedFrom, fluidGoalMl: p.fluidGoalMl, macroPlan: p.macroPlan };
     const history = p.planHistory?.length ? p.planHistory.map((h) => ({ from: upgradeFrom(h.from), plan: h.plan })) : p.goal ? [{ from: BEGINNING, plan: current }] : [];

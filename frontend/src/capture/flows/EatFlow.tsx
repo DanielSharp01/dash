@@ -47,6 +47,7 @@ import { ItemEditor } from "../editors/ItemEditor";
 import { batchLabel, finishedBatches, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, useListedFoods, usualAmount, variantsOf } from "../foods";
 import { initialWhen, nowWhen } from "../time";
 import { AmountInput } from "../ui/AmountInput";
+import { Breakdown, ingredientRows } from "../ui/Breakdown";
 import { FlowShell } from "../ui/FlowShell";
 import { BarcodeIcon, FoodSearch } from "../ui/FoodSearch";
 import { canScan } from "../ui/Scanner";
@@ -301,8 +302,9 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     if (combo) commit(lines, { comboId: combo.id }, [combo]);
   };
 
+  // A combo is a template, so it opens with its parts to adjust instead of logging straight away.
   const quickLog = (f: Food) => {
-    if (f.kind === "combo") return commit(comboAsLines(f, 1, foods, newId), { comboId: f.id });
+    if (f.kind === "combo") return pickFood(f);
     commit([lineFor(f, usual(f))], { comboId: undefined });
   };
 
@@ -540,6 +542,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
           <ComboLines lines={lines} openId={openLine} onOpen={setOpenLine} onChange={setLines} />
         )}
         <NutritionPreview contents={preview} />
+        {single && recipe && <RecipeIngredients recipe={recipe} line={line} foods={foods} />}
       </FlowShell>
     );
   }
@@ -713,6 +716,11 @@ function previewNew(n: NewFood, amount: Amount, date: string): Contents {
 
 /** One decimal only where it matters, as labels print it; a whole pot's "168.3 g" doesn't fit a chip. */
 const grams = (n: number) => (n < 10 ? Math.round(n * 10) / 10 : Math.round(n));
+
+function RecipeIngredients({ recipe, line, foods }: { recipe: Recipe; line: Line; foods: FoodLookup }) {
+  const { rows, whole } = ingredientRows(recipe, line.batchId, line.amount, foods);
+  return <Breakdown title={whole ? "In the whole batch" : "In this portion"} rows={rows} className="breakdown-flow" />;
+}
 
 export function NutritionPreview({ contents: c }: { contents: Contents }) {
   const kcal = c.kcal;

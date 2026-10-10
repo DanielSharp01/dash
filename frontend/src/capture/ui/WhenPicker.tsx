@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { shiftDate, type When } from "@dash/core";
-import { dayParts, nowWhen, todayKey, withDate } from "../time";
+import { dayParts, hourRange, nowWhen, todayKey, withDate } from "../time";
+import { TimeInput } from "./TimeInput";
 
 /** Any day can be picked, with yesterday one tap away for the morning-after case. */
 export function WhenPicker({ value, onChange, onDone }: { value: When; onChange: (w: When) => void; onDone: () => void }) {
@@ -42,7 +43,7 @@ export function WhenPicker({ value, onChange, onDone }: { value: When; onChange:
           <button key={p.part} className="tile" aria-pressed={selectedPart === p.part} onClick={() => pick({ date: value.date, kind: "part", part: p.part })}>
             <span className="tile-icon">{p.icon}</span>
             <span className="tile-label">{p.label}</span>
-            <span className="tile-sub">{p.range}</span>
+            <span className="tile-sub">{hourRange(p.from, p.to)}</span>
           </button>
         ))}
         <button className="tile" aria-pressed={value.kind === "day"} onClick={() => pick({ date: value.date, kind: "day" })}>
@@ -54,12 +55,7 @@ export function WhenPicker({ value, onChange, onDone }: { value: When; onChange:
 
       {exactOpen ? (
         <div className="exact-time">
-          <input
-            type="time"
-            autoFocus
-            value={value.kind === "exact" || value.kind === "now" ? value.time : ""}
-            onChange={(e) => e.target.value && onChange({ date: value.date, kind: "exact", time: e.target.value })}
-          />
+          <TimeInput value={value.kind === "exact" || value.kind === "now" ? value.time : undefined} onChange={(time) => onChange({ date: value.date, kind: "exact", time })} />
           <button className="btn" disabled={value.kind !== "exact"} onClick={onDone}>
             Use this time
           </button>

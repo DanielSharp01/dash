@@ -22,7 +22,7 @@ export const defaultPlan: Plan = {
   macroPlan: macroPresets.balanced.plan,
 };
 
-export const defaultProfile: ProfileInput = { units: "metric", dayEndsAt: 0 };
+export const defaultProfile: ProfileInput = { units: "metric", dayEndsAt: 0, clock: "24h" };
 
 export interface DailyTargets {
   kcal: number;
@@ -90,13 +90,15 @@ export function dailyTargets(profile: ProfileInput, versions: PlanVersion[], wei
   const deficit = (plan.goal.kgPerWeek * KCAL_PER_KG) / 7;
   const kcal = Math.max(maintenance - deficit, MIN_KCAL);
 
-  // Protein follows a healthy-range weight, since current weight overstates the need at high BMI.
+  // Protein follows a healthy-range weight, since current weight overstates the need at high BMI;
+  // a target weight stands in for it, but is capped the same way.
   const healthyMaxKg = 25 * (profile.heightCm / 100) ** 2;
-  const proteinKg = plan.goal.targetKg ?? Math.min(body.kg, healthyMaxKg);
+  const proteinKg = Math.min(plan.goal.targetKg ?? body.kg, healthyMaxKg);
   const m = plan.macroPlan;
   const protein = m.proteinPerKg * proteinKg;
   const left = Math.max(0, kcal - protein * 4);
-  const fat = m.carbPct !== undefined ? Math.max(0, left - m.carbPct * kcal) / 9 : ((m.fatPct ?? 0.3) * kcal) / 9;
+  // A fat share on top of a large protein need could outgrow the budget; fat gives way so the macros still add up.
+  const fat = m.carbPct !== undefined ? Math.max(0, left - m.carbPct * kcal) / 9 : Math.min((m.fatPct ?? 0.3) * kcal, left) / 9;
   const carbs = m.carbPct !== undefined ? (m.carbPct * kcal) / 4 : Math.max(0, left - fat * 9) / 4;
 
   return {

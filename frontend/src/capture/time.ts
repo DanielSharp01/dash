@@ -2,18 +2,40 @@ import { logicalDate, partOfTime as corePartOfTime, shiftDate, sortKey as coreSo
 import { queryClient } from "../queries/client";
 import { keys } from "../queries/keys";
 
-export const dayParts: { part: DayPart; label: string; range: string; icon: string }[] = [
-  { part: "dawn", label: "Early morning", range: "4–7", icon: "🌅" },
-  { part: "morning", label: "Morning", range: "7–12", icon: "☀️" },
-  { part: "afternoon", label: "Afternoon", range: "12–17", icon: "🌤️" },
-  { part: "evening", label: "Evening", range: "17–21", icon: "🌇" },
-  { part: "night", label: "Night", range: "21–4", icon: "🌙" },
+export const dayParts: { part: DayPart; label: string; from: number; to: number; icon: string }[] = [
+  { part: "dawn", label: "Early morning", from: 4, to: 7, icon: "🌅" },
+  { part: "morning", label: "Morning", from: 7, to: 12, icon: "☀️" },
+  { part: "afternoon", label: "Afternoon", from: 12, to: 17, icon: "🌤️" },
+  { part: "evening", label: "Evening", from: 17, to: 21, icon: "🌇" },
+  { part: "night", label: "Night", from: 21, to: 4, icon: "🌙" },
 ];
 
-const pad = (n: number) => String(n).padStart(2, "0");
+export const pad = (n: number) => String(n).padStart(2, "0");
 
-/** The app only renders once /me is loaded, so the person's rollover hour is always there. */
-const dayEndsAt = () => queryClient.getQueryData<MeResponse>(keys.me)?.profile.dayEndsAt ?? 0;
+/** The app only renders once /me is loaded, so the person's settings are always there. */
+const profile = () => queryClient.getQueryData<MeResponse>(keys.me)?.profile;
+const dayEndsAt = () => profile()?.dayEndsAt ?? 0;
+export const uses12h = () => profile()?.clock === "12h";
+
+const hour12 = (h: number) => h % 12 || 12;
+const meridiem = (h: number) => (h < 12 ? "am" : "pm");
+
+/** "16:05", or "4:05 pm" on a 12-hour clock. */
+export function formatTime(time: string) {
+  if (!uses12h()) return time;
+  const [h, m] = time.split(":").map(Number) as [number, number];
+  return `${hour12(h)}:${pad(m)} ${meridiem(h)}`;
+}
+
+/** A whole hour: "4:00", or "4am" on a 12-hour clock. */
+export const formatHour = (h: number) => (uses12h() ? `${hour12(h)}${meridiem(h)}` : `${h}:00`);
+
+/** "17–21", or "5–9pm"; the first am/pm is only written when it differs from the second. */
+export function hourRange(from: number, to: number) {
+  if (!uses12h()) return `${from}–${to}`;
+  const start = meridiem(from) === meridiem(to) ? `${hour12(from)}` : formatHour(from);
+  return `${start}–${formatHour(to)}`;
+}
 
 export const todayKey = () => logicalDate(new Date(), dayEndsAt());
 
@@ -67,9 +89,9 @@ export function whenLabel(w: When, withDay = true, live = false) {
   const join = (a: string, b: string) => (a ? `${a}, ${b}` : b);
   switch (w.kind) {
     case "now":
-      return live && isLiveNow(w) ? "Now" : join(day, w.time);
+      return live && isLiveNow(w) ? "Now" : join(day, formatTime(w.time));
     case "exact":
-      return join(day, w.time);
+      return join(day, formatTime(w.time));
     case "part":
       return join(day, dayParts.find((p) => p.part === w.part)!.label);
     case "day":

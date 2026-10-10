@@ -5,7 +5,7 @@ import { savePlan, saveProfile, useMe, useProfile } from "../../queries/me.queri
 import { addPot, removePot } from "../../queries/pots.queries";
 import { addWeighIn, removeWeighIn, useWeighIns } from "../../queries/weighIns.queries";
 import { ADULT_AGE } from "../body";
-import { todayKey } from "../time";
+import { formatHour, todayKey, uses12h } from "../time";
 import { BirthdayInput, HeightInput, WeightInput } from "../ui/BodyInputs";
 import { FlowShell } from "../ui/FlowShell";
 import { notify } from "../ui/notify";
@@ -156,11 +156,22 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
           <div className="segmented small">
             {[0, 2, 3, 4, 5, 6].map((h) => (
               <button key={h} aria-selected={profile.dayEndsAt === h} onClick={() => updateProfile({ dayEndsAt: h })}>
-                {h === 0 ? "Midnight" : `${h}:00`}
+                {h === 0 ? "Midnight" : formatHour(h)}
               </button>
             ))}
           </div>
           <p className="hint">Anything logged before this counts toward the day before, so a late snack lands on the evening it belongs to.</p>
+        </div>
+        <div className="field">
+          <span className="field-label">Clock</span>
+          <div className="segmented small">
+            <button aria-selected={!uses12h()} onClick={() => updateProfile({ clock: "24h" })}>
+              24-hour
+            </button>
+            <button aria-selected={uses12h()} onClick={() => updateProfile({ clock: "12h" })}>
+              12-hour
+            </button>
+          </div>
         </div>
       </section>
 

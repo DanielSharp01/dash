@@ -29,6 +29,7 @@ const versionStart = () => day().notNull().default(sql`'-infinity'`);
 
 export const unitSystemEnum = pgEnum("unit_system", ["metric", "imperial"]);
 export const sexEnum = pgEnum("sex", ["male", "female"]);
+export const clockEnum = pgEnum("clock", ["24h", "12h"]);
 export const macroPresetEnum = pgEnum("macro_preset", ["balanced", "high-protein", "low-carb", "keto", "low-fat"]);
 export const foodKindEnum = pgEnum("food_kind", ["item", "recipe", "combo"]);
 export const foodUnitEnum = pgEnum("food_unit", ["g", "ml", "piece"]);
@@ -68,6 +69,7 @@ export const profilesTable = pgTable(
     birthday: day(),
     sex: sexEnum(),
     dayEndsAt: smallint().notNull().default(0),
+    clock: clockEnum().notNull().default("24h"),
     revision: revision(),
     /** Bumped by every plan change; guards plan_versions as one document. */
     planRevision: integer().notNull().default(1),
