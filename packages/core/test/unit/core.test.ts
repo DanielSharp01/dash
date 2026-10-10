@@ -4,6 +4,7 @@ import {
   BEGINNING,
   comboAsLines,
   dailyTargets,
+  restingBurn,
   dayTotals,
   defaultPlan,
   entryNeedsFollowUp,
@@ -162,5 +163,11 @@ describe("dailyTargets", () => {
     const t = dailyTargets(profile, withPlan({ macroPlan: { preset: "high-protein", proteinPerKg: 4, fatPct: 0.3 } }), weighIns, "2026-06-01");
     expect(t.carbs).toBe(0);
     expect(Math.abs(t.protein * 4 + t.fat * 9 + t.carbs * 4 - t.kcal)).toBeLessThanOrEqual(10);
+  });
+
+  it("estimates maintenance from what's known while a body detail is missing", () => {
+    const t = dailyTargets({ ...profile, heightCm: undefined }, withPlan({}), weighIns, "2026-06-01");
+    expect(t.calc).toBeUndefined();
+    expect(t.estimatedMaintenance).toBe(restingBurn(110, 170, 36) * defaultPlan.metabolismMultiplier);
   });
 });

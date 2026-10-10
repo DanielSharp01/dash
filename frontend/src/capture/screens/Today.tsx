@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { asItem, asRecipe, type Contents, dayTotals, displayName, type Entry, entryContents, lineContents, entryNeedsFollowUp, type FoodLookup, formatAmount, formatFluid, type Line, type Part, recapWorthShowing, shiftDate } from "@dash/core";
+import { asItem, asRecipe, bigDayLine, type Contents, dayTotals, displayName, type Entry, entryContents, lineContents, entryNeedsFollowUp, type FoodLookup, formatAmount, formatFluid, type Line, type Part, recapWorthShowing, shiftDate } from "@dash/core";
 import { useActivityLookup } from "../../queries/activities.queries";
 import { useDayEntries, useFollowUp, useFollowUpCount } from "../../queries/entries.queries";
 import { useFoodLookup } from "../../queries/foods.queries";
@@ -105,7 +105,7 @@ function DaySummary({ entries, day }: { entries: Entry[]; day: string }) {
   const budget = goals.kcal + t.burned;
   const left = budget - t.kcal.value;
   const unsure = t.kcal.missing > 0;
-  const tone = kcalTone(t.kcal.value, budget);
+  const tone = kcalTone(t.kcal.value, budget, bigDayLine(goals, t.burned));
 
   return (
     <section className="summary">
@@ -179,16 +179,12 @@ function RecapStrip({ day }: { day: string }) {
   );
 }
 
-/** Amber from close to the budget until a little over it, red once well past it. */
-const CLOSE_SHARE = 0.9;
-const HEAVY_SHARE = 1.1;
-
 type KcalTone = "ok" | "close" | "over";
 
-function kcalTone(eaten: number, budget: number): KcalTone {
-  if (budget <= 0) return "ok";
-  const share = eaten / budget;
-  return share > HEAVY_SHARE ? "over" : share >= CLOSE_SHARE ? "close" : "ok";
+/** Matches the recap: amber for a close call over the budget, red for a big day past maintenance. */
+function kcalTone(eaten: number, budget: number, bigDayFrom: number): KcalTone {
+  if (budget <= 0 || eaten <= budget) return "ok";
+  return eaten <= bigDayFrom ? "close" : "over";
 }
 
 const toneColors: Record<KcalTone, { ring: string; lap: string }> = {

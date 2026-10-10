@@ -7,9 +7,20 @@ import { shiftDate } from "./time";
 
 /** Under half the budget is more likely a forgotten meal than a great day, so it isn't celebrated. */
 const LIGHT_SHARE = 0.5;
-const CLOSE_SHARE = 1.1;
+/** The smallest overshoot that counts as a close call, for when maintenance is at or near the budget. */
+const CLOSE_CALL_SHARE = 1.1;
 /** How far back streaks look; a longer run is still counted, just capped here. */
 export const RECAP_WINDOW_DAYS = 120;
+
+/**
+ * Over the budget but still in a deficit is a close call; eating past maintenance is a big day.
+ * A budget at or near maintenance (no weight goal) still leaves a slight overshoot amber.
+ */
+export function bigDayLine(targets: DailyTargets, burned: number) {
+  const slightlyOver = (targets.kcal + burned) * CLOSE_CALL_SHARE;
+  const maintenance = targets.calc?.maintenance ?? targets.estimatedMaintenance;
+  return maintenance === undefined ? slightlyOver : Math.max(maintenance + burned, slightlyOver);
+}
 
 export function dayResult(date: string, entries: Entry[], targets: DailyTargets, foods: FoodLookup): DayResult {
   const t = dayTotals(entries, foods);
@@ -22,7 +33,7 @@ export function dayResult(date: string, entries: Entry[], targets: DailyTargets,
       ? "light"
       : eaten <= budget
         ? "great"
-        : eaten <= budget * CLOSE_SHARE
+        : eaten <= bigDayLine(targets, t.burned)
           ? "close"
           : "over";
   // A clamped target leaves less than the planned deficit, so the goal is what the target allows.

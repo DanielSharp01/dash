@@ -68,6 +68,31 @@ describe("dayResult", () => {
     expect(dayResult(MON, [], targets, lookup).tone).toBe("empty");
   });
 
+  it("keeps a day over budget a close call while it's still under maintenance", () => {
+    expect(tone(2500)).toBe("close");
+    expect(tone(2501)).toBe("over");
+    expect(dayResult(MON, [ate(MON, 2700), ran(MON, 300)], targets, lookup).tone).toBe("close");
+  });
+
+  it("judges a big day by the estimated maintenance while the real one is unknown", () => {
+    const estimated = { ...targets, calc: undefined, estimatedMaintenance: 2300 };
+    expect(dayResult(MON, [ate(MON, 2300)], estimated, lookup).tone).toBe("close");
+    expect(dayResult(MON, [ate(MON, 2301)], estimated, lookup).tone).toBe("over");
+    expect(dayResult(MON, [ate(MON, 2300)], estimated, lookup).deficit).toBeUndefined();
+  });
+
+  it("draws the big-day line a tenth over budget when no maintenance is given", () => {
+    const noCalc = { ...targets, calc: undefined };
+    expect(dayResult(MON, [ate(MON, 2140)], noCalc, lookup).tone).toBe("close");
+    expect(dayResult(MON, [ate(MON, 2150)], noCalc, lookup).tone).toBe("over");
+  });
+
+  it("still allows a tenth over a budget that sits at maintenance", () => {
+    const maintaining = { ...targets, kcal: 2500, calc: { ...targets.calc!, deficit: 0 } };
+    expect(dayResult(MON, [ate(MON, 2740)], maintaining, lookup).tone).toBe("close");
+    expect(dayResult(MON, [ate(MON, 2760)], maintaining, lookup).tone).toBe("over");
+  });
+
   it("measures the deficit from maintenance, so a day slightly over budget can still be one", () => {
     expect(dayResult(MON, [ate(MON, 1890)], targets, lookup)).toMatchObject({ deficit: 610, goalDeficit: 550, budget: 1950 });
     expect(dayResult(MON, [ate(MON, 2070)], targets, lookup).deficit).toBe(430);

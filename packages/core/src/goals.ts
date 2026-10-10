@@ -6,6 +6,9 @@ export const KCAL_PER_KG = 7700;
 /** Below this, eating enough protein and micronutrients gets hard; common clinical floor for unsupervised diets. */
 export const MIN_KCAL = 1200;
 const FALLBACK = { kcal: 1800, protein: 110, carbs: 200, fat: 60 };
+/** An average adult, standing in for whatever body details are missing. */
+const AVERAGE_CM = 170;
+const AVERAGE_AGE = 40;
 
 export const macroPresets: Record<MacroPreset, { label: string; plan: MacroPlan }> = {
   balanced: { label: "Balanced", plan: { preset: "balanced", proteinPerKg: 1.6, fatPct: 0.3 } },
@@ -31,6 +34,8 @@ export interface DailyTargets {
   fat: number;
   /** Absent when weight, height or age is missing and the fallback is used. */
   calc?: { bmr: number; maintenance: number; deficit: number; clamped: boolean; bodyKg: number };
+  /** Without calc, maintenance guessed from an average adult; too rough for anything but telling a big day. */
+  estimatedMaintenance?: number;
   fluidMl: number;
   plan: Plan;
   missing: ("weight" | "height" | "age")[];
@@ -82,9 +87,14 @@ export function dailyTargets(profile: ProfileInput, versions: PlanVersion[], wei
   if (!profile.heightCm) missing.push("height");
   if (!profile.birthday) missing.push("age");
   const plan = planAt(versions, date);
-  if (missing.length || !profile.heightCm || !profile.birthday) return { ...FALLBACK, fluidMl: plan.fluidGoalMl, plan, missing };
+  const on = date ? new Date(`${date}T12:00:00`) : new Date();
+  if (missing.length || !profile.heightCm || !profile.birthday) {
+    const age = profile.birthday ? ageOn(profile.birthday, on) : AVERAGE_AGE;
+    const estimatedMaintenance = restingBurn(body.kg, profile.heightCm ?? AVERAGE_CM, age, profile.sex) * plan.metabolismMultiplier;
+    return { ...FALLBACK, estimatedMaintenance, fluidMl: plan.fluidGoalMl, plan, missing };
+  }
 
-  const age = ageOn(profile.birthday, date ? new Date(`${date}T12:00:00`) : new Date());
+  const age = ageOn(profile.birthday, on);
   const bmr = restingBurn(body.kg, profile.heightCm, age, profile.sex);
   const maintenance = bmr * plan.metabolismMultiplier;
   const deficit = (plan.goal.kgPerWeek * KCAL_PER_KG) / 7;
