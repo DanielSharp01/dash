@@ -113,6 +113,20 @@ describe("exercise entries", () => {
   });
 });
 
+describe("activity usage", () => {
+  it("lists each activity's last live entry, newest first", async () => {
+    const u = await newUser();
+    const run = publicActivityId("run");
+    await u.post("/entries", exercise(walk));
+    await new Promise((r) => setTimeout(r, 5));
+    await u.post("/entries", exercise(run));
+    const gone = exercise(publicActivityId("cycle"));
+    await u.post("/entries", gone);
+    await u.delete(`/entries/${gone.id}`);
+    expect((await u.get("/activities/usage")).body.usage.map((r: any) => r.activityId)).toEqual([run, walk]);
+  });
+});
+
 describe("activities", () => {
   it("lists public ones with an ETag, creates, edits and deletes personal ones", async () => {
     const u = await newUser();

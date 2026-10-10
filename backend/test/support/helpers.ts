@@ -59,9 +59,10 @@ export async function newUser() {
 
 export type Client = Awaited<ReturnType<typeof newUser>>;
 
+/** A request without a session; the path is from the server root, so it reaches /auth too. */
 export async function anonymous(path: string) {
   const { base } = await start();
-  return fetch(base + path);
+  return fetch(new URL(path, base), { redirect: "manual" });
 }
 
 export const uuid = () => randomUUID();

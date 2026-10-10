@@ -313,13 +313,21 @@ export const usageResponseSchema = z.object({
   usage: z.array(
     z.object({
       foodId: idSchema,
-      lastLoggedAt: z.string(),
+      /** The last entry logged as this food: as its combo, or as its only line. Absent when only ever part of a bigger entry. */
+      lastLoggedAt: z.string().optional(),
       ate30d: z.number().int(),
       drank30d: z.number().int(),
       /** From the last time it was logged on its own. */
       usualAmount: amountSchema.optional(),
+      /** Live entries with a line on the food, plus entries logged as the combo. */
+      uses: z.number().int(),
     }),
   ),
+});
+
+export const activityUsageResponseSchema = z.object({
+  /** Newest first. */
+  usage: z.array(z.object({ activityId: idSchema, lastLoggedAt: z.string() })),
 });
 
 export const createFoodRequestSchema = z.intersection(foodInputSchema, z.object(newFoodsField));

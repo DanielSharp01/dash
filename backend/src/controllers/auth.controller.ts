@@ -12,14 +12,17 @@ import { db } from "../providers/db";
 import { UserRepository } from "../repositories/user.repo";
 import { ensureProfile } from "../repositories/settings.repo";
 import { issuePkce, OAuthError } from "@danielsharp/auth";
+import { env } from "../config/env";
 
 const users = new UserRepository(db);
+// Built from configuration, not the request, so a proxy in front can't change where Google sends the code.
+const googleCallback = `${env.API_HOST}/auth/google/callback`;
 
 export function authController() {
   rootRouter.get("/auth/google/authorize", (line) =>
     line
       .pipe(validateQuery(z.object({ returnTo: z.string().default("/") })))
-      .pipe(({ query }, { req, res }) => {
+      .pipe(({ query }, { res }) => {
         const { codeVerifier, codeChallenge } = issuePkce();
         const nonce = randomUUID();
         res.cookie(
@@ -38,7 +41,7 @@ export function authController() {
         );
         res.redirect(
           google.getAuthorizationUrl({
-            redirectUri: `${req.url.origin}/auth/google/callback`,
+            redirectUri: googleCallback,
             state: query.returnTo,
             codeChallenge,
             nonce,
@@ -78,7 +81,7 @@ export function authController() {
       .pipe(
         async (
           { cookies: { "__Host-auth-google": authGoogle }, query },
-          { req, res },
+          { res },
         ) => {
           res.clearCookie("__Host-auth-google", { path: "/", secure: true });
           if ("error" in query) {
@@ -92,7 +95,7 @@ export function authController() {
             const identity = await google.getIdentity({
               code: query.code,
               codeVerifier,
-              redirectUri: `${req.url.origin}/auth/google/callback`,
+              redirectUri: googleCallback,
               nonce,
             });
             const user = await users.upsertFromGoogle(identity);

@@ -4,7 +4,14 @@ import { anonymous, newUser, uuid } from "../support/helpers";
 
 describe("session", () => {
   it("refuses calls without a session", async () => {
-    expect((await anonymous("/me")).status).toBe(401);
+    expect((await anonymous("/api/me")).status).toBe(401);
+  });
+
+  it("sends Google back to API_HOST, whatever host the request came in on", async () => {
+    const res = await anonymous("/auth/google/authorize?returnTo=/capture");
+    expect(res.status).toBe(302);
+    const google = new URL(res.headers.get("location")!);
+    expect(google.searchParams.get("redirect_uri")).toBe("http://localhost:5173/auth/google/callback");
   });
 
   it("creates the profile and plan on first load", async () => {

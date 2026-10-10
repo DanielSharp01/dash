@@ -192,16 +192,25 @@ describe("batches", () => {
 });
 
 describe("usage", () => {
-  it("counts the food each entry was logged as, and remembers the usual amount", async () => {
+  it("counts the food each entry was logged as, every use, and remembers the usual amount", async () => {
     const u = await newUser();
     const milk = item();
+    const breakfast = combo([{ foodId: milk.id, amount: { value: 1, unit: "glass" } }]);
     await u.post("/foods", milk);
+    await u.post("/foods", breakfast);
     const today = new Date().toISOString().slice(0, 10);
     await u.post("/entries", foodEntry([{ foodId: milk.id, amount: { value: 1, unit: "glass" } }], today));
     await u.post("/entries", { ...foodEntry([{ foodId: milk.id, amount: { value: 2, unit: "glass" } }], today), via: "drank" });
     await u.post("/entries", foodEntry([{ foodId: milk.id, amount: { value: 5, unit: "glass" } }, { foodId: water, amount: {} }], today));
-    const usage = (await u.get("/foods/usage")).body.usage;
-    expect(usage).toEqual([expect.objectContaining({ foodId: milk.id, ate30d: 1, drank30d: 1, usualAmount: { value: 2, unit: "glass" } })]);
+    await u.post("/entries", { ...foodEntry([{ foodId: milk.id, amount: { value: 1, unit: "glass" } }], today), comboId: breakfast.id });
+    const deleted = foodEntry([{ foodId: milk.id, amount: { value: 9, unit: "glass" } }], today);
+    await u.post("/entries", deleted);
+    await u.delete(`/entries/${deleted.id}`);
+
+    const usage = Object.fromEntries((await u.get("/foods/usage")).body.usage.map((r: any) => [r.foodId, r]));
+    expect(usage[milk.id]).toMatchObject({ ate30d: 1, drank30d: 1, usualAmount: { value: 2, unit: "glass" }, uses: 4 });
+    expect(usage[breakfast.id]).toMatchObject({ ate30d: 1, uses: 1 });
+    expect(usage[water]).toEqual({ foodId: water, ate30d: 0, drank30d: 0, uses: 1 });
   });
 });
 

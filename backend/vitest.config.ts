@@ -17,6 +17,7 @@ export default defineConfig({
     globalSetup: ["./test/support/globalSetup.ts"],
     env: {
       DATABASE_URL: testDatabaseUrl(),
+      API_HOST: "http://localhost:5173",
       REDIS_URL: process.env.TEST_REDIS_URL ?? `${process.env.REDIS_URL ?? "redis://localhost:6379"}/15`,
     },
     testTimeout: 20_000,

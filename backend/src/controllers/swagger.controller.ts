@@ -1,6 +1,7 @@
 import { swagger } from "@danielsharp/typeline-http";
 import { createRequire } from "node:module";
 import { dirname } from "node:path";
+import { env } from "../config/env";
 import { logger } from "../providers/logger";
 import { rootRouter } from "../routers";
 
@@ -32,13 +33,15 @@ export function swaggerController() {
     },
   });
 
+  const document = { ...swaggerResult.document, servers: [{ url: env.API_HOST }] };
+
   if (swaggerResult.warnings.length > 0) {
     logger.warn("Swagger warnings:", swaggerResult.warnings);
   }
 
   rootRouter.get("/api/docs/openapi.yaml", (line) =>
     line.pipe((_, { res }) => {
-      res.send(swaggerResult.document);
+      res.send(document);
     }),
   );
 

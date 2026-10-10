@@ -1,5 +1,5 @@
 import { resEnd, validateBody, validateParams } from "@danielsharp/typeline-http";
-import { activitiesResponseSchema, activityInputSchema, activitySchema, updateActivityRequestSchema } from "@dash/core";
+import { activitiesResponseSchema, activityInputSchema, activitySchema, activityUsageResponseSchema, updateActivityRequestSchema } from "@dash/core";
 import { created, jsonSend, ok } from "../http/respond";
 import { authedRouter } from "../routers";
 import * as activities from "../services/activity.service";
@@ -15,6 +15,10 @@ export function activityController() {
         return ok({ activities: list }, etag);
       })
       .pipe(jsonSend(activitiesResponseSchema, 200)),
+  );
+
+  r.get("/activities/usage", (line) =>
+    line.pipe(async ({ auth }) => ok(await activities.activityUsage(auth.userId))).pipe(jsonSend(activityUsageResponseSchema, 200)),
   );
 
   r.post("/activities", (line) =>

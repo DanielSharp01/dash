@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import type { ActivityInput } from "@dash/core";
+import { entriesTable } from "../db/schema";
 import { weakEtag } from "../http/respond";
 import { db, type Tx } from "../providers/db";
 import {
@@ -65,4 +67,16 @@ export async function setActivityDeletedFor(userId: string, id: string, deleted:
     if ((row.deletedAt !== null) !== deleted) await setActivityDeleted(tx, id, deleted, row.revision + 1);
     return (await loadActivity(tx, id))!;
   });
+}
+
+/** Exercise recents: each activity's last live entry, newest first. */
+export async function activityUsage(userId: string) {
+  const result = await db.execute<{ activity_id: string; last_logged_at: string }>(sql`
+    select activity_id, max(created_at) as last_logged_at
+    from ${entriesTable}
+    where user_id = ${userId} and kind = 'exercise' and deleted_at is null
+    group by activity_id
+    order by last_logged_at desc
+  `);
+  return { usage: result.rows.map((r) => ({ activityId: r.activity_id, lastLoggedAt: new Date(r.last_logged_at).toISOString() })) };
 }
