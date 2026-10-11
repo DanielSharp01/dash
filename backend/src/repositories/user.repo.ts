@@ -1,6 +1,7 @@
 import type { GoogleIdentity } from "@danielsharp/auth/google";
+import { eq } from "drizzle-orm";
 import { usersTable } from "../db/schema";
-import type { Db } from "../providers/db";
+import type { Db, Executor } from "../providers/db";
 
 export class UserRepository {
   constructor(private db: Db) {}
@@ -15,4 +16,9 @@ export class UserRepository {
       .returning({ id: usersTable.id });
     return user!;
   }
+}
+
+export async function findUser(ex: Executor, id: string) {
+  const [user] = await ex.select({ id: usersTable.id, email: usersTable.email, name: usersTable.name }).from(usersTable).where(eq(usersTable.id, id));
+  return user;
 }

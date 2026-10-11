@@ -18,7 +18,7 @@ import {
 } from "@dash/core";
 import { entriesTable, foodsTable } from "../db/schema";
 import type { Tx } from "../providers/db";
-import { lineOwners, loadEntries, updateEntry, usingFoods, withLines } from "../repositories/entry.repo";
+import { lineOwners, loadEntries, lockEntry, updateEntry, usingFoods, withLines } from "../repositories/entry.repo";
 import {
   batchIdsUsing,
   comboIdsUsing,
@@ -155,7 +155,7 @@ async function entriesWithLines(tx: Tx, userId: string, lineIds: string[]) {
   const owners = await lineOwners(tx, lineIds);
   if (owners.length !== new Set(lineIds).size || owners.some((o) => o.userId !== userId)) throw notFound();
   const entries = await loadEntries(tx, withLines(lineIds));
-  for (const e of entries) await tx.select().from(entriesTable).where(eq(entriesTable.id, e.id)).for("update");
+  for (const e of entries) await lockEntry(tx, e.id);
   return entries;
 }
 

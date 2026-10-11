@@ -1,8 +1,8 @@
-import { and, eq, isNull } from "drizzle-orm";
 import { applyPlanChange, type Plan, type Pot, type ProfileInput, type WeighIn } from "@dash/core";
-import { potsTable, usersTable, weighInsTable } from "../db/schema";
 import { db } from "../providers/db";
 import {
+  deletePotRow,
+  deleteWeighInRow,
   ensureProfile,
   findPot,
   findWeighIn,
@@ -10,17 +10,21 @@ import {
   getProfile,
   getProfileRow,
   listPots,
+  insertPot,
   listWeighIns,
   replacePlanVersions,
+  replaceWeighIn,
+  updatePotRow,
   updateProfile,
 } from "../repositories/settings.repo";
+import { findUser } from "../repositories/user.repo";
 import { opt } from "../repositories/mapping";
 import { claimId, expectRevision, notFound, sameId } from "./common";
 
 export async function me(userId: string) {
   await ensureProfile(db, userId);
-  const [[user], profile, versions, profileRow, pots] = await Promise.all([
-    db.select({ id: usersTable.id, email: usersTable.email, name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId)),
+  const [user, profile, versions, profileRow, pots] = await Promise.all([
+    findUser(db, userId),
     getProfile(db, userId),
     getPlanVersions(db, userId),
     getProfileRow(db, userId),
@@ -61,11 +65,7 @@ export async function addWeighIn(userId: string, w: WeighIn) {
   return db.transaction(async (tx) => {
     const existing = await findWeighIn(tx, w.id);
     if (claimId(existing, userId) === "retry") return { isNew: false, body: { id: existing!.id, date: existing!.date, kg: existing!.kg } };
-    await tx
-      .update(weighInsTable)
-      .set({ deletedAt: new Date() })
-      .where(and(eq(weighInsTable.userId, userId), eq(weighInsTable.date, w.date), isNull(weighInsTable.deletedAt)));
-    await tx.insert(weighInsTable).values({ id: w.id, userId, date: w.date, kg: w.kg });
+    await replaceWeighIn(tx, userId, w);
     return { isNew: true, body: { id: w.id, date: w.date, kg: w.kg } };
   });
 }
@@ -73,14 +73,14 @@ export async function addWeighIn(userId: string, w: WeighIn) {
 export async function deleteWeighIn(userId: string, id: string) {
   const row = await findWeighIn(db, id);
   if (!row || row.userId !== userId) throw notFound();
-  if (!row.deletedAt) await db.update(weighInsTable).set({ deletedAt: new Date() }).where(eq(weighInsTable.id, id));
+  if (!row.deletedAt) await deleteWeighInRow(db, id);
 }
 
 export async function createPot(userId: string, pot: Pot) {
   return db.transaction(async (tx) => {
     const existing = await findPot(tx, pot.id);
     if (claimId(existing, userId) === "retry") return { isNew: false, body: { id: existing!.id, name: existing!.name, grams: existing!.grams } };
-    await tx.insert(potsTable).values({ id: pot.id, userId, name: pot.name, grams: pot.grams });
+    await insertPot(tx, userId, pot);
     return { isNew: true, body: pot };
   });
 }
@@ -89,12 +89,12 @@ export async function updatePot(userId: string, id: string, pot: Pot) {
   sameId(id, pot.id);
   const row = await findPot(db, id);
   if (!row || row.userId !== userId || row.deletedAt) throw notFound();
-  await db.update(potsTable).set({ name: pot.name, grams: pot.grams }).where(eq(potsTable.id, id));
+  await updatePotRow(db, pot);
   return pot;
 }
 
 export async function deletePot(userId: string, id: string) {
   const row = await findPot(db, id);
   if (!row || row.userId !== userId) throw notFound();
-  if (!row.deletedAt) await db.update(potsTable).set({ deletedAt: new Date() }).where(eq(potsTable.id, id));
+  if (!row.deletedAt) await deletePotRow(db, id);
 }

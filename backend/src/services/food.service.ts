@@ -1,6 +1,6 @@
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { Batch, Food, FoodInput, StoredBatch } from "@dash/core";
-import { entriesTable, entryLinesTable, foodsTable } from "../db/schema";
+import { foodsTable } from "../db/schema";
 import { db, type Executor, type Tx } from "../providers/db";
 import {
   catalogueVersion,
@@ -9,6 +9,7 @@ import {
   insertFood,
   loadBatch,
   loadFood,
+  loadFoodUsage,
   loadFoods,
   lockFood,
   setFoodDeleted,
@@ -130,72 +131,8 @@ export async function setBatchDeleted(userId: string, recipeId: string, batchId:
   });
 }
 
-/**
- * What the cards are ordered by and the catalogue counts. An entry is logged as one food: its
- * combo, or its only line's food. It is a use of every food it has a line on, and of its combo.
- */
 export async function foodUsage(userId: string) {
-  const result = await db.execute<{
-    food_id: string;
-    last_logged_at: string | null;
-    ate_30d: number;
-    drank_30d: number;
-    uses: number;
-    usual_value: number | null;
-    usual_unit: string | null;
-  }>(sql`
-    with live as (
-      select e.id, e.created_at, e.when_date, e.via, e.combo_id
-      from ${entriesTable} e
-      where e.user_id = ${userId} and e.kind = 'food' and e.deleted_at is null
-    ),
-    logged as (
-      select g.*, coalesce(g.combo_id, (select min(l.food_id::text)::uuid from ${entryLinesTable} l where l.entry_id = g.id having count(*) = 1)) as food_id
-      from live g
-    ),
-    uses as (
-      select food_id, count(distinct entry_id)::int as uses from (
-        select l.food_id, l.entry_id from ${entryLinesTable} l join live g on g.id = l.entry_id where l.food_id is not null
-        union all
-        select g.combo_id, g.id from live g where g.combo_id is not null
-      ) u
-      group by food_id
-    ),
-    usual as (
-      select distinct on (l.food_id) l.food_id, l.amount_value, l.amount_unit
-      from logged g
-      join ${entryLinesTable} l on l.entry_id = g.id
-      where g.combo_id is null and g.food_id = l.food_id and l.amount_value is not null
-      order by l.food_id, g.created_at desc
-    ),
-    counts as (
-      select food_id,
-        max(created_at) as last_logged_at,
-        (count(*) filter (where via = 'ate' and when_date >= current_date - 30))::int as ate_30d,
-        (count(*) filter (where via = 'drank' and when_date >= current_date - 30))::int as drank_30d
-      from logged
-      where food_id is not null
-      group by food_id
-    )
-    select u.food_id, c.last_logged_at, coalesce(c.ate_30d, 0) as ate_30d, coalesce(c.drank_30d, 0) as drank_30d, u.uses,
-      s.amount_value as usual_value, s.amount_unit as usual_unit
-    from uses u
-    left join counts c on c.food_id = u.food_id
-    left join usual s on s.food_id = u.food_id
-    order by c.last_logged_at desc nulls last, u.food_id
-  `);
-  return {
-    usage: result.rows.map((r) => ({
-      foodId: r.food_id,
-      ...(r.last_logged_at !== null ? { lastLoggedAt: new Date(r.last_logged_at).toISOString() } : {}),
-      ate30d: r.ate_30d,
-      drank30d: r.drank_30d,
-      ...(r.usual_value !== null || r.usual_unit !== null
-        ? { usualAmount: { ...(r.usual_value !== null ? { value: r.usual_value } : {}), ...(r.usual_unit !== null ? { unit: r.usual_unit } : {}) } }
-        : {}),
-      uses: r.uses,
-    })),
-  };
+  return { usage: await loadFoodUsage(db, userId) };
 }
 
 /** Live catalogued items with the barcode: the person's own first, then public ones. */

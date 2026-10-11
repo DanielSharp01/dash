@@ -119,6 +119,19 @@ export async function listWeighIns(ex: Executor, userId: string): Promise<WeighI
     .orderBy(asc(weighInsTable.date));
 }
 
+/** Retires the day's live weigh-in, if any, so the new one replaces it. */
+export async function replaceWeighIn(ex: Executor, userId: string, w: WeighIn) {
+  await ex
+    .update(weighInsTable)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(weighInsTable.userId, userId), eq(weighInsTable.date, w.date), isNull(weighInsTable.deletedAt)));
+  await ex.insert(weighInsTable).values({ id: w.id, userId, date: w.date, kg: w.kg });
+}
+
+export async function deleteWeighInRow(ex: Executor, id: string) {
+  await ex.update(weighInsTable).set({ deletedAt: new Date() }).where(eq(weighInsTable.id, id));
+}
+
 export async function findWeighIn(ex: Executor, id: string) {
   const [row] = await ex.select().from(weighInsTable).where(eq(weighInsTable.id, id));
   return row;
@@ -135,4 +148,16 @@ export async function listPots(ex: Executor, userId: string): Promise<Pot[]> {
 export async function findPot(ex: Executor, id: string) {
   const [row] = await ex.select().from(potsTable).where(eq(potsTable.id, id));
   return row;
+}
+
+export async function insertPot(ex: Executor, userId: string, pot: Pot) {
+  await ex.insert(potsTable).values({ id: pot.id, userId, name: pot.name, grams: pot.grams });
+}
+
+export async function updatePotRow(ex: Executor, pot: Pot) {
+  await ex.update(potsTable).set({ name: pot.name, grams: pot.grams }).where(eq(potsTable.id, pot.id));
+}
+
+export async function deletePotRow(ex: Executor, id: string) {
+  await ex.update(potsTable).set({ deletedAt: new Date() }).where(eq(potsTable.id, id));
 }
