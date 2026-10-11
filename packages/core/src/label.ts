@@ -1,3 +1,4 @@
+import { namedAmount } from "./units";
 import { nutrientKeys, type Amount, type FoodItemInput, type FoodUnit, type Label, type Nutrients, type Serving, type UnitSystem } from "./schemas";
 
 export { nutrientKeys };
@@ -107,7 +108,8 @@ export const round = (n: number, digits = 1) => Math.round(n * 10 ** digits) / 1
 export function formatAmount(a: Amount) {
   if (a.value === undefined) return a.unit ? `? ${a.unit}` : "amount unknown";
   const v = a.value === 0.5 ? "½" : a.value === 1.5 ? "1½" : String(round(a.value, 2));
-  return a.unit ? `${v} ${a.unit}` : v;
+  const named = namedAmount(a);
+  return a.unit ? `${v} ${a.unit}${named ? ` (${named})` : ""}` : v;
 }
 
 /** "per 100 g", "per bar (45 g)", "per piece". */

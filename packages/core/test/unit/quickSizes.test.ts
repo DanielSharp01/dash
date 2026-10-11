@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoStep, countOf, fineStepsFor, quickSizesFor } from "../../src/index";
+import { autoStep, countOf, fineStepsFor, formatAmount, namedAmount, quickSizesFor } from "../../src/index";
 
 describe("quick sizes", () => {
   it("names the ml and fl oz sizes, leaves g plain and has none for servings", () => {
@@ -28,5 +28,31 @@ describe("quick sizes", () => {
     expect(countOf(glass, 0)).toBeUndefined();
     expect(countOf({ value: 0.5, name: "tbsp" }, 1.5)).toBe(3);
     expect(countOf({ value: 100 }, 200)).toBeUndefined();
+  });
+});
+
+describe("namedAmount", () => {
+  it("names a few of the fewest-count size", () => {
+    expect(namedAmount({ value: 250, unit: "ml" })).toBe("1 glass");
+    expect(namedAmount({ value: 750, unit: "ml" })).toBe("3 glasses");
+    expect(namedAmount({ value: 500, unit: "ml" })).toBe("1 large glass");
+    expect(namedAmount({ value: 30, unit: "ml" })).toBe("2 tbsp");
+    expect(namedAmount({ value: 1.5, unit: "fl oz" })).toBe("3 tbsp");
+  });
+
+  it("stays quiet for many spoons, odd amounts and unnamed units", () => {
+    expect(namedAmount({ value: 285, unit: "ml" })).toBeUndefined();
+    expect(namedAmount({ value: 260, unit: "ml" })).toBeUndefined();
+    expect(namedAmount({ value: 200, unit: "g" })).toBeUndefined();
+    expect(namedAmount({ value: 2, unit: "bar" })).toBeUndefined();
+    expect(namedAmount({ unit: "ml" })).toBeUndefined();
+  });
+});
+
+describe("formatAmount", () => {
+  it("adds the named size where one fits", () => {
+    expect(formatAmount({ value: 500, unit: "ml" })).toBe("500 ml (1 large glass)");
+    expect(formatAmount({ value: 285, unit: "ml" })).toBe("285 ml");
+    expect(formatAmount({ value: 2, unit: "bar" })).toBe("2 bar");
   });
 });

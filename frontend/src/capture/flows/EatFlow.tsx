@@ -314,12 +314,6 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     if (combo) commit(lines, { comboId: combo.id }, [combo]);
   };
 
-  // A combo is a template, so it opens with its parts to adjust instead of logging straight away.
-  const quickLog = (f: Food) => {
-    if (f.kind === "combo") return pickFood(f);
-    commit([lineFor(f, usual(f))], { comboId: undefined });
-  };
-
   const header = { canGoBack: depth > 1, onBack: back, onClose: close, when, onWhen: () => go("when") };
 
   if (step === "scan") return <Scanner onCode={(code) => void onCode(code)} onClose={back} />;
@@ -564,7 +558,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
       <FlowShell title={via === "drank" ? "I drank" : "I ate"} {...header}>
         <FoodCards
           via={via}
-          onPick={via === "drank" ? quickLog : pickFood}
+          onPick={pickFood}
           onSearch={(q) => {
             setQuery(q);
             go("what");
@@ -848,7 +842,7 @@ function FoodCards({ via, onPick, onSearch, onScan }: { via: FoodEntry["via"]; o
       ) : (
         <p className="empty">Nothing logged yet. Search above, scan a barcode, or add something new.</p>
       )}
-      {cards.length > 0 && <p className="hint center">{via === "drank" ? "Tap to log your usual amount. Change it from the message that follows." : "Tap to pick an amount."}</p>}
+      {cards.length > 0 && <p className="hint center">Tap to pick an amount.</p>}
     </>
   );
 }

@@ -38,7 +38,7 @@ export const fromDisplayFluid = (n: number, u: UnitSystem) => (u === "metric" ? 
 export const preferredDistance = (u: UnitSystem) => (u === "metric" ? "km" : "mi");
 
 /** A quick amount button; named ones are sizes people recognise, like a glass or a tbsp. */
-export type QuickSize = { value: number; name?: string };
+export type QuickSize = { value: number; name?: string; plural?: string };
 
 /**
  * Rows of quick sizes: spoons, then containers. Spoons are only offered in ml: a tbsp of a powder
@@ -57,23 +57,23 @@ const quickSizes: Record<string, QuickSize[][]> = {
       { value: 15, name: "tbsp" },
     ],
     [
-      { value: 200, name: "small glass" },
-      { value: 250, name: "glass" },
-      { value: 300, name: "mug" },
-      { value: 330, name: "can" },
-      { value: 500, name: "large glass" },
-      { value: 1000, name: "jug" },
+      { value: 200, name: "small glass", plural: "small glasses" },
+      { value: 250, name: "glass", plural: "glasses" },
+      { value: 300, name: "mug", plural: "mugs" },
+      { value: 330, name: "can", plural: "cans" },
+      { value: 500, name: "large glass", plural: "large glasses" },
+      { value: 1000, name: "jug", plural: "jugs" },
     ],
   ],
   "fl oz": [
     [{ value: 0.5, name: "tbsp" }],
     [
-      { value: 4, name: "small glass" },
-      { value: 8, name: "cup" },
-      { value: 12, name: "can" },
-      { value: 16, name: "pint" },
-      { value: 20, name: "large glass" },
-      { value: 32, name: "quart" },
+      { value: 4, name: "small glass", plural: "small glasses" },
+      { value: 8, name: "cup", plural: "cups" },
+      { value: 12, name: "can", plural: "cans" },
+      { value: 16, name: "pint", plural: "pints" },
+      { value: 20, name: "large glass", plural: "large glasses" },
+      { value: 32, name: "quart", plural: "quarts" },
     ],
   ],
 };
@@ -95,3 +95,16 @@ export function countOf(size: QuickSize, value?: number) {
   return n >= 1 && Math.abs(value - n * size.value) < 1e-9 ? n : undefined;
 }
 
+/** A few at most: "2 glasses" helps reading a row, "19 tbsp" doesn't. */
+const MAX_NAMED = 4;
+
+/** "2 glasses" for an amount that is a few of one named size, the fewest when several fit. */
+export function namedAmount(amount: { value?: number; unit?: string }) {
+  const fits = (quickSizesFor(amount.unit) ?? [])
+    .flat()
+    .map((size) => ({ size, n: countOf(size, amount.value) }))
+    .filter((f): f is { size: QuickSize; n: number } => f.n !== undefined && f.n <= MAX_NAMED)
+    .sort((a, b) => a.n - b.n);
+  const best = fits[0];
+  return best && `${best.n} ${best.n === 1 ? best.size.name : (best.size.plural ?? best.size.name)}`;
+}
