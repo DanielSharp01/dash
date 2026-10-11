@@ -101,7 +101,7 @@ export function FoodSearch({ query, onQuery, kinds, recentIds, onPick, onNew, on
               <span className="row-icon">＋</span>
               <span className="row-main">
                 <span className="row-title">{newName ? `New “${newName}”` : "New with this barcode"}</span>
-                <span className="row-sub">{foundName && !query.trim() ? "From the product database" : "Fill in the label now or later"}</span>
+                <span className="row-sub">{foundName ? "Label from the product database" : "Fill in the label now or later"}</span>
               </span>
             </button>
           </li>

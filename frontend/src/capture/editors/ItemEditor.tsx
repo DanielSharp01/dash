@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { autoFoodIcon, basisLabel, BEGINNING, type Combo, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, type Portion, round, sameValues, type Serving } from "@dash/core";
+import { autoFoodIcon, basisLabel, BEGINNING, type Combo, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, type Portion, round, sameValues, type Serving } from "@dash/core";
 import { completeAsCombo, mergeFood } from "../../queries/commands.queries";
 import { saveFood, useFoodUsage, useFoods } from "../../queries/foods.queries";
+import { productForBarcode } from "../../queries/lookups.queries";
 import { undoBy } from "../errors";
 import { ownCopy, useListedFoods, usesOf, variantsOf } from "../foods";
 import { todayKey } from "../time";
 import { PortionList } from "./PortionList";
 import { FoodRow, FoodSearch } from "../ui/FoodSearch";
 import { DateChip, tapCard } from "../ui/DateChip";
-import { draftFrom, LabelForm, labelFrom, unitOf } from "../ui/LabelForm";
+import { draftFrom, hasValues, LabelForm, labelFrom, unitOf } from "../ui/LabelForm";
 import { NumberInput } from "../ui/NumberInput";
 import { IconField } from "../ui/Pickers";
 import { Scanner } from "../ui/Scanner";
@@ -58,6 +59,8 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const [asking, setAsking] = useState(false);
   const [changedFrom, setChangedFrom] = useState(todayKey);
   const [busy, setBusy] = useState(false);
+  const [lookedUp, setLookedUp] = useState(item.barcode ?? "");
+  const [offer, setOffer] = useState<OpenFoodFactsResult>();
 
   const next = labelFrom(draft);
   const unit = next ? unitOf(draft) : item.unit;
@@ -124,6 +127,26 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
     if (result) onMerged?.(target, undoBy(result.undoToken));
   };
 
+  const fillFrom = (product: OpenFoodFactsResult) => {
+    if (!name.trim()) setName(product.name);
+    if (!variant.trim() && product.brand) setVariant(product.brand);
+    if (product.label) setDraft(draftFrom(product.unit, product.label, "database"));
+    const missing = product.servings.filter((p) => !servings.some((s) => s.name.trim().toLowerCase() === p.name.toLowerCase()));
+    setServings([...servings, ...missing]);
+    setOffer(undefined);
+  };
+
+  /** A new code is looked up once; an empty label is filled, a typed one is only replaced if the person says so. */
+  const lookUp = async (code: string) => {
+    if (code.length < 8 || code === lookedUp) return;
+    setLookedUp(code);
+    setOffer(undefined);
+    const product = (await productForBarcode(code).catch(() => undefined))?.openFoodFacts;
+    if (!product) return;
+    if (!hasValues(draft)) fillFrom(product);
+    else if (product.label) setOffer(product);
+  };
+
   const trySave = (unsure: boolean) => {
     if (changed && used && !item.unsure) setAsking(true);
     else save(unsure);
@@ -177,11 +200,31 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           <div className="field compact">
             <span className="field-label">Barcode</span>
             <div className="barcode-row">
-              <input className="text-input" inputMode="numeric" placeholder="None" value={barcode} onChange={(e) => setBarcode(e.target.value.replace(/\D/g, ""))} />
+              <input
+                className="text-input"
+                inputMode="numeric"
+                placeholder="None"
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value.replace(/\D/g, ""))}
+                onBlur={() => void lookUp(barcode)}
+              />
               <button className="btn" onClick={() => setScanning(true)}>
                 Scan
               </button>
             </div>
+            {offer && (
+              <div className="notice notice-ask">
+                <span>The product database has a label for {offer.brand ? `${offer.name} (${offer.brand})` : offer.name}. Replace yours?</span>
+                <div className="footer-row">
+                  <button className="btn" onClick={() => setOffer(undefined)}>
+                    Keep mine
+                  </button>
+                  <button className="btn btn-warn" onClick={() => fillFrom(offer)}>
+                    Replace
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="field">
@@ -275,6 +318,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
             onCode={(code) => {
               setBarcode(code);
               setScanning(false);
+              void lookUp(code);
             }}
             onClose={() => setScanning(false)}
           />

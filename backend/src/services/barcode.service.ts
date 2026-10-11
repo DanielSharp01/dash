@@ -33,3 +33,9 @@ export async function lookupBarcode(userId: string, code: string) {
   const found = await cachedLookup(code);
   return found ? { foods, openFoodFacts: found } : { foods };
 }
+
+/** Asks Open Food Facts even when an item already has the code, so a saved item can be filled again. */
+export async function productForBarcode(code: string) {
+  const found = await cachedLookup(code);
+  return found ? { openFoodFacts: found } : {};
+}

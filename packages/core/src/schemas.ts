@@ -447,6 +447,9 @@ export const barcodeResponseSchema = z.object({
   foods: z.array(foodSchema),
   openFoodFacts: openFoodFactsResultSchema.optional(),
 });
+export const productResponseSchema = z.object({
+  openFoodFacts: openFoodFactsResultSchema.optional(),
+});
 
 export const iconGroupSchema = z.enum(["food", "drink", "activity"]);
 export const iconsResponseSchema = z.object({
@@ -535,6 +538,7 @@ export type EntryResponse = z.infer<typeof entryResponseSchema>;
 export type FollowUp = z.infer<typeof followUpResponseSchema>;
 export type UndoResult = z.infer<typeof undoResponseSchema>;
 export type BarcodeResult = z.infer<typeof barcodeResponseSchema>;
+export type ProductResult = z.infer<typeof productResponseSchema>;
 export type IconEntry = z.infer<typeof iconsResponseSchema>["icons"][number];
 export type RecapTone = z.infer<typeof recapToneSchema>;
 export type DayResult = z.infer<typeof dayResultSchema>;

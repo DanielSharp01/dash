@@ -41,6 +41,9 @@ async function lookup(code: string): Promise<OpenFoodFactsResult | undefined> {
     const n = Number(p.nutriments?.[field]);
     if (p.nutriments?.[field] !== undefined && Number.isFinite(n) && n >= 0) values[key] = n;
   }
+  // Some packs only print kJ; Open Food Facts' bare "energy_100g" is in kJ too.
+  const kj = Number(p.nutriments?.["energy-kj_100g"] ?? p.nutriments?.["energy_100g"]);
+  if (values.kcal === undefined && Number.isFinite(kj) && kj > 0) values.kcal = Math.round(kj / 4.184);
   const servings: Serving[] = [];
   const serving = Number(p.serving_quantity);
   if (serving > 0) servings.push({ name: "serving", size: serving });

@@ -234,6 +234,17 @@ describe("barcodes", () => {
     expect(spy).toHaveBeenCalledTimes(1);
     spy.mockRestore();
   });
+
+  it("asks Open Food Facts for the product even when an item has the code", async () => {
+    const u = await newUser();
+    const code = String(Date.now() + 1);
+    await u.post("/foods", item({ barcode: code }));
+    const spy = vi.spyOn(openFoodFacts, "lookup").mockResolvedValue({ name: "Kefir", unit: "ml", servings: [] });
+    expect((await u.get(`/barcodes/${code}/product`)).body).toEqual({ openFoodFacts: { name: "Kefir", unit: "ml", servings: [] } });
+    spy.mockResolvedValue(undefined);
+    expect((await u.get(`/barcodes/${code}x/product`)).body).toEqual({});
+    spy.mockRestore();
+  });
 });
 
 describe("icons", () => {

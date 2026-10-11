@@ -219,7 +219,8 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
   };
 
   const startNew = (name: string, base?: FoodItem) => {
-    const fromDb = found && !base && (!name || name === found.name);
+    // A new item starts empty, so the scanned product fills it whatever name was typed.
+    const fromDb = found && !base;
     setNewFood({
       kind: "item",
       parts: [],

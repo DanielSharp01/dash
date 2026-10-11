@@ -12,6 +12,7 @@ export const keys = {
   followUp: ["follow-up"] as const,
   weighIns: ["weigh-ins"] as const,
   barcode: (code: string) => ["barcode", code] as const,
+  product: (code: string) => ["barcode", code, "product"] as const,
   icons: ["icons"] as const,
   deployedBuild: ["deployed-build"] as const,
 };
