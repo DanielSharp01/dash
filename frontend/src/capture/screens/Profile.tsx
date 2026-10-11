@@ -152,11 +152,12 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
       <section className="settings-group">
         <h2 className="list-heading">Your day</h2>
         <div className="field">
-          <span className="field-label">My day ends at</span>
+          <span className="field-label">My day ends at {profile.dayEndsAt === 0 ? "midnight" : formatHour(profile.dayEndsAt)}</span>
+          {/* Bare hours: with "am" or ":00" on each, six buttons are wider than a phone. */}
           <div className="segmented small">
             {[0, 2, 3, 4, 5, 6].map((h) => (
-              <button key={h} aria-selected={profile.dayEndsAt === h} onClick={() => updateProfile({ dayEndsAt: h })}>
-                {h === 0 ? "Midnight" : formatHour(h)}
+              <button key={h} aria-label={h === 0 ? "Midnight" : formatHour(h)} aria-selected={profile.dayEndsAt === h} onClick={() => updateProfile({ dayEndsAt: h })}>
+                {h === 0 ? "Midnight" : h}
               </button>
             ))}
           </div>
