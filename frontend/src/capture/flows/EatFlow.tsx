@@ -34,6 +34,7 @@ import {
   type Recipe,
   type Serving,
   unitDimension,
+  type UnitSystem,
   unitsFor,
   type When,
   withBase,
@@ -88,6 +89,14 @@ function newFoodData(n: NewFood, amount: Amount): FoodData {
     servings.push({ name: amount.unit });
   const unit = label ? unitOf(n.draft) : (unitDimension(amount.unit) ?? "piece");
   return { unit, labels: label ? [label] : [], servings };
+}
+
+/** Without a label yet, the unit the label form starts on comes first, so a typed number lands in g or ml rather than pieces. */
+function newItemUnits(n: NewFood, amount: Amount, system: UnitSystem) {
+  if (labelFrom(n.draft)) return unitsFor(newFoodData(n, amount), system);
+  const unit = unitOf(n.draft);
+  const all = unitsFor(undefined, system);
+  return [...all.filter((u) => unitDimension(u) === unit), ...all.filter((u) => unitDimension(u) !== unit)];
 }
 
 function lineFor(f: FoodItem | Recipe, amount: Amount): Line {
@@ -539,7 +548,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
             )}
             <AmountInput
               amount={line.amount}
-              units={newItem ? unitsFor(labelFrom(newItem.draft) ? newFoodData(newItem, line.amount) : undefined, units) : recipe ? recipeUnits(recipe, line.batchId, units, foods) : unitsFor(item, units)}
+              units={newItem ? newItemUnits(newItem, line.amount, units) : recipe ? recipeUnits(recipe, line.batchId, units, foods) : unitsFor(item, units)}
               allowOther={!!newItem || !!item?.unsure}
               onChange={(amount) => setLines([{ ...line, amount }])}
             />

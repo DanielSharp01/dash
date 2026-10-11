@@ -30,10 +30,11 @@ export function AmountInput({ amount, units, onChange, allowOther = false, hints
   const fineStep = step && "fine" in step ? step.fine : autoStep(fine, amount.value);
   const by = size?.value ?? fineStep;
   const times = size && countOf(size, amount.value);
-  const set = (next?: number) => onChange({ ...amount, value: next === undefined ? undefined : round(next, 2) });
+  // A number without a unit can never be sized, however complete the item later gets.
+  const set = (next?: number) => onChange({ ...amount, unit: amount.unit ?? units[0], value: next === undefined ? undefined : round(next, 2) });
   const shownUnits = amount.unit && !units.includes(amount.unit) && !otherOpen ? [amount.unit, ...units] : units;
   // Only a serving makes switching worth a row; g against oz alone isn't.
-  const canSwitch = allowOther || (shownUnits.length > 1 && shownUnits.some((u) => !unitDimension(u)));
+  const canSwitch = allowOther || !amount.unit || (shownUnits.length > 1 && shownUnits.some((u) => !unitDimension(u)));
 
   const tapSize = (s: QuickSize) => {
     set(size?.value === s.value ? value + s.value : s.value);
