@@ -11,7 +11,18 @@ const MISS_MS = 24 * 60 * 60 * 1000;
 
 type Cached = { found: OpenFoodFactsResult | null };
 
+/**
+ * GS1 leaves 02x, 04x and 2xx to shops, so the same number is a different product in each one. A UPC-A code is the EAN-13 without its leading 0.
+ * Weighed items fall in this range too, with the weight or price in the number; matching them by item code alone needs per-retailer layouts, so they're not supported.
+ */
+// TODO: Normalise codes to 13 digits and expand UPC-E so US-style scans of one product share a cache key and match the same own foods.
+function isStoreCode(code: string) {
+  const ean13 = code.length === 12 ? `0${code}` : code;
+  return /^(0[24]|2\d)\d{11}$/.test(ean13);
+}
+
 async function cachedLookup(code: string): Promise<OpenFoodFactsResult | undefined> {
+  if (isStoreCode(code)) return undefined;
   const key = `off:${code}`;
   const cached = await redis.get(key, codecs.json<Cached>());
   if (cached) return cached.found ?? undefined;

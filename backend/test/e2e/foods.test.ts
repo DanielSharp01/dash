@@ -245,6 +245,20 @@ describe("barcodes", () => {
     expect((await u.get(`/barcodes/${code}x/product`)).body).toEqual({});
     spy.mockRestore();
   });
+
+  it("never asks Open Food Facts about codes shops assign themselves", async () => {
+    const u = await newUser();
+    const spy = vi.spyOn(openFoodFacts, "lookup").mockResolvedValue({ name: "Kefir", unit: "ml", servings: [] });
+    for (const code of ["2012345678903", "0212345678901", "0412345678909", "212345678906", "412345678904"]) {
+      expect((await u.get(`/barcodes/${code}`)).body).toEqual({ foods: [] });
+      expect((await u.get(`/barcodes/${code}/product`)).body).toEqual({});
+    }
+    expect(spy).not.toHaveBeenCalled();
+    const mine = item({ barcode: "2012345678903" });
+    await u.post("/foods", mine);
+    expect((await u.get("/barcodes/2012345678903")).body.foods.map((f: any) => f.id)).toEqual([mine.id]);
+    spy.mockRestore();
+  });
 });
 
 describe("icons", () => {
