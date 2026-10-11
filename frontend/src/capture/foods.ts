@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { autoFoodIcon, currentBatch, isFinished, type Amount, type Batch, type Food, type FoodInput, type FoodItem, type FoodLookup, type FoodUsage, type Recipe } from "@dash/core";
+import { autoFoodIcon, BEGINNING, currentBatch, isFinished, type Amount, type Batch, type Food, type FoodInput, type FoodItem, type FoodLookup, type FoodUsage, labelAt, type Recipe } from "@dash/core";
 import { asNewFood, useFoods } from "../queries/foods.queries";
 
 /**
@@ -79,6 +79,20 @@ export const blankItem = (name: string, extra: Partial<FoodItem> = {}): FoodItem
   }) as FoodItem),
   ...extra,
 });
+
+/** Another flavour or size of the item: its details carry over, its barcode and label history don't. */
+export function duplicateItem(item: FoodItem): FoodItem {
+  const latest = labelAt(item);
+  return blankItem(item.name, {
+    ...(item.variant ? { variant: item.variant } : {}),
+    icon: item.icon,
+    iconAuto: item.iconAuto,
+    unit: item.unit,
+    notFluid: item.notFluid,
+    labels: latest ? [{ ...latest, from: BEGINNING }] : [],
+    servings: item.servings,
+  });
+}
 
 /** Editing a public item makes the person's own copy; the public one then drops out of their lists. */
 export const ownCopy = <T extends { id: string; originId?: string }>(input: T, stored: { id: string; public: boolean } | undefined): T =>

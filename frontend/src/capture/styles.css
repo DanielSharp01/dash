@@ -3819,3 +3819,12 @@ a.btn {
     opacity: 1;
   }
 }
+
+.row-actions {
+  padding: 0 12px 12px;
+  justify-content: flex-end;
+}
+
+.row[aria-expanded="true"] .row-chevron {
+  transform: rotate(90deg);
+}

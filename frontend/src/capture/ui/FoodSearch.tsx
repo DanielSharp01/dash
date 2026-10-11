@@ -19,11 +19,12 @@ export function foodSummary(f: Food, foods: FoodLookup): string {
   return `${round(l.values.kcal, 0)} kcal ${basisLabel(l, f.unit)}`;
 }
 
-export function FoodRow({ food, onPick, sub }: { food: Food; onPick: (f: Food) => void; sub?: string }) {
+/** With `open` set, tapping toggles the row and `open` holds what shows under it. */
+export function FoodRow({ food, onPick, sub, open }: { food: Food; onPick: (f: Food) => void; sub?: string; open?: ReactNode }) {
   const foods = useFoodLookup();
   return (
     <li>
-      <button className="row" onClick={() => onPick(food)}>
+      <button className="row" onClick={() => onPick(food)} aria-expanded={open === undefined ? undefined : !!open}>
         <span className="row-icon">{food.icon}</span>
         <span className="row-main">
           <span className="row-title">
@@ -36,6 +37,7 @@ export function FoodRow({ food, onPick, sub }: { food: Food; onPick: (f: Food) =
         </span>
         <span className="row-chevron">›</span>
       </button>
+      {open}
     </li>
   );
 }

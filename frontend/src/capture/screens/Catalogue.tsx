@@ -9,7 +9,7 @@ import { ActivityEditor } from "../editors/ActivityEditor";
 import { comboToRecipe, ComboEditor } from "../editors/ComboEditor";
 import { ItemEditor } from "../editors/ItemEditor";
 import { BatchEditor, createRecipe, RecipeEditor, startBatch } from "../editors/RecipeEditors";
-import { blankItem, ownCopy, unfinishedBatch, useListedFoods, usesOf } from "../foods";
+import { blankItem, duplicateItem, ownCopy, unfinishedBatch, useListedFoods, usesOf } from "../foods";
 import { FlowShell } from "../ui/FlowShell";
 import { FoodRow } from "../ui/FoodSearch";
 import { notify } from "../ui/notify";
@@ -33,6 +33,7 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
   const listed = useListedFoods();
   const activities = useListedActivities();
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<string>();
   const q = query.trim().toLowerCase();
   const meta = tabs.find((t) => t.tab === tab)!;
   const matches = (name: string) => !q || name.toLowerCase().includes(q);
@@ -102,9 +103,30 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
           )}
           {rest.length > 0 && unsure.length > 0 && <h2 className="list-heading">{meta.label}</h2>}
           <ul className="list">
-            {rest.map((f) => (
-              <FoodRow key={f.id} food={f} onPick={() => open(`/${tab}/${f.id}`)} />
-            ))}
+            {rest.map((f) =>
+              f.kind === "item" ? (
+                <FoodRow
+                  key={f.id}
+                  food={f}
+                  onPick={() => setExpanded(expanded === f.id ? undefined : f.id)}
+                  open={
+                    expanded === f.id && (
+                      <div className="entry-actions row-actions">
+                        <button className="btn btn-small" onClick={() => open(`/items/${f.id}`)}>
+                          Edit
+                        </button>
+                        <button className="btn btn-small" onClick={() => open("/items/new", { copyOf: f.id })}>
+                          Duplicate
+                        </button>
+                        {!f.public && <DeleteButton label={f.name} onDelete={() => removeFood(f)} />}
+                      </div>
+                    )
+                  }
+                />
+              ) : (
+                <FoodRow key={f.id} food={f} onPick={() => open(`/${tab}/${f.id}`)} />
+              ),
+            )}
           </ul>
           {foods.length === 0 && <p className="empty">{q ? `Nothing matches “${query.trim()}”.` : tab === "combos" ? "A combo is things you have together, like coffee with milk." : "Nothing here yet."}</p>}
         </>
@@ -114,10 +136,10 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
 }
 
 /** One resolve per history entry, so a new item keeps its id while being edited. */
-function useResolved<T>(resolve: (id: string, name?: string) => T | undefined) {
+function useResolved<T>(resolve: (id: string, state: { name?: string; copyOf?: string }) => T | undefined) {
   const { id } = useParams();
   const location = useLocation();
-  return useMemo(() => resolve(id!, (location.state as { name?: string } | null)?.name), [location.key]);
+  return useMemo(() => resolve(id!, (location.state as { name?: string; copyOf?: string } | null) ?? {}), [location.key]);
 }
 
 function DeleteButton({ onDelete, label }: { onDelete: () => void; label: string }) {
@@ -140,7 +162,11 @@ export function ItemRoute() {
   const open = useOpen();
   const { close } = useSteps("edit", undefined, "/items");
   const foods = useFoodLookup();
-  const item = useResolved<FoodItem>((id, name) => (id === "new" ? blankItem(name ?? "") : asItem(foods(id))));
+  const item = useResolved<FoodItem>((id, { name, copyOf }) => {
+    if (id !== "new") return asItem(foods(id));
+    const original = asItem(foods(copyOf));
+    return original ? duplicateItem(original) : blankItem(name ?? "");
+  });
   if (!item) return <Navigate to="/items" replace />;
   const stored = asItem(liveOwn(foods(item.id)));
 
@@ -181,7 +207,7 @@ export function ComboRoute() {
   const navigate = useNavigate();
   const { close } = useSteps("edit", undefined, "/combos");
   const foods = useFoodLookup();
-  const combo = useResolved<Combo>((id, name) => {
+  const combo = useResolved<Combo>((id, { name }) => {
     if (id !== "new") return foods(id)?.kind === "combo" ? (foods(id) as Combo) : undefined;
     return asNewFood({ id: crypto.randomUUID(), kind: "combo", name: name ?? "", icon: autoFoodIcon(name ?? "", "combo"), iconAuto: true, catalogued: true, parts: [] }) as Combo;
   });
@@ -287,7 +313,7 @@ export function BatchRoute() {
 export function ActivityRoute() {
   const { close } = useSteps("edit", undefined, "/activities");
   const activities = useActivityLookup();
-  const activity = useResolved<Activity>((id, name) =>
+  const activity = useResolved<Activity>((id, { name }) =>
     id === "new"
       ? { id: crypto.randomUUID(), name: name ?? "", icon: autoActivityIcon(name ?? ""), iconAuto: true, measures: ["duration"], burn: defaultBurn.duration, revision: 0, deleted: false, public: false, starter: false }
       : activities(id),
