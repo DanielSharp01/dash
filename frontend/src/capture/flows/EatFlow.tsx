@@ -146,6 +146,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
   const [query, setQuery] = useState("");
   const [barcode, setBarcode] = useState<string>();
   const [found, setFound] = useState<OpenFoodFactsResult>();
+  const [scanFrom, setScanFrom] = useState<"cards" | "what">();
   const [attachTo, setAttachTo] = useState<FoodItem>();
   const [comboId, setComboId] = useState(source?.comboId);
   const [lines, setLines] = useState<Line[]>(() => {
@@ -245,7 +246,17 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
       setComboId(undefined);
       setNewFood(undefined);
       replace("amount");
-    } else back();
+      return;
+    }
+    // The cards have nowhere to offer a new item, so a scan from there lands on the search.
+    setQuery("");
+    if (scanFrom === "cards") replace("what");
+    else back();
+  };
+
+  const scan = (from: "cards" | "what") => {
+    setScanFrom(from);
+    go("scan");
   };
 
   /** Saves the new food as asked, then the entry with one line pointing at it, or a bare name with no label. */
@@ -557,7 +568,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
             setQuery(q);
             go("what");
           }}
-          onScan={() => go("scan")}
+          onScan={() => scan("cards")}
         />
       </FlowShell>
     );
@@ -572,7 +583,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
         placeholder="Search items, combos, recipes"
         onPick={pickFood}
         onNew={(name) => startNew(name)}
-        onScan={() => go("scan")}
+        onScan={() => scan("what")}
         barcode={barcode}
         foundName={found?.name}
         onClearBarcode={() => {
