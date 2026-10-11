@@ -33,8 +33,8 @@ export function AmountInput({ amount, units, onChange, allowOther = false, hints
   // A number without a unit can never be sized, however complete the item later gets.
   const set = (next?: number) => onChange({ ...amount, unit: amount.unit ?? units[0], value: next === undefined ? undefined : round(next, 2) });
   const shownUnits = amount.unit && !units.includes(amount.unit) && !otherOpen ? [amount.unit, ...units] : units;
-  // Only a serving makes switching worth a row; g against oz alone isn't.
-  const canSwitch = allowOther || !amount.unit || (shownUnits.length > 1 && shownUnits.some((u) => !unitDimension(u)));
+  // g against oz alone isn't worth a row; a serving is, even one named "piece" on a weighed item.
+  const canSwitch = allowOther || !amount.unit || new Set(shownUnits.map((u) => unitDimension(u) ?? u)).size > 1;
 
   const tapSize = (s: QuickSize) => {
     set(size?.value === s.value ? value + s.value : s.value);

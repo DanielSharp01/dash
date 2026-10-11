@@ -15,6 +15,7 @@ import {
   type Food,
   type FoodItem,
   type Recipe,
+  quantity,
 } from "../../src/index";
 
 let counter = 100;
@@ -83,6 +84,14 @@ const entry = (date: string, lines: Extract<Entry, { kind: "food" }>["lines"], v
   revision: 1,
   deleted: false,
   createdAt: "2026-07-01T10:00:00Z",
+});
+
+describe("quantity", () => {
+  it("sizes a serving named like a common unit of another dimension", () => {
+    const toast = { ...oats, servings: [{ name: "piece", size: 40 }] };
+    expect(quantity(toast, { value: 2, unit: "piece" })).toBe(80);
+    expect(quantity(oats, { value: 2, unit: "piece" })).toBeUndefined();
+  });
 });
 
 describe("dayTotals", () => {

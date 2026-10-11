@@ -72,7 +72,8 @@ export function quantity(food: FoodData, amount: Amount): number | undefined {
   const { value, unit } = amount;
   if (value === undefined || !unit) return undefined;
   const c = common[unit];
-  if (c) return c.unit === food.unit ? value * c.factor : undefined;
+  if (c?.unit === food.unit) return value * c.factor;
+  // A serving can share a common unit's name: toast bread weighed in g with a "piece" of 40 g.
   const s = servingsOf(food).find((x) => same(x.name, unit));
   return s?.size !== undefined ? value * s.size : undefined;
 }

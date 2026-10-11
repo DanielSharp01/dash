@@ -99,7 +99,7 @@ export function countOf(size: QuickSize, value?: number) {
 const MAX_NAMED = 4;
 
 /** "2 glasses" for an amount that is a few of one named size, the fewest when several fit. */
-export function namedAmount(amount: { value?: number; unit?: string }) {
+export function namedAmount(amount: { value?: number | undefined; unit?: string | undefined }) {
   const fits = (quickSizesFor(amount.unit) ?? [])
     .flat()
     .map((size) => ({ size, n: countOf(size, amount.value) }))
