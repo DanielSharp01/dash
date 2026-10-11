@@ -128,27 +128,31 @@ function DaySummary({ entries, day }: { entries: Entry[]; day: string }) {
             </span>
             <span className="ring-sub">{left < 0 ? "kcal over" : "kcal left"}</span>
           </Ring>
-          <div className="macro-rings">
-            {macroMeta.map((m) => (
-              <MacroRow key={m.key} part={t[m.key]} goal={goals[m.key]} label={m.label} short={m.short} />
-            ))}
+          <div className="summary-stats">
+            <span>
+              <small>Eaten</small>
+              <b>
+                {unsure ? "≥" : ""}
+                {fmt(t.kcal.value)}
+              </b>
+            </span>
+            <span>
+              <small>Budget</small>
+              <b>{fmt(goals.kcal)}</b>
+              {t.burned > 0 && <em className="kcal-burn">+ {fmt(t.burned)} exercise</em>}
+            </span>
           </div>
         </div>
-        <div className="summary-legend">
-          <span>
-            Eaten {unsure ? "≥" : ""}
-            {fmt(t.kcal.value)}
-          </span>
-          <span>
-            Budget {fmt(goals.kcal)}
-            {t.burned > 0 && <span className="kcal-burn"> + {fmt(t.burned)} exercise</span>}
-          </span>
-          {unsure && (
-            <span className="legend-unsure">
-              <i className="swatch swatch-fuzzy" /> {t.kcal.missing} {t.kcal.missing === 1 ? "thing has" : "things have"} no calories yet
-            </span>
-          )}
+        <div className="macro-rings">
+          {macroMeta.map((m) => (
+            <MacroRing key={m.key} part={t[m.key]} goal={goals[m.key]} label={m.label} short={m.short} />
+          ))}
         </div>
+        {unsure && (
+          <p className="summary-unsure">
+            <i className="swatch swatch-fuzzy" /> {t.kcal.missing} {t.kcal.missing === 1 ? "thing has" : "things have"} no calories yet
+          </p>
+        )}
         <RecapStrip day={day} />
       </div>
       <FluidBar part={t.fluid} goalMl={goals.fluidMl} units={units} />
@@ -193,22 +197,18 @@ const toneColors: Record<KcalTone, { ring: string; lap: string }> = {
   over: { ring: "var(--over)", lap: "var(--over-deep)" },
 };
 
-function MacroRow({ part, goal, label, short }: { part: Part; goal: number; label: string; short: string }) {
+function MacroRing({ part, goal, label, short }: { part: Part; goal: number; label: string; short: string }) {
   const unsure = part.missing > 0;
   return (
-    <div className={`macro-ring-row macro-${label.toLowerCase()}`}>
-      <Ring value={part.value} target={goal} uncertain={unsure} size={42} stroke={6} color="var(--macro)" label={label} unit="g">
+    <div className={`macro-ring macro-${label.toLowerCase()}`}>
+      <Ring value={part.value} target={goal} uncertain={unsure} size={52} stroke={7} color="var(--macro)" label={label} unit="g">
         <span className="macro-icon">{short}</span>
       </Ring>
-      <div className="macro-ring-text">
-        <b>
-          {unsure ? "≥" : ""}
-          {fmt(part.value)} g
-        </b>
-        <small>
-          {label} · of {goal} g
-        </small>
-      </div>
+      <b>
+        {unsure ? "≥" : ""}
+        {fmt(part.value)} g
+      </b>
+      <small>of {goal} g</small>
     </div>
   );
 }
@@ -226,7 +226,7 @@ function FluidBar({ part, goalMl, units }: { part: Part; goalMl: number; units: 
       <span className="fluid-value">
         {part.missing ? "≥" : ""}
         {formatFluid(part.value, units)}
-        <small>/ {formatFluid(goalMl, units)}</small>
+        <small>of {formatFluid(goalMl, units)}</small>
       </span>
     </div>
   );

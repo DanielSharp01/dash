@@ -282,10 +282,10 @@ h1 {
 
 .summary {
   display: flex;
-  gap: 14px;
+  gap: 8px;
   background: var(--surface);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 18px 12px 12px;
   margin-bottom: 8px;
 }
 
@@ -295,6 +295,8 @@ h1 {
 }
 
 .summary-rings {
+  max-width: 310px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   gap: 18px;
@@ -343,48 +345,77 @@ h1 {
   color: var(--over);
 }
 
-.macro-rings {
-  flex: 1;
+.summary-stats {
+  flex: 0 1 150px;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.macro-ring-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.macro-ring-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+  gap: 14px;
   font-variant-numeric: tabular-nums;
 }
 
-.macro-ring-text small {
+.summary-stats > span {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.summary-stats small {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.summary-stats b {
+  font-size: 1.15rem;
+}
+
+/* Hangs below the budget so the stats don't shift on days with exercise. */
+.summary-stats em {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-style: normal;
+  font-size: 0.75rem;
+}
+
+/* As wide as the ring and stats above, so the three rings don't drift apart on a wide screen. */
+.macro-rings {
+  max-width: 310px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 14px auto 0;
+}
+
+.macro-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.macro-ring .ring {
+  margin-bottom: 4px;
+}
+
+.macro-ring small {
   color: var(--muted);
   font-size: 0.75rem;
 }
 
-.macro-ring-text .unk,
-.summary-legend .unk {
-  color: var(--warn);
-}
-
-.summary-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin-top: 14px;
+.summary-unsure {
+  margin: 12px 0 0;
   font-size: 0.78rem;
-  color: var(--muted);
-}
-
-.summary-legend .unk {
-  flex-basis: 100%;
+  color: var(--warn);
 }
 
 .swatch {
@@ -398,11 +429,6 @@ h1 {
 
 .swatch-fuzzy {
   background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--kcal) 45%, transparent) 0 2px, color-mix(in srgb, var(--kcal) 12%, transparent) 2px 5px);
-}
-
-.legend-unsure {
-  flex-basis: 100%;
-  color: var(--warn);
 }
 
 .macro-icon-unsure {
@@ -2088,8 +2114,10 @@ input[type="checkbox"]:focus-visible {
   padding: 0 10px 12px 64px;
 }
 
+/* A fixed width, or the column grows with the amount drunk and nudges the rest of the card. */
 .fluid-col {
   flex: none;
+  width: 58px;
   align-self: stretch;
   display: flex;
   flex-direction: column;
@@ -2156,8 +2184,8 @@ input[type="checkbox"]:focus-visible {
 
 .fluid-value {
   display: flex;
-  align-items: baseline;
-  gap: 3px;
+  flex-direction: column;
+  align-items: center;
   white-space: nowrap;
   font-size: 0.8rem;
   font-weight: 700;
