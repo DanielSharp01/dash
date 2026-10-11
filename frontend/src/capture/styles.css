@@ -3828,3 +3828,28 @@ a.btn {
 .row[aria-expanded="true"] .row-chevron {
   transform: rotate(90deg);
 }
+
+.chip-size {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  line-height: 1.1;
+  padding: 4px 12px;
+}
+
+.chip-size > small {
+  font-size: 0.72rem;
+}
+
+.chip[aria-pressed="true"] small {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.amount-times {
+  margin: 2px 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-weight: 600;
+}
