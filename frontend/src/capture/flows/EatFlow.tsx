@@ -228,18 +228,24 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     go("amount");
   };
 
+  /**
+   * A new item starts empty, so the scanned product fills it whatever name was typed. Another
+   * variation copies the item it's a variation of, except a label the scanned product has,
+   * which is closer to what's in hand.
+   */
   const startNew = (name: string, base?: FoodItem) => {
-    // A new item starts empty, so the scanned product fills it whatever name was typed.
-    const fromDb = found && !base;
+    const scannedLabel = found?.label && { unit: found.unit, label: found.label };
+    const copied = base && { unit: base.unit, label: labelAt(base) };
+    const label = base ? (scannedLabel ?? copied) : scannedLabel;
     setNewFood({
       kind: "item",
       parts: [],
       name: base?.name ?? (name || found?.name || ""),
-      variant: fromDb ? (found.brand ?? "") : "",
+      variant: base ? (base.variant ?? "") : (found?.brand ?? ""),
       icon: base && !base.iconAuto ? base.icon : undefined,
       barcode,
-      draft: fromDb ? draftFrom(found.unit, found.label) : draftFrom(base?.unit ?? (via === "drank" ? "ml" : undefined), undefined),
-      servings: fromDb ? found.servings : [],
+      draft: label ? draftFrom(label.unit, label.label) : draftFrom(base?.unit ?? found?.unit ?? (via === "drank" ? "ml" : undefined), undefined),
+      servings: base ? base.servings : (found?.servings ?? []),
     });
     setComboId(undefined);
     setLines([{ id: newId(), ...(name ? { rawName: name } : {}), ...(barcode ? { barcode } : {}), amount: {} }]);
@@ -361,33 +367,45 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     );
   }
 
+  // A barcode is only ever added, never swapped: one already there belongs to another flavour or pack.
+  const canTakeBarcode = !!attachTo && !attachTo.public && !attachTo.barcode;
+  const logAttached = (keep: boolean) => {
+    if (!attachTo) return;
+    if (keep && barcode) void saveFood({ ...(foodInput(attachTo) as FoodItemInput), barcode });
+    setBarcode(undefined);
+    setLines([{ ...lineFor(attachTo, usual(attachTo)), ...(keep && barcode ? { barcode } : {}) }]);
+    replace("amount");
+  };
+
   if (step === "attach" && attachTo)
     return (
       <FlowShell title={attachTo.name} subtitle={`Barcode ${barcode}`} canGoBack onBack={back} onClose={close}>
         <p className="hint">This barcode isn't on {displayName(attachTo)} yet.</p>
-        <button
-          className="row"
-          onClick={() => {
-            // A built-in item can't take the barcode; it's logged as it is.
-            if (!attachTo.public && barcode) void saveFood({ ...(foodInput(attachTo) as FoodItemInput), barcode });
-            setBarcode(undefined);
-            setLines([{ ...lineFor(attachTo, usual(attachTo)), ...(barcode ? { barcode } : {}) }]);
-            replace("amount");
-          }}
-        >
-          <span className="row-icon">{attachTo.icon}</span>
-          <span className="row-main">
-            <span className="row-title">It's this one</span>
-            <span className="row-sub">{attachTo.public ? `Log it as ${displayName(attachTo)}` : `Add the barcode to ${displayName(attachTo)}, so the next scan finds it`}</span>
-          </span>
-        </button>
+        {canTakeBarcode && (
+          <button className="row" onClick={() => logAttached(true)}>
+            <span className="row-icon">{attachTo.icon}</span>
+            <span className="row-main">
+              <span className="row-title">It's this one</span>
+              <span className="row-sub">Add the barcode to {displayName(attachTo)}, so the next scan finds it</span>
+            </span>
+          </button>
+        )}
         <button className="row" onClick={() => startNew(attachTo.name, attachTo)}>
           <span className="row-icon">＋</span>
           <span className="row-main">
-            <span className="row-title">Another variant of it</span>
-            <span className="row-sub">A different brand or size, with its own label</span>
+            <span className="row-title">Another flavour or pack of it</span>
+            <span className="row-sub">A copy of {displayName(attachTo)} with this barcode; check the label against the pack</span>
           </span>
         </button>
+        {!canTakeBarcode && (
+          <button className="row" onClick={() => logAttached(false)}>
+            <span className="row-icon">{attachTo.icon}</span>
+            <span className="row-main">
+              <span className="row-title">Just log {displayName(attachTo)}</span>
+              <span className="row-sub">The barcode isn't kept</span>
+            </span>
+          </button>
+        )}
       </FlowShell>
     );
 
