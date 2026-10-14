@@ -240,16 +240,18 @@ export function RecipeEditor({
         </button>
       </div>
 
-      {latest && (
-        <button className="link-btn" onClick={() => onToCombo(recipeToCombo(current, latest))}>
-          Turn into a combo
-        </button>
-      )}
-      {onDelete && (
-        <button className="link-btn danger" onClick={() => setConfirming(true)}>
-          Delete recipe
-        </button>
-      )}
+      <div className="editor-links">
+        {latest && (
+          <button className="link-btn" onClick={() => onToCombo(recipeToCombo(current, latest))}>
+            Turn into a combo
+          </button>
+        )}
+        {onDelete && (
+          <button className="link-btn danger" onClick={() => setConfirming(true)}>
+            Delete recipe
+          </button>
+        )}
+      </div>
 
       {confirming && onDelete && (
         <Sheet title={`Delete ${current.name}?`} onClose={() => setConfirming(false)}>

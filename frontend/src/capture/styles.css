@@ -2987,6 +2987,18 @@ input[type="checkbox"]:focus-visible {
   color: var(--accent);
 }
 
+.editor-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.editor-links .danger {
+  margin-top: 12px;
+}
+
 .link-btn.danger,
 .row-choice.danger .row-title {
   color: var(--danger);
