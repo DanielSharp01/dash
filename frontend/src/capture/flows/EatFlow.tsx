@@ -175,7 +175,12 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
 
   // A reload keeps the step in history but not what was picked, so start the pick over.
   useEffect(() => {
-    if (step === "amount" && lines.length === 0 && !newFood) replace(first === "amount" ? "what" : first);
+    const lost =
+      (step === "amount" && lines.length === 0 && !newFood) ||
+      (step === "item" && !lines[0]?.foodId) ||
+      (step === "attach" && !attachTo) ||
+      (step === "new" && !newFood);
+    if (lost) replace(first === "amount" ? "what" : first);
   }, []);
 
   /** An edit keeps what a line came to on the day unless its amount was changed. */
