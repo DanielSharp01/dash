@@ -242,12 +242,12 @@ export function RecipeEditor({
 
       <div className="editor-links">
         {latest && (
-          <button className="link-btn" onClick={() => onToCombo(recipeToCombo(current, latest))}>
+          <button className="btn btn-block" onClick={() => onToCombo(recipeToCombo(current, latest))}>
             Turn into a combo
           </button>
         )}
         {onDelete && (
-          <button className="link-btn danger" onClick={() => setConfirming(true)}>
+          <button className="btn btn-block btn-danger-outline" onClick={() => setConfirming(true)}>
             Delete recipe
           </button>
         )}

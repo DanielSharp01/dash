@@ -2990,13 +2990,14 @@ input[type="checkbox"]:focus-visible {
 .editor-links {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  margin-top: 8px;
+  gap: 10px;
+  margin-top: 16px;
 }
 
-.editor-links .danger {
-  margin-top: 12px;
+.btn-danger-outline {
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
 }
 
 .link-btn.danger,
