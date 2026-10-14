@@ -67,6 +67,8 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   // Fields put back to the public value in the form; like any edit, they only count once saved.
   const [reverted, setReverted] = useState<OverrideKey[]>([]);
   const [doubtful, setDoubtful] = useState(false);
+  // No public version exists yet, so the label question is about the person's own past days.
+  const firstPublish = !item.public && scope === "everyone";
   const original = item.mine?.original;
   const yours = (key: OverrideKey) => original !== undefined && key in original;
 
@@ -116,13 +118,22 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   };
 
   /** A public item is changed just for the person, or for everyone; their own items as they are. */
+  const sameLabels = (a: Label[], b: Label[]) => a.length === b.length && a.every((l, i) => l.from === b[i]!.from && sameValues(l.values, b[i]!.values));
+
   const save = (unsure: boolean, change: "fix" | "changed" = "fix", to = scope) => {
     const input = build(reverted.includes("labels") && original?.labels ? original.labels : labelsFor(change), unsure);
-    if (!item.public) {
-      // Publishing one's own item waits for the save, since it must exist on the server first.
-      const saved = saveFood(input);
-      onSaved({ ...item, ...input }, to === "everyone" ? saved.then(async (r) => (await publishFood(item.id), r)) : saved);
-    }
+    if (!item.public && to === "everyone") {
+      // Everyone starts from the current label; the person's own label history stays theirs as
+      // their own values, so their past days keep what they were logged with.
+      const current = input.labels.at(-1);
+      const shared = current ? { ...input, labels: [{ ...current, from: BEGINNING }] } : input;
+      const published = saveFood(shared).then(async (r) => {
+        await publishFood(item.id);
+        if (!sameLabels(shared.labels, input.labels)) await saveOwnValues(input);
+        return r;
+      });
+      onSaved({ ...item, ...input }, published);
+    } else if (!item.public) onSaved({ ...item, ...input }, saveFood(input));
     else if (to === "me") onSaved({ ...item, ...input }, saveOwnValues(input));
     else onSaved({ ...item, ...sharedEdit(input, item) }, saveFood(sharedEdit(input, item)));
   };
@@ -469,7 +480,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
       )}
 
       {asking && latest && next && (
-        <Sheet title="The label changed" onClose={() => setAsking(false)}>
+        <Sheet title={firstPublish ? "Publish with the new label" : "The label changed"} onClose={() => setAsking(false)}>
           <p className="hint">
             It said {latest.values.kcal ?? "?"} kcal {basisLabel(latest, item.unit)}, now {next.values.kcal ?? "?"} kcal {basisLabel(next, unit)}. Entries already logged
             use the old label.
@@ -479,15 +490,15 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           )}
           <button className="row row-choice" onClick={() => save(false, "fix")}>
             <span className="row-main">
-              <span className="row-title">It was wrong</span>
-              <span className="row-sub">Fix it everywhere, including past days</span>
+              <span className="row-title">{firstPublish ? "Publish and update my entries" : "It was wrong"}</span>
+              <span className="row-sub">{firstPublish ? "Past days use the new values too" : "Fix it everywhere, including past days"}</span>
             </span>
           </button>
           <div className="row row-choice" {...tapCard(() => save(false, "changed"))}>
             <span className="row-main">
-              <span className="row-title">The product changed</span>
-              <span className="row-sub">Past days keep the old values</span>
-              <DateChip prefix="New values from" value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
+              <span className="row-title">{firstPublish ? "Publish from a date" : "The product changed"}</span>
+              <span className="row-sub">{firstPublish ? "Entries before it keep the old values" : "Past days keep the old values"}</span>
+              <DateChip prefix={firstPublish ? "Published values from" : "New values from"} value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
             </span>
           </div>
         </Sheet>
