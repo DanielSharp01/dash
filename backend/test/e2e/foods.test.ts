@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BEGINNING } from "@dash/core";
 import { openFoodFacts } from "../../src/providers/openFoodFacts";
 import { publicFoodId } from "../../src/seeds";
-import { combo, foodEntry, item, recipe } from "../support/fixtures";
+import { combo, foodEntry, item, recipe, unsureItem } from "../support/fixtures";
 import { newUser, uuid } from "../support/helpers";
 
 const water = publicFoodId("water");
@@ -184,6 +184,34 @@ describe("just for me", () => {
     const own = item();
     await u.post("/foods", own);
     expect((await u.put(`/foods/${own.id}/mine`, own)).status).toBe(422);
+  });
+});
+
+describe("publishing", () => {
+  it("makes a person's item public for everyone, once", async () => {
+    const u = await newUser();
+    const other = await newUser();
+    const own = item();
+    await u.post("/foods", own);
+
+    const res = await u.post(`/foods/${own.id}/publish`);
+    expect(res.status).toBe(200);
+    expect(res.body.food).toMatchObject({ id: own.id, public: true, revision: 2 });
+    expect((await other.get("/foods")).body.foods.find((f: any) => f.id === own.id)).toMatchObject({ public: true, name: "Oat milk" });
+
+    expect((await u.post(`/foods/${own.id}/publish`)).status).toBe(403);
+    expect((await u.delete(`/foods/${own.id}`)).status).toBe(403);
+  });
+
+  it("refuses an unsure item and someone else's", async () => {
+    const u = await newUser();
+    const unsure = unsureItem();
+    await u.post("/foods", unsure);
+    expect((await u.post(`/foods/${unsure.id}/publish`)).status).toBe(422);
+
+    const theirs = item();
+    await (await newUser()).post("/foods", theirs);
+    expect((await u.post(`/foods/${theirs.id}/publish`)).status).toBe(404);
   });
 });
 

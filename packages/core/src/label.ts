@@ -157,3 +157,22 @@ export function energyMismatch(values: Nutrients): number | undefined {
   const fromMacros = 4 * protein + 4 * carbs + 9 * fat;
   return Math.abs(kcal - fromMacros) > Math.max(15, 0.15 * Math.max(kcal, fromMacros)) ? Math.round(fromMacros) : undefined;
 }
+
+/**
+ * Why an item isn't ready to share yet; empty when it is. Publishing still works below the bar,
+ * it just isn't what the app suggests.
+ */
+export function publishBlockers(item: Pick<FoodItemInput, "labels" | "barcode" | "brand">): string[] {
+  const label = item.labels.at(-1);
+  if (!label) return ["No label yet"];
+  const { kcal, protein, carbs, fat } = label.values;
+  const reasons: string[] = [];
+  if ([kcal, protein, carbs, fat].some((v) => v === undefined)) reasons.push("Kcal and all three macros aren't filled in");
+  else if (energyMismatch(label.values) !== undefined) reasons.push("The macros don't add up to the kcal");
+  if (label.origin === "estimate") reasons.push("It's an estimate");
+  else if (label.origin === "online") reasons.push("It was found online, not read off the package");
+  else if (label.origin === "open-food-facts" && !label.verified) reasons.push("Open Food Facts' values weren't checked against the package");
+  const generic = label.origin === "usda" || label.origin === "ciqual";
+  if (!generic && !item.barcode && !item.brand) reasons.push("A packaged product needs a barcode or a brand");
+  return reasons;
+}

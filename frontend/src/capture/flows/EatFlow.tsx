@@ -14,6 +14,7 @@ import {
   defaultAmount,
   displayName,
   estimated,
+  publishBlockers,
   type Food,
   type FoodData,
   type FoodEntry,
@@ -41,7 +42,7 @@ import {
   withBase,
 } from "@dash/core";
 import { deleteEntry, saveEntry } from "../../queries/entries.queries";
-import { saveBatch, saveFood, useFoodLookup, useFoodUsage } from "../../queries/foods.queries";
+import { publishFood, saveBatch, saveFood, useFoodLookup, useFoodUsage } from "../../queries/foods.queries";
 import { lookupBarcode } from "../../queries/lookups.queries";
 import { useProfile } from "../../queries/me.queries";
 import { PortionList } from "../editors/PortionList";
@@ -51,6 +52,7 @@ import { initialWhen, nowWhen } from "../time";
 import { AmountInput } from "../ui/AmountInput";
 import { Breakdown, ingredientRows } from "../ui/Breakdown";
 import { FlowShell } from "../ui/FlowShell";
+import { PublishBlockers } from "../ui/PublishBlockers";
 import { Sheet } from "../ui/Sheet";
 import { BarcodeIcon, FoodSearch } from "../ui/FoodSearch";
 import { canScan } from "../ui/Scanner";
@@ -190,7 +192,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
   };
 
   /** Saves the entry, along with the foods it creates; an explicit comboId, even undefined, replaces the current one. */
-  const commit = (lineList: Line[], extra: { comboId?: string } = {}, created: FoodInput[] = []) => {
+  const commit = (lineList: Line[], extra: { comboId?: string } = {}, created: FoodInput[] = [], afterSaved?: () => void) => {
     const withCreated = (id: string | undefined) => created.find((c) => c.id === id) ?? foods(id);
     const combo = "comboId" in extra ? extra.comboId : comboId;
     const input: FoodEntryInput = {
@@ -204,7 +206,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
         return food?.kind === "recipe" || untouched(l) ? l : withBase(l, food?.kind === "item" ? food : undefined);
       }),
     };
-    void saveEntry(input, { newFoods: created, stored: mode.kind === "edit" ? mode.entry : undefined });
+    void saveEntry(input, { newFoods: created, stored: mode.kind === "edit" ? mode.entry : undefined }).then(afterSaved, () => {});
     const eaten = lineList.length === 1 ? lineList[0] : undefined;
     const recipe = asRecipe(foods(eaten?.foodId));
     const batch = recipe?.batches.find((b) => b.id === eaten?.batchId);
@@ -286,7 +288,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
   };
 
   /** Saves the new food as asked, then the entry with one line pointing at it, or a bare name with no label. */
-  const saveNew = (as: "completed" | "unsure" | "entry") => {
+  const saveNew = (as: "completed" | "unsure" | "entry", publish = false) => {
     if (!newFood) return;
     const line = lines[0]!;
     const data = newFoodData(newFood, line.amount);
@@ -312,8 +314,10 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
       labels: data.labels,
       servings: data.servings,
     };
-    if (newFood.existing) void saveFood(item);
-    commit([{ id: line.id, foodId: item.id, rawName: name, ...scanned, amount: line.amount }], { comboId: undefined }, newFood.existing ? [] : [item]);
+    // Publishing waits for the item to exist on the server, which the entry or the save creates.
+    const share = publish && as === "completed" ? () => void publishFood(item.id).catch(() => {}) : undefined;
+    if (newFood.existing) void saveFood(item).then(share, () => {});
+    commit([{ id: line.id, foodId: item.id, rawName: name, ...scanned, amount: line.amount }], { comboId: undefined }, newFood.existing ? [] : [item], newFood.existing ? undefined : share);
   };
 
   const newCombo = (catalogued: boolean): ComboInput | undefined => {
@@ -541,7 +545,11 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
               </button>
             </div>
           ) : newItem ? (
-            <NewFoodChoices canComplete={!!labelFrom(newItem.draft)?.values.kcal || labelFrom(newItem.draft)?.values.kcal === 0} onSave={saveNew} />
+            <NewFoodChoices
+              canComplete={!!labelFrom(newItem.draft)?.values.kcal || labelFrom(newItem.draft)?.values.kcal === 0}
+              blockers={publishBlockers({ labels: [labelFrom(newItem.draft)].filter((l) => !!l), barcode: newItem.barcode, brand: newItem.brand.trim() || undefined })}
+              onSave={saveNew}
+            />
           ) : (
             <button className="btn btn-primary btn-block" onClick={() => commit(lines)}>
               Save
@@ -671,11 +679,16 @@ function NewFoodHead({ value, onChange, twins }: { value: NewFood; onChange: (n:
   );
 }
 
-function NewFoodChoices({ canComplete, onSave }: { canComplete: boolean; onSave: (as: "completed" | "unsure" | "entry") => void }) {
+function NewFoodChoices({ canComplete, blockers, onSave }: { canComplete: boolean; blockers: string[]; onSave: (as: "completed" | "unsure" | "entry", publish?: boolean) => void }) {
+  const suggestPublish = blockers.length === 0;
   return (
     <div className="save-choices">
-      <button className="btn btn-primary btn-block" disabled={!canComplete} onClick={() => onSave("completed")}>
-        Add as item
+      {canComplete && !suggestPublish && <PublishBlockers reasons={blockers} />}
+      <button className={`btn btn-block ${suggestPublish ? "btn-primary" : ""}`} disabled={!canComplete} onClick={() => onSave("completed", true)}>
+        Add and publish
+      </button>
+      <button className={`btn btn-block ${suggestPublish ? "" : "btn-primary"}`} disabled={!canComplete} onClick={() => onSave("completed")}>
+        Add privately
       </button>
       <div className="footer-row">
         <button className="btn" onClick={() => onSave("unsure")}>

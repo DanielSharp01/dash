@@ -82,6 +82,20 @@ export async function updateFoodDoc(
   });
 }
 
+/**
+ * Makes one of the person's items public for everyone, with them recorded as its publisher.
+ * Final through the app: others may be logging it straight away.
+ */
+export async function publishFood(userId: string, id: string) {
+  return db.transaction(async (tx) => {
+    const row = writable(await lockFood(tx, id), userId);
+    if (row.kind !== "item") throw unprocessable("Only items can be published for now");
+    if (!row.catalogued || row.unsure || row.deletedAt) throw unprocessable("Only a filled-in item in the catalogue can be published");
+    await tx.update(foodsTable).set({ userId: null, publishedBy: userId, revision: row.revision + 1, updatedAt: new Date() }).where(eq(foodsTable.id, id));
+    return { food: (await loadFood(tx, id))! };
+  });
+}
+
 export async function setFoodDeletedFor(userId: string, id: string, deleted: boolean) {
   return db.transaction(async (tx) => {
     const row = writable(await lockFood(tx, id), userId);

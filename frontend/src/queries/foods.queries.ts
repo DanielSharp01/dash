@@ -82,6 +82,13 @@ export async function saveOwnValues(input: FoodItemInput): Promise<{ food: Food;
   }
 }
 
+/** Waits for the server: publishing is final, so the item only shows as public once it is. */
+export async function publishFood(id: string) {
+  const { food } = await foodsApi.publishFood(id);
+  setFood(id)(food);
+  return food;
+}
+
 /** Soft: past entries keep pointing at it. */
 export function deleteFood(id: string) {
   let before: Food | undefined;

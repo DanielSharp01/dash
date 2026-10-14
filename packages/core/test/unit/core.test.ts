@@ -10,6 +10,7 @@ import {
   entryNeedsFollowUp,
   displayName,
   energyMismatch,
+  publishBlockers,
   foodInputSchema,
   groupKey,
   labelSchema,
@@ -194,6 +195,16 @@ describe("schemas", () => {
     expect(energyMismatch({ kcal: 205, protein: 13, carbs: 2, fat: 16 })).toBeUndefined();
     expect(energyMismatch({ kcal: 1, protein: 0, carbs: 0, fat: 0 })).toBeUndefined();
     expect(energyMismatch({ kcal: 30, protein: 10 })).toBeUndefined();
+  });
+
+  it("suggests publishing only a complete, checked, branded label", () => {
+    const label = { from: BEGINNING, per: "100", values: { kcal: 205, protein: 13, carbs: 2, fat: 16 }, verified: true } as const;
+    expect(publishBlockers({ labels: [label], brand: "Sága" })).toEqual([]);
+    expect(publishBlockers({ labels: [{ ...label, verified: false, origin: "usda" }] })).toEqual([]);
+    expect(publishBlockers({ labels: [label] })).toEqual(["A packaged product needs a barcode or a brand"]);
+    expect(publishBlockers({ labels: [{ ...label, values: { kcal: 30, protein: 10, carbs: 10, fat: 10 } }], barcode: "5995663969519" })).toEqual(["The macros don't add up to the kcal"]);
+    expect(publishBlockers({ labels: [{ ...label, verified: false, origin: "estimate" }], brand: "Mama" })).toEqual(["It's an estimate"]);
+    expect(publishBlockers({ labels: [] })).toEqual(["No label yet"]);
   });
 
   it("shows verification and origin as separate chips", () => {

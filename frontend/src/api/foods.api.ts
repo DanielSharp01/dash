@@ -8,6 +8,7 @@ export const getFoodUsage = () => api.get<{ usage: FoodUsage[] }>("/foods/usage"
 export const postFood = (food: FoodInput & WithNewFoods) => api.post<CreateFoodResponse>("/foods", food);
 export const putFood = (food: FoodInput & WithNewFoods & { revision: number }) => api.put<UpdateFoodResponse>(`/foods/${food.id}`, food);
 export const deleteFood = (id: string) => api.delete(`/foods/${id}`);
+export const publishFood = (id: string) => api.post<{ food: Food }>(`/foods/${id}/publish`);
 export const putOwnValues = (food: FoodItemInput) => api.put<{ food: Food }>(`/foods/${food.id}/mine`, food);
 export const restoreFood = (id: string) => api.post<Food>(`/foods/${id}/restore`);
 

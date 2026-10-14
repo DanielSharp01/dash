@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { autoFoodIcon, basisLabel, BEGINNING, type Combo, energyMismatch, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, type OverrideKey, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
+import { autoFoodIcon, basisLabel, BEGINNING, type Combo, energyMismatch, publishBlockers, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, type OverrideKey, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
 import { completeAsCombo, mergeFood } from "../../queries/commands.queries";
-import { saveFood, saveOwnValues, useFoodUsage, useFoods } from "../../queries/foods.queries";
+import { publishFood, saveFood, saveOwnValues, useFoodUsage, useFoods } from "../../queries/foods.queries";
 import { productForBarcode } from "../../queries/lookups.queries";
 import { undoBy } from "../errors";
 import { sharedEdit, useListedFoods, usesOf, variantsOf } from "../foods";
@@ -11,6 +11,7 @@ import { FoodRow, FoodSearch } from "../ui/FoodSearch";
 import { DateChip, tapCard } from "../ui/DateChip";
 import { draftFrom, hasValues, LabelForm, labelFrom, unitOf } from "../ui/LabelForm";
 import { NumberInput } from "../ui/NumberInput";
+import { PublishBlockers } from "../ui/PublishBlockers";
 import { IconField } from "../ui/Pickers";
 import { Scanner } from "../ui/Scanner";
 import { Sheet } from "../ui/Sheet";
@@ -70,6 +71,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const yours = (key: OverrideKey) => original !== undefined && key in original;
 
   const next = labelFrom(draft);
+  const blockers = publishBlockers({ labels: next ? [next] : item.labels, barcode: barcode.trim() || undefined, brand: brand.trim() || undefined });
   const unit = next ? unitOf(draft) : item.unit;
   const changed = !!latest && !!next && (!sameValues(latest.values, next.values) || !sameBasis(latest, next) || unit !== item.unit);
   const siblings = variantsOf(listed, { id: item.id, name });
@@ -116,7 +118,11 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   /** A public item is changed just for the person, or for everyone; their own items as they are. */
   const save = (unsure: boolean, change: "fix" | "changed" = "fix", to = scope) => {
     const input = build(reverted.includes("labels") && original?.labels ? original.labels : labelsFor(change), unsure);
-    if (!item.public) onSaved({ ...item, ...input }, saveFood(input));
+    if (!item.public) {
+      // Publishing one's own item waits for the save, since it must exist on the server first.
+      const saved = saveFood(input);
+      onSaved({ ...item, ...input }, to === "everyone" ? saved.then(async (r) => (await publishFood(item.id), r)) : saved);
+    }
     else if (to === "me") onSaved({ ...item, ...input }, saveOwnValues(input));
     else onSaved({ ...item, ...sharedEdit(input, item) }, saveFood(sharedEdit(input, item)));
   };
@@ -371,6 +377,16 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
             </button>
             <button className="btn btn-block" disabled={!name.trim()} onClick={() => trySave(true)}>
               Keep unsure
+            </button>
+          </div>
+        ) : !item.public && item.catalogued ? (
+          <div className="save-choices">
+            {blockers.length > 0 && <PublishBlockers reasons={blockers} />}
+            <button className={`btn btn-block ${blockers.length ? "" : "btn-primary"}`} disabled={!name.trim()} onClick={() => trySave(false, "everyone")}>
+              Save and publish
+            </button>
+            <button className={`btn btn-block ${blockers.length ? "btn-primary" : ""}`} disabled={!name.trim()} onClick={() => trySave(false, "me")}>
+              Save privately
             </button>
           </div>
         ) : item.public ? (

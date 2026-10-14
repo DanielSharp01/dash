@@ -69,6 +69,13 @@ export function foodController() {
       .pipe(jsonSend(ownValuesResponseSchema, 200)),
   );
 
+  r.post("/foods/:id/publish", (line) =>
+    line
+      .pipe(validateParams(idParams))
+      .pipe(async ({ auth, params }) => ok(await foods.publishFood(auth.userId, params.id)))
+      .pipe(jsonSend(ownValuesResponseSchema, 200)),
+  );
+
   r.delete("/foods/:id", (line) =>
     line
       .pipe(validateParams(idParams))
