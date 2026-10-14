@@ -104,8 +104,10 @@ export const foodItemInputSchema = z
     ...foodCommon,
     kind: z.literal("item"),
     unit: foodUnitSchema,
-    /** Tells apart products that share a name: brand, store, raw or cooked. */
+    /** Which one of the things sharing a name: flavour, type, size, raw or cooked. */
     variant: z.string().trim().max(200).optional(),
+    /** Who makes or sells it; a store's own products have the store as brand. */
+    brand: z.string().trim().max(200).optional(),
     barcode: z.string().trim().min(1).max(64).optional(),
     /** ml items count as fluid unless this is set, e.g. oil or syrup. */
     notFluid: z.boolean(),

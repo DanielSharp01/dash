@@ -150,6 +150,7 @@ export const foodsTable = pgTable(
     iconAuto: boolean().notNull().default(true),
     unit: foodUnitEnum(),
     variant: text(),
+    brand: text(),
     barcode: text(),
     notFluid: boolean().notNull().default(false),
     unsure: boolean().notNull().default(false),

@@ -32,7 +32,7 @@ export const loggable = (f: Food) => f.kind !== "recipe" || !!latestBatch(f);
 export const groupKey = (name: string) => name.trim().toLocaleLowerCase();
 
 export function displayName(f: Food) {
-  return f.kind === "item" && f.variant ? `${f.name} · ${f.variant}` : f.name;
+  return f.kind === "item" ? [f.name, f.variant, f.brand].filter(Boolean).join(" · ") : f.name;
 }
 
 /** Whether a food points at another, through combo parts or batch ingredients. */

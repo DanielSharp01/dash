@@ -71,6 +71,7 @@ interface NewFood {
   parts: Portion[];
   name: string;
   variant: string;
+  brand: string;
   /** Undefined while it follows the name. */
   icon?: string;
   barcode?: string;
@@ -132,6 +133,7 @@ function newFoodOf(source: FoodEntry | undefined, foods: FoodLookup): NewFood | 
     parts: [],
     name: existing?.name ?? only.rawName ?? "",
     variant: existing?.variant ?? "",
+    brand: existing?.brand ?? "",
     icon: existing && !existing.iconAuto ? existing.icon : undefined,
     barcode: only.barcode ?? existing?.barcode,
     draft: draftFrom(existing?.unit, existing && labelAt(existing), estimated),
@@ -242,7 +244,8 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
       kind: "item",
       parts: [],
       name: base?.name ?? (name || found?.name || ""),
-      variant: base ? (base.variant ?? "") : (found?.brand ?? ""),
+      variant: base?.variant ?? "",
+      brand: base ? (base.brand ?? "") : (found?.brand ?? ""),
       icon: base && !base.iconAuto ? base.icon : undefined,
       barcode,
       draft: label ? draftFrom(label.unit, label.label) : draftFrom(base?.unit ?? found?.unit ?? (via === "drank" ? "ml" : undefined), undefined),
@@ -293,6 +296,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
       kind: "item",
       name,
       ...(newFood.variant.trim() ? { variant: newFood.variant.trim() } : {}),
+      ...(newFood.brand.trim() ? { brand: newFood.brand.trim() } : {}),
       icon: newFood.icon ?? autoFoodIcon(name, "item", data.unit),
       iconAuto: newFood.icon === undefined,
       catalogued: as !== "entry",
@@ -517,7 +521,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
           ) : recipe ? (
             `${batchLabel(recipe.batches.find((b) => b.id === line.batchId) ?? currentBatch(recipe)!)} batch`
           ) : (
-            item?.variant
+            item && [item.variant, item.brand].filter(Boolean).join(" · ")
           )
         }
         {...header}
@@ -649,12 +653,14 @@ function NewFoodHead({ value, onChange, twins }: { value: NewFood; onChange: (n:
       </div>
       <label className="field compact">
         <span className="field-label">Variant (optional)</span>
-        <input className="text-input" placeholder="Brand, store, raw or cooked" value={value.variant} onChange={(e) => onChange({ ...value, variant: e.target.value })} />
+        <input className="text-input" placeholder="Flavour, size, raw or cooked" value={value.variant} onChange={(e) => onChange({ ...value, variant: e.target.value })} />
       </label>
-      {twins.length > 0 && !value.variant.trim() && (
-        <p className="hint">
-          You already have {twins.map((t) => (t.variant ? `${t.name} (${t.variant})` : t.name)).join(", ")}. Give this one a variant to tell them apart.
-        </p>
+      <label className="field compact">
+        <span className="field-label">Brand (optional)</span>
+        <input className="text-input" placeholder="Who makes or sells it" value={value.brand} onChange={(e) => onChange({ ...value, brand: e.target.value })} />
+      </label>
+      {twins.length > 0 && !value.variant.trim() && !value.brand.trim() && (
+        <p className="hint">You already have {twins.map(displayName).join(", ")}. Give this one a variant or brand to tell them apart.</p>
       )}
     </>
   );
@@ -698,12 +704,13 @@ function VariationChoice({ item, onChange }: { item: FoodItem; onChange: (v: Foo
   const listed = useListedFoods();
   const others = variantsOf(listed, item);
   if (!others.length) return null;
-  const variations = [item, ...others].sort((a, b) => (a.variant ?? "").localeCompare(b.variant ?? ""));
+  const label = (v: FoodItem) => [v.variant, v.brand].filter(Boolean).join(" · ") || "Plain";
+  const variations = [item, ...others].sort((a, b) => label(a).localeCompare(label(b)));
   return (
     <div className="chip-row" role="radiogroup" aria-label="Variation">
       {variations.map((v) => (
         <button key={v.id} role="radio" aria-checked={v.id === item.id} className="chip" onClick={() => v.id !== item.id && onChange(v)}>
-          {v.variant || "Plain"}
+          {label(v)}
         </button>
       ))}
     </div>

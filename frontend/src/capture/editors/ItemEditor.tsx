@@ -45,6 +45,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const latest = labelAt(item);
   const [name, setName] = useState(item.name);
   const [variant, setVariant] = useState(item.variant ?? "");
+  const [brand, setBrand] = useState(item.brand ?? "");
   // Undefined while the icon follows the name.
   const [icon, setIcon] = useState(item.iconAuto ? undefined : item.icon);
   const [barcode, setBarcode] = useState(item.barcode ?? "");
@@ -73,6 +74,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
     kind: "item",
     name: name.trim(),
     ...(variant.trim() ? { variant: variant.trim() } : {}),
+    ...(brand.trim() ? { brand: brand.trim() } : {}),
     icon: icon ?? autoFoodIcon(name, "item", unit),
     iconAuto: icon === undefined,
     catalogued: true,
@@ -129,7 +131,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
 
   const fillFrom = (product: OpenFoodFactsResult) => {
     if (!name.trim()) setName(product.name);
-    if (!variant.trim() && product.brand) setVariant(product.brand);
+    if (!brand.trim() && product.brand) setBrand(product.brand);
     if (product.label) setDraft(draftFrom(product.unit, product.label));
     const missing = product.servings.filter((p) => !servings.some((s) => s.name.trim().toLowerCase() === p.name.toLowerCase()));
     setServings([...servings, ...missing]);
@@ -185,14 +187,18 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
         <>
           <label className="field compact">
             <span className="field-label">Variant</span>
-            <input className="text-input" placeholder="Brand, store, raw or cooked" value={variant} onChange={(e) => setVariant(e.target.value)} />
+            <input className="text-input" placeholder="Flavour, size, raw or cooked" value={variant} onChange={(e) => setVariant(e.target.value)} />
+          </label>
+          <label className="field compact">
+            <span className="field-label">Brand</span>
+            <input className="text-input" placeholder="Who makes or sells it" value={brand} onChange={(e) => setBrand(e.target.value)} />
           </label>
           {siblings.length > 0 && (
             <div className="field compact">
               <span className="field-label">Other variants of “{name}”</span>
               <ul className="list">
                 {siblings.map((s) => (
-                  <FoodRow key={s.id} food={s} onPick={() => onOpenItem?.(s)} sub={s.variant ? undefined : "no variant name"} />
+                  <FoodRow key={s.id} food={s} onPick={() => onOpenItem?.(s)} sub={s.variant || s.brand ? undefined : "no variant or brand"} />
                 ))}
               </ul>
             </div>

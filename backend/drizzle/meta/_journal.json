@@ -43,6 +43,13 @@
       "when": 1792012508972,
       "tag": "0005_label_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792014225040,
+      "tag": "0006_brand",
+      "breakpoints": true
     }
   ]
 }

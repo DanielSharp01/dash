@@ -35,7 +35,7 @@ describe("catalogue", () => {
 describe("creating", () => {
   it("returns 201, then the stored food with 200 on a retry, and 409 for someone else's id", async () => {
     const u = await newUser();
-    const milk = item();
+    const milk = item({ variant: "Vanilla", brand: "Alpro" });
     const created = await u.post("/foods", milk);
     expect(created.status).toBe(201);
     expect(created.body.food).toMatchObject({ ...milk, revision: 1, deleted: false, public: false, starter: false });

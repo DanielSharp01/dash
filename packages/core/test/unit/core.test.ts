@@ -8,6 +8,7 @@ import {
   dayTotals,
   defaultPlan,
   entryNeedsFollowUp,
+  displayName,
   foodInputSchema,
   groupKey,
   labelSchema,
@@ -156,6 +157,11 @@ describe("groupKey", () => {
   it("groups names regardless of case and spacing, but not accents", () => {
     expect(groupKey(" Füstli ")).toBe(groupKey("füstli"));
     expect(groupKey("Eger")).not.toBe(groupKey("Éger"));
+  });
+
+  it("names an item with its variant and brand", () => {
+    expect(displayName({ ...milk, name: "Füstli", variant: "Csípős", brand: "Sága" })).toBe("Füstli · Csípős · Sága");
+    expect(displayName({ ...milk, name: "Margarine", brand: "Bords Eve" })).toBe("Margarine · Bords Eve");
   });
 });
 

@@ -134,6 +134,7 @@ function toFood(
     kind: "item",
     unit: row.unit!,
     ...opt("variant", row.variant),
+    ...opt("brand", row.brand),
     ...opt("barcode", row.barcode),
     notFluid: row.notFluid,
     unsure: row.unsure,
@@ -169,11 +170,12 @@ function foodValues(input: FoodInput) {
     iconAuto: input.iconAuto,
     originId: input.originId ?? null,
   };
-  if (input.kind !== "item") return { ...common, unit: null, variant: null, barcode: null, notFluid: false, unsure: false };
+  if (input.kind !== "item") return { ...common, unit: null, variant: null, brand: null, barcode: null, notFluid: false, unsure: false };
   return {
     ...common,
     unit: input.unit,
     variant: input.variant || null,
+    brand: input.brand || null,
     barcode: input.barcode ?? null,
     notFluid: input.notFluid,
     unsure: input.unsure,

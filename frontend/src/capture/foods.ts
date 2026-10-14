@@ -85,6 +85,7 @@ export function duplicateItem(item: FoodItem): FoodItem {
   const latest = labelAt(item);
   return blankItem(item.name, {
     ...(item.variant ? { variant: item.variant } : {}),
+    ...(item.brand ? { brand: item.brand } : {}),
     icon: item.icon,
     iconAuto: item.iconAuto,
     unit: item.unit,

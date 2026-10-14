@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router";
-import { type Activity, asItem, asRecipe, autoActivityIcon, autoFoodIcon, type Combo, defaultBurn, type Food, type FoodItem } from "@dash/core";
+import { type Activity, asItem, asRecipe, autoActivityIcon, autoFoodIcon, type Combo, defaultBurn, displayName, type Food, type FoodItem } from "@dash/core";
 import { deleteActivity, restoreActivity, saveActivity, useActivityLookup } from "../../queries/activities.queries";
 import { asNewFood, deleteBatch, deleteFood, restoreBatch, restoreFood, saveBatch, saveFood, useFoodLookup, useFoodUsage } from "../../queries/foods.queries";
 import { useListedActivities } from "../activities";
@@ -37,7 +37,7 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
   const q = query.trim().toLowerCase();
   const meta = tabs.find((t) => t.tab === tab)!;
   const matches = (name: string) => !q || name.toLowerCase().includes(q);
-  const foods = listed.filter((f) => f.kind === meta.kind && matches(`${f.name} ${f.kind === "item" ? (f.variant ?? "") : ""}`));
+  const foods = listed.filter((f) => f.kind === meta.kind && matches(displayName(f)));
   const uses = (id: string) => usesOf(usage, id);
   const unsure = foods.filter((f) => f.kind === "item" && f.unsure).sort((a, b) => uses(b.id) - uses(a.id));
   const rest = foods.filter((f) => !unsure.includes(f)).sort((a, b) => a.name.localeCompare(b.name));
