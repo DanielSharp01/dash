@@ -52,6 +52,7 @@ import { initialWhen, nowWhen } from "../time";
 import { AmountInput } from "../ui/AmountInput";
 import { Breakdown, ingredientRows } from "../ui/Breakdown";
 import { FlowShell } from "../ui/FlowShell";
+import { Sheet } from "../ui/Sheet";
 import { BarcodeIcon, FoodSearch } from "../ui/FoodSearch";
 import { canScan } from "../ui/Scanner";
 import { draftFrom, hasValues, type LabelDraft, LabelForm, labelFrom, unitOf } from "../ui/LabelForm";
@@ -700,20 +701,56 @@ function BatchChoice({ recipe, batchId, onChange }: { recipe: Recipe; batchId?: 
 }
 
 /** Other flavours or packs of the item, by its name; the amount carries over where it fits. */
+const MAX_VARIATION_CHIPS = 4;
+
+/**
+ * Other flavours or packs of the item, by its name; the amount carries over where it fits. Only
+ * what tells them apart is shown, and a long list moves into a sheet.
+ */
 function VariationChoice({ item, onChange }: { item: FoodItem; onChange: (v: FoodItem) => void }) {
   const listed = useListedFoods();
+  const [open, setOpen] = useState(false);
   const others = variantsOf(listed, item);
   if (!others.length) return null;
-  const label = (v: FoodItem) => [v.variant, v.brand].filter(Boolean).join(" · ") || "Plain";
-  const variations = [item, ...others].sort((a, b) => label(a).localeCompare(label(b)));
+  const all = [item, ...others];
+  const differs = (key: "variant" | "brand") => new Set(all.map((v) => v[key] ?? "")).size > 1;
+  const shownKeys = (["variant", "brand"] as const).filter(differs);
+  const label = (v: FoodItem) => shownKeys.map((k) => v[k]).filter(Boolean).join(" · ") || "Plain";
+  const variations = all.sort((a, b) => (a.brand ?? "").localeCompare(b.brand ?? "") || (a.variant ?? "").localeCompare(b.variant ?? ""));
+  const pick = (v: FoodItem) => {
+    setOpen(false);
+    if (v.id !== item.id) onChange(v);
+  };
+
+  if (variations.length <= MAX_VARIATION_CHIPS)
+    return (
+      <div className="chip-row" role="radiogroup" aria-label="Variation">
+        {variations.map((v) => (
+          <button key={v.id} role="radio" aria-checked={v.id === item.id} className="chip" onClick={() => pick(v)}>
+            {label(v)}
+          </button>
+        ))}
+      </div>
+    );
+
   return (
-    <div className="chip-row" role="radiogroup" aria-label="Variation">
-      {variations.map((v) => (
-        <button key={v.id} role="radio" aria-checked={v.id === item.id} className="chip" onClick={() => v.id !== item.id && onChange(v)}>
-          {label(v)}
-        </button>
-      ))}
-    </div>
+    <>
+      <button className="link-btn" onClick={() => setOpen(true)}>
+        Choose a different variation ({others.length})
+      </button>
+      {open && (
+        <Sheet title={item.name} onClose={() => setOpen(false)}>
+          {variations.map((v) => (
+            <button key={v.id} className={`row ${v.id === item.id ? "row-selected" : ""}`} onClick={() => pick(v)}>
+              <span className="row-main">
+                <span className="row-title">{label(v)}</span>
+              </span>
+              {v.id === item.id && <span className="row-check">✓</span>}
+            </button>
+          ))}
+        </Sheet>
+      )}
+    </>
   );
 }
 
