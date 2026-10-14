@@ -114,7 +114,6 @@ describe("replacing", () => {
     const someoneElse = await newUser();
     expect((await someoneElse.get("/foods")).body.foods.find((f: any) => f.id === onion).variant).toBe("raw, yellow");
     await u.put(`/foods/${onion}`, { ...input, revision: revision + 1 });
-    expect((await u.delete(`/foods/${onion}`)).status).toBe(403);
 
     const other = await newUser();
     const milk = item();
@@ -200,7 +199,18 @@ describe("publishing", () => {
     expect((await other.get("/foods")).body.foods.find((f: any) => f.id === own.id)).toMatchObject({ public: true, name: "Oat milk" });
 
     expect((await u.post(`/foods/${own.id}/publish`)).status).toBe(403);
-    expect((await u.delete(`/foods/${own.id}`)).status).toBe(403);
+  });
+
+  it("lets anyone retire a public item for everyone, softly", async () => {
+    const u = await newUser();
+    const other = await newUser();
+    const own = item();
+    await u.post("/foods", own);
+    await u.post(`/foods/${own.id}/publish`);
+
+    expect((await other.delete(`/foods/${own.id}`)).status).toBe(204);
+    expect((await u.get("/foods")).body.foods.find((f: any) => f.id === own.id)).toMatchObject({ public: true, deleted: true });
+    expect((await u.post(`/foods/${own.id}/restore`)).body).toMatchObject({ deleted: false });
   });
 
   it("refuses an unsure item and someone else's", async () => {

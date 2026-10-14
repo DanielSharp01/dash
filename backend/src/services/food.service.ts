@@ -96,9 +96,10 @@ export async function publishFood(userId: string, id: string) {
   });
 }
 
+/** Public items too: retiring one is soft, so past entries keep it and it can be restored. */
 export async function setFoodDeletedFor(userId: string, id: string, deleted: boolean) {
   return db.transaction(async (tx) => {
-    const row = writable(await lockFood(tx, id), userId);
+    const row = editableFood(await lockFood(tx, id), userId);
     if ((row.deletedAt !== null) !== deleted) await setFoodDeleted(tx, id, deleted, row.revision + 1);
     return (await loadFood(tx, id))!;
   });

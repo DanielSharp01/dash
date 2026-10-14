@@ -13,6 +13,7 @@ import { blankItem, duplicateItem, ownCopy, unfinishedBatch, useListedFoods, use
 import { FlowShell } from "../ui/FlowShell";
 import { FoodRow } from "../ui/FoodSearch";
 import { notify } from "../ui/notify";
+import { Sheet } from "../ui/Sheet";
 import { TrashIcon } from "../ui/TrashIcon";
 import { useOpen, useSteps } from "../ui/useSteps";
 
@@ -118,7 +119,7 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
                         <button className="btn btn-small" onClick={() => open("/items/new", { copyOf: f.id })}>
                           Duplicate
                         </button>
-                        {!f.public && <DeleteButton label={f.name} onDelete={() => removeFood(f)} />}
+                        <FoodDeleteButton food={f} />
                       </div>
                     )
                   }
@@ -150,7 +151,43 @@ function DeleteButton({ onDelete, label }: { onDelete: () => void; label: string
   );
 }
 
-/** Soft, so past entries keep showing it; public items can't be deleted at all. */
+/** Retiring a public item affects everyone, so it asks first; one's own is a tap with undo. */
+function FoodDeleteButton({ food, onDeleted }: { food: Food; onDeleted?: () => void }) {
+  const [asking, setAsking] = useState(false);
+  const remove = () => {
+    removeFood(food);
+    onDeleted?.();
+  };
+  if (!food.public) return <DeleteButton label={food.name} onDelete={remove} />;
+  return (
+    <>
+      <DeleteButton label={food.name} onDelete={() => setAsking(true)} />
+      {asking && (
+        <Sheet title={`Remove ${displayName(food)} for everyone?`} onClose={() => setAsking(false)}>
+          <p className="hint">It disappears from everyone's lists and search. Past entries keep showing it, and it can be restored.</p>
+          <button
+            className="row row-choice danger"
+            onClick={() => {
+              setAsking(false);
+              remove();
+            }}
+          >
+            <span className="row-main">
+              <span className="row-title">Remove for everyone</span>
+            </span>
+          </button>
+          <button className="row row-choice" onClick={() => setAsking(false)}>
+            <span className="row-main">
+              <span className="row-title">Keep it</span>
+            </span>
+          </button>
+        </Sheet>
+      )}
+    </>
+  );
+}
+
+/** Soft, so past entries keep showing it; for a public item, for everyone. */
 function removeFood(food: Food) {
   void deleteFood(food.id);
   notify(`Deleted ${food.name}`, () => void restoreFood(food.id));
@@ -176,7 +213,7 @@ export function ItemRoute() {
       canGoBack
       onBack={close}
       onClose={close}
-      actions={stored && !stored.public && <DeleteButton label={item.name} onDelete={() => (removeFood(stored), close())} />}
+      actions={stored && <FoodDeleteButton food={stored} onDeleted={close} />}
     >
       <ItemEditor
         key={item.id}
