@@ -2,8 +2,10 @@ import { resEnd, validateBody, validateParams, validateQuery } from "@danielshar
 import {
   createFoodRequestSchema,
   createFoodResponseSchema,
+  foodItemInputSchema,
   foodSchema,
   foodsResponseSchema,
+  ownValuesResponseSchema,
   idSchema,
   previewSchema,
   saveBatchRequestSchema,
@@ -57,6 +59,14 @@ export function foodController() {
         return written(out.kind === "preview" ? out : { kind: "done", result: { ...out.result, ...out.undo! } });
       })
       .pipe(jsonSend(z.union([updateFoodResponseSchema, previewSchema]), 200)),
+  );
+
+  r.put("/foods/:id/mine", (line) =>
+    line
+      .pipe(validateParams(idParams))
+      .pipe(validateBody(foodItemInputSchema))
+      .pipe(async ({ auth, params, body }) => ok(await foods.setOwnValues(auth.userId, params.id, body)))
+      .pipe(jsonSend(ownValuesResponseSchema, 200)),
   );
 
   r.delete("/foods/:id", (line) =>

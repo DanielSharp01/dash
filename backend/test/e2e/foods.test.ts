@@ -143,6 +143,44 @@ describe("replacing", () => {
   });
 });
 
+describe("just for me", () => {
+  const publicWater = async (u: Awaited<ReturnType<typeof newUser>>) => (await u.get("/foods")).body.foods.find((f: any) => f.id === water);
+  const asInput = ({ revision: _r, deleted: _d, public: _p, starter: _s, mine: _m, ...input }: any) => input;
+
+  it("keeps a person's own values on a public item for them only, with the public ones as the original", async () => {
+    const u = await newUser();
+    const other = await newUser();
+    const shared = await publicWater(u);
+    const etag = (await u.get("/foods")).headers.get("etag")!;
+
+    const res = await u.put(`/foods/${water}/mine`, { ...asInput(shared), name: "Víz", brand: "Szentkirályi" });
+    expect(res.status).toBe(200);
+    expect(res.body.food).toMatchObject({ name: "Víz", brand: "Szentkirályi", public: true, mine: { original: { name: "Water", brand: null } } });
+    expect(res.body.food.mine.original).not.toHaveProperty("labels");
+
+    expect((await u.get("/foods", { "if-none-match": etag })).status).toBe(200);
+    expect(await publicWater(u)).toMatchObject({ name: "Víz", brand: "Szentkirályi" });
+    expect(await publicWater(other)).toMatchObject({ name: "Water" });
+    expect((await publicWater(other)).mine).toBeUndefined();
+  });
+
+  it("follows the public item again once a field is set back to it", async () => {
+    const u = await newUser();
+    const shared = await publicWater(u);
+    await u.put(`/foods/${water}/mine`, { ...asInput(shared), name: "Víz" });
+    const back = await u.put(`/foods/${water}/mine`, asInput(shared));
+    expect(back.body.food.name).toBe("Water");
+    expect(back.body.food.mine).toBeUndefined();
+  });
+
+  it("refuses the person's own items, which they edit directly", async () => {
+    const u = await newUser();
+    const own = item();
+    await u.post("/foods", own);
+    expect((await u.put(`/foods/${own.id}/mine`, own)).status).toBe(422);
+  });
+});
+
 describe("deleting", () => {
   it("hides a food but keeps it for the entries that use it", async () => {
     const u = await newUser();

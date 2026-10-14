@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import type { Batch, Food, FoodInput, StoredBatch } from "@dash/core";
+import { asItem, type Batch, type Food, type FoodInput, type FoodItemInput, overrideFrom, type StoredBatch } from "@dash/core";
 import { foodsTable } from "../db/schema";
 import { db, type Executor, type Tx } from "../providers/db";
 import {
@@ -12,13 +12,15 @@ import {
   loadFoodUsage,
   loadFoods,
   lockFood,
+  saveOverride,
   setFoodDeleted,
   updateBatch,
   updateFood,
   visibleTo,
+  withOverrides,
 } from "../repositories/food.repo";
 import { weakEtag } from "../http/respond";
-import { claimId, expectRevision, notFound, sameId, unprocessable, writable } from "./common";
+import { claimId, expectRevision, notFound, sameId, unprocessable, visible, writable } from "./common";
 import { batchInputRefs, checkFoodRefs, foodDocRefIds, foodInputRefs } from "./refs";
 import { runWrite, type UndoRecorder } from "./write";
 
@@ -48,7 +50,7 @@ export async function createFoodRow(tx: Tx, userId: string, input: FoodInput, un
 
 export async function listFoods(userId: string) {
   const version = await catalogueVersion(db, userId);
-  return { foods: await loadFoods(db, visibleTo(userId)), etag: weakEtag("foods", userId, version.count, version.latest) };
+  return { foods: await withOverrides(db, userId, await loadFoods(db, visibleTo(userId))), etag: weakEtag("foods", userId, version.count, version.latest) };
 }
 
 export async function createFood(userId: string, req: FoodInput & { newFoods?: FoodInput[] | undefined }) {
@@ -141,5 +143,22 @@ export async function foodsWithBarcode(userId: string, code: string) {
     db,
     and(visibleTo(userId), eq(foodsTable.barcode, code), eq(foodsTable.catalogued, true), isNull(foodsTable.deletedAt)),
   );
-  return [...foods.filter((f) => !f.public), ...foods.filter((f) => f.public)];
+  const shown = await withOverrides(db, userId, foods);
+  return [...shown.filter((f) => !f.public), ...shown.filter((f) => f.public)];
+}
+
+/**
+ * "Just for me" on a public item: whatever differs from it is kept as the person's own values,
+ * and a field set back to the public value follows the public item again.
+ */
+export async function setOwnValues(userId: string, id: string, req: FoodItemInput) {
+  sameId(id, req.id);
+  return db.transaction(async (tx) => {
+    const row = visible(await lockFood(tx, id), userId);
+    if (row.userId !== null || row.kind !== "item") throw unprocessable("Only a public item takes your own values; edit your own items directly");
+    const shared = asItem(await loadFood(tx, id))!;
+    await saveOverride(tx, userId, id, overrideFrom(shared, req));
+    const [food] = await withOverrides(tx, userId, [shared]);
+    return { food: food! };
+  });
 }
