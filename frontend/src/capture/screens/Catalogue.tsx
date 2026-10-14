@@ -257,10 +257,10 @@ export function RecipeRoute() {
       canGoBack
       onBack={close}
       onClose={close}
-      actions={!recipe.public && <DeleteButton label={recipe.name} onDelete={() => (removeFood(recipe), close())} />}
     >
       <RecipeEditor
         recipe={recipe}
+        onDelete={recipe.public ? undefined : () => (removeFood(recipe), close())}
         onOpenBatch={(b) => open(`/recipes/${recipe.id}/${b.id}`)}
         onCookAgain={() => {
           if (!unfinishedBatch(recipe)) void saveBatch(recipe.id, startBatch(recipe));

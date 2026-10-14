@@ -7,6 +7,7 @@ import { NutritionPreview } from "../flows/EatFlow";
 import { todayKey } from "../time";
 import { NumberInput } from "../ui/NumberInput";
 import { IconField } from "../ui/Pickers";
+import { Sheet } from "../ui/Sheet";
 import { PortionList } from "./PortionList";
 
 /** Records what each ingredient amount comes to now, so later serving changes don't move the batch. */
@@ -160,13 +161,28 @@ export function BatchEditor({ recipeId, batchId, onFinished }: { recipeId: strin
   );
 }
 
-export function RecipeEditor({ recipe, onOpenBatch, onCookAgain, onToCombo }: { recipe: Recipe; onOpenBatch: (b: Batch) => void; onCookAgain: () => void; onToCombo: (c: ComboInput) => void }) {
+/** Deleting sits at the bottom behind a confirmation, away from where a batch's delete is. */
+export function RecipeEditor({
+  recipe,
+  onOpenBatch,
+  onCookAgain,
+  onToCombo,
+  onDelete,
+}: {
+  recipe: Recipe;
+  onOpenBatch: (b: Batch) => void;
+  onCookAgain: () => void;
+  onToCombo: (c: ComboInput) => void;
+  onDelete?: () => void;
+}) {
   const foods = useFoodLookup();
   const current = asRecipe(foods(recipe.id)) ?? recipe;
   const [name, setName] = useState(current.name);
   const [icon, setIcon] = useState(current.iconAuto ? undefined : current.icon);
   const rename = (patch: Partial<RecipeInput>) => void saveFood({ ...recipeInput(current), ...patch });
   const latest = finishedBatches(current).at(-1);
+  const batchCount = current.batches.filter((b) => !b.deleted).length;
+  const [confirming, setConfirming] = useState(false);
 
   return (
     <div className="item-editor">
@@ -228,6 +244,28 @@ export function RecipeEditor({ recipe, onOpenBatch, onCookAgain, onToCombo }: { 
         <button className="link-btn" onClick={() => onToCombo(recipeToCombo(current, latest))}>
           Turn into a combo
         </button>
+      )}
+      {onDelete && (
+        <button className="link-btn danger" onClick={() => setConfirming(true)}>
+          Delete recipe
+        </button>
+      )}
+
+      {confirming && onDelete && (
+        <Sheet title={`Delete ${current.name}?`} onClose={() => setConfirming(false)}>
+          <p className="hint">Days you logged it keep showing it.</p>
+          <button className="row row-choice danger" onClick={onDelete}>
+            <span className="row-main">
+              <span className="row-title">{batchCount ? `Delete it and its ${batchCount === 1 ? "batch" : `${batchCount} batches`}` : "Delete it"}</span>
+              <span className="row-sub">To delete one batch, open that batch instead</span>
+            </span>
+          </button>
+          <button className="row row-choice" onClick={() => setConfirming(false)}>
+            <span className="row-main">
+              <span className="row-title">Keep it</span>
+            </span>
+          </button>
+        </Sheet>
       )}
     </div>
   );

@@ -2840,7 +2840,8 @@ input[type="checkbox"]:focus-visible {
   margin-bottom: 4px;
 }
 
-.link-btn.danger {
+.link-btn.danger,
+.row-choice.danger .row-title {
   color: var(--danger);
 }
 
