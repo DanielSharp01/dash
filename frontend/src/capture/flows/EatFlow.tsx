@@ -915,7 +915,7 @@ function FoodCards({ via, onPick, onSearch, onScan }: { via: FoodEntry["via"]; o
             <button key={f.id} className={`tile drink-card ${f.kind === "recipe" ? "tile-leftover" : ""}`} onClick={() => onPick(f)}>
               <span className="tile-icon">{f.icon}</span>
               <span className="tile-label">{f.name}</span>
-              {f.kind === "item" && variationLabel(f, listed) && <span className="tile-variation">{variationLabel(f, listed)}</span>}
+              {f.kind === "item" && (f.variant || f.brand) && <span className="tile-variation">{[f.variant, f.brand].filter(Boolean).join(" · ")}</span>}
               <span className="tile-sub">{sub(f)}</span>
             </button>
           ))}
