@@ -9,6 +9,7 @@ import {
   defaultPlan,
   entryNeedsFollowUp,
   foodInputSchema,
+  groupKey,
   labelSchema,
   provenanceChips,
   lookupOf,
@@ -148,6 +149,13 @@ describe("applyPlanChange", () => {
     const v3 = applyPlanChange(v2, defaultPlan, { from: "2026-07-01" })!;
     // Back to the first plan from July: neighbours collapse into the first version.
     expect(v3).toEqual([{ from: BEGINNING, plan: defaultPlan }]);
+  });
+});
+
+describe("groupKey", () => {
+  it("groups names regardless of case and spacing, but not accents", () => {
+    expect(groupKey(" Füstli ")).toBe(groupKey("füstli"));
+    expect(groupKey("Eger")).not.toBe(groupKey("Éger"));
   });
 });
 

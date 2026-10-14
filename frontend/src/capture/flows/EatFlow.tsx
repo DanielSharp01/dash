@@ -14,6 +14,7 @@ import {
   defaultAmount,
   displayName,
   estimated,
+  groupKey,
   type Food,
   type FoodData,
   type FoodEntry,
@@ -559,6 +560,12 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
               )}
             </div>
             {recipe && <BatchChoice recipe={recipe} batchId={line.batchId} onChange={(batchId) => setLines([{ ...line, batchId }])} />}
+            {item && changeable && (
+              <VariationChoice
+                item={item}
+                onChange={(v) => setLines([{ ...lineFor(v, quantity(v, line.amount) !== undefined ? line.amount : usual(v)), id: line.id }])}
+              />
+            )}
             {recipe && line.batchId && (
               <label className="check-line">
                 <input type="checkbox" checked={lastOfIt} onChange={(e) => setLastOfIt(e.target.checked)} />
@@ -680,6 +687,23 @@ function BatchChoice({ recipe, batchId, onChange }: { recipe: Recipe; batchId?: 
       {batches.slice(0, 4).map((b) => (
         <button key={b.id} role="radio" aria-checked={b.id === batchId} className="chip" onClick={() => onChange(b.id)}>
           {batchLabel(b)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Other flavours or packs of the item, by its name; the amount carries over where it fits. */
+function VariationChoice({ item, onChange }: { item: FoodItem; onChange: (v: FoodItem) => void }) {
+  const listed = useListedFoods();
+  const others = variantsOf(listed, item);
+  if (!others.length) return null;
+  const variations = [item, ...others].sort((a, b) => (a.variant ?? "").localeCompare(b.variant ?? ""));
+  return (
+    <div className="chip-row" role="radiogroup" aria-label="Variation">
+      {variations.map((v) => (
+        <button key={v.id} role="radio" aria-checked={v.id === item.id} className="chip" onClick={() => v.id !== item.id && onChange(v)}>
+          {v.variant || "Plain"}
         </button>
       ))}
     </div>
@@ -835,7 +859,15 @@ function FoodCards({ via, onPick, onSearch, onScan }: { via: FoodEntry["via"]; o
         : [...leftovers(listed), ...recentFoodIds(usage, "ate").map(foods), ...starters];
     const live = new Set(listed);
     const offered = (f: Food | undefined): f is Food => !!f && live.has(f) && loggable(f) && !(f.kind === "item" && f.unsure) && (via === "ate" || drink(f));
-    return ordered.filter((f, i, all): f is Food => offered(f) && all.indexOf(f) === i).slice(0, via === "drank" ? 12 : 9);
+    // Variations share one card, showing whichever comes first: the one used last or most.
+    const seen = new Set<string>();
+    const firstOfGroup = (f: Food) => {
+      const key = f.kind === "item" ? `item:${groupKey(f.name)}` : f.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    };
+    return ordered.filter((f): f is Food => offered(f) && firstOfGroup(f)).slice(0, via === "drank" ? 12 : 9);
   }, [usage, foods, listed, via]);
 
   const sub = (f: Food) => {

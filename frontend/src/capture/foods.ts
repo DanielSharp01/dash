@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { autoFoodIcon, BEGINNING, currentBatch, isFinished, type Amount, type Batch, type Food, type FoodInput, type FoodItem, type FoodLookup, type FoodUsage, labelAt, type Recipe } from "@dash/core";
+import { autoFoodIcon, BEGINNING, currentBatch, groupKey, isFinished, type Amount, type Batch, type Food, type FoodInput, type FoodItem, type FoodLookup, type FoodUsage, labelAt, type Recipe } from "@dash/core";
 import { asNewFood, useFoods } from "../queries/foods.queries";
 
 /**
@@ -34,7 +34,7 @@ export const batchLabel = (b: Pick<Batch, "madeOn">) => new Date(`${b.madeOn}T12
 
 /** Items sharing a name are variants of one another. */
 export const variantsOf = (list: Food[], item: Pick<FoodItem, "id" | "name">) =>
-  list.filter((f): f is FoodItem => f.kind === "item" && f.id !== item.id && !f.unsure && f.name.trim().toLowerCase() === item.name.trim().toLowerCase());
+  list.filter((f): f is FoodItem => f.kind === "item" && f.id !== item.id && !f.unsure && groupKey(f.name) === groupKey(item.name));
 
 const isFluidItem = (f: Food | undefined) => f?.kind === "item" && f.unit === "ml" && !f.notFluid;
 

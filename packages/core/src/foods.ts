@@ -28,6 +28,9 @@ export const batchOn = (r: Recipe, date: string) =>
 /** A recipe is only offered for logging once at least one cooking is finished. */
 export const loggable = (f: Food) => f.kind !== "recipe" || !!latestBatch(f);
 
+/** Items with the same name are variations of one thing. Case doesn't matter; accents do, since Eger and Éger are different words. */
+export const groupKey = (name: string) => name.trim().toLocaleLowerCase();
+
 export function displayName(f: Food) {
   return f.kind === "item" && f.variant ? `${f.name} · ${f.variant}` : f.name;
 }
