@@ -52,7 +52,7 @@ import { initialWhen, nowWhen } from "../time";
 import { AmountInput } from "../ui/AmountInput";
 import { Breakdown, ingredientRows } from "../ui/Breakdown";
 import { FlowShell } from "../ui/FlowShell";
-import { PublishBlockers } from "../ui/PublishBlockers";
+import { PublishButton } from "../ui/PublishButton";
 import { Sheet } from "../ui/Sheet";
 import { BarcodeIcon, FoodSearch } from "../ui/FoodSearch";
 import { canScan } from "../ui/Scanner";
@@ -683,10 +683,7 @@ function NewFoodChoices({ canComplete, blockers, onSave }: { canComplete: boolea
   const suggestPublish = blockers.length === 0;
   return (
     <div className="save-choices">
-      {canComplete && !suggestPublish && <PublishBlockers reasons={blockers} />}
-      <button className={`btn btn-block ${suggestPublish ? "btn-primary" : ""}`} disabled={!canComplete} onClick={() => onSave("completed", true)}>
-        Add and publish
-      </button>
+      <PublishButton blockers={canComplete ? blockers : []} label="Add and publish" disabled={!canComplete} onClick={() => onSave("completed", true)} />
       <button className={`btn btn-block ${suggestPublish ? "" : "btn-primary"}`} disabled={!canComplete} onClick={() => onSave("completed")}>
         Add privately
       </button>

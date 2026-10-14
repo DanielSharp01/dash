@@ -11,7 +11,7 @@ import { FoodRow, FoodSearch } from "../ui/FoodSearch";
 import { DateChip, tapCard } from "../ui/DateChip";
 import { draftFrom, hasValues, LabelForm, labelFrom, unitOf } from "../ui/LabelForm";
 import { NumberInput } from "../ui/NumberInput";
-import { PublishBlockers } from "../ui/PublishBlockers";
+import { PublishButton } from "../ui/PublishButton";
 import { IconField } from "../ui/Pickers";
 import { Scanner } from "../ui/Scanner";
 import { Sheet } from "../ui/Sheet";
@@ -381,10 +381,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           </div>
         ) : !item.public && item.catalogued ? (
           <div className="save-choices">
-            {blockers.length > 0 && <PublishBlockers reasons={blockers} />}
-            <button className={`btn btn-block ${blockers.length ? "" : "btn-primary"}`} disabled={!name.trim()} onClick={() => trySave(false, "everyone")}>
-              Save and publish
-            </button>
+            <PublishButton blockers={blockers} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
             <button className={`btn btn-block ${blockers.length ? "btn-primary" : ""}`} disabled={!name.trim()} onClick={() => trySave(false, "me")}>
               Save privately
             </button>

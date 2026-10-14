@@ -2305,6 +2305,33 @@ input[type="checkbox"]:focus-visible {
   gap: 8px;
 }
 
+.publish-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.publish-note {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 12px 12px 0 0;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 0.88rem;
+}
+
+.publish-note strong {
+  font-size: 0.92rem;
+}
+
+.publish-block .btn {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border: 1px solid var(--warn-bg);
+  border-top: 0;
+}
+
 .save-choices .hint {
   margin: 0 2px;
   text-align: center;
