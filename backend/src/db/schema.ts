@@ -42,12 +42,18 @@ export const whenKindEnum = pgEnum("when_kind", ["now", "exact", "part", "day"])
 export const dayPartEnum = pgEnum("day_part", ["dawn", "morning", "afternoon", "evening", "night"]);
 export const viaEnum = pgEnum("via", ["ate", "drank"]);
 
-/** One row per person; Google's subject id is the stable key, since email can change. */
+/**
+ * One row per person; Google's subject id is the stable key, since email can change. An invited
+ * person exists before their first sign-in, without a Google account, until the invite is used.
+ */
 export const usersTable = pgTable("users", {
   id: uuid().primaryKey().defaultRandom(),
-  googleSub: text().notNull().unique(),
+  googleSub: text().unique(),
   email: text(),
   name: text(),
+  /** SHA-256 of the token in the invite link; the link itself is never stored. */
+  inviteTokenHash: text().unique(),
+  inviteExpiresAt: timestamp({ withTimezone: true }),
   createdAt: createdAt(),
 });
 

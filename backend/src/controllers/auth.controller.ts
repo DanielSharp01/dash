@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   resRedirect,
   validateCookies,
+  validateParams,
   validateQuery,
 } from "@danielsharp/typeline-http";
 import { stop, selectInput, tapInput } from "@danielsharp/typeline";
@@ -18,7 +19,21 @@ const users = new UserRepository(db);
 // Built from configuration, not the request, so a proxy in front can't change where Google sends the code.
 const googleCallback = `${env.API_HOST}/auth/google/callback`;
 
+const INVITE_COOKIE = "__Host-auth-invite";
+
 export function authController() {
+  // Checked before Google so a dead link says so up front; the callback checks it again when it's claimed.
+  rootRouter.get("/auth/invite/:token", (line) =>
+    line
+      .pipe(validateParams(z.object({ token: z.string().min(1).max(100) })))
+      .pipe(async ({ params }, { res }) => {
+        if (!(await users.isInviteLive(params.token))) return "/login?error=invite_expired";
+        res.cookie(INVITE_COOKIE, params.token, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 15 * 60 * 1000 });
+        return "/auth/google/authorize?returnTo=/capture/";
+      })
+      .pipe(resRedirect(302)),
+  );
+
   rootRouter.get("/auth/google/authorize", (line) =>
     line
       .pipe(validateQuery(z.object({ returnTo: z.string().default("/") })))
@@ -64,6 +79,7 @@ export function authController() {
                   nonce: z.string(),
                 }),
               ),
+            [INVITE_COOKIE]: z.string().optional(),
           }),
         ),
       )
@@ -80,10 +96,11 @@ export function authController() {
       )
       .pipe(
         async (
-          { cookies: { "__Host-auth-google": authGoogle }, query },
+          { cookies: { "__Host-auth-google": authGoogle, [INVITE_COOKIE]: inviteToken }, query },
           { res },
         ) => {
           res.clearCookie("__Host-auth-google", { path: "/", secure: true });
+          res.clearCookie(INVITE_COOKIE, { path: "/", secure: true });
           if ("error" in query) {
             res.redirect(
               "/login?error=" + encodeURIComponent(query.error_description),
@@ -98,7 +115,11 @@ export function authController() {
               redirectUri: googleCallback,
               nonce,
             });
-            const user = await users.upsertFromGoogle(identity);
+            const user = await users.signInWithGoogle(identity, inviteToken);
+            if (!user) {
+              res.redirect("/login?error=not_invited");
+              return stop();
+            }
             await ensureProfile(db, user.id);
             return { session: await session.issue({ userId: user.id, google: identity }), returnTo: query.state };
           } catch (error) {

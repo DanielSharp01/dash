@@ -8,6 +8,16 @@ const returnTo = params.get("returnTo") ?? "/capture/";
 const safeReturnTo = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/capture/";
 const error = params.get("error");
 
+const errorMessages: Record<string, string> = {
+  not_invited: "Dash is invite-only for now. If someone sent you an invite link, open that link to sign in.",
+  invite_expired: "This invite link has expired or was already used. Ask for a new one.",
+};
+
+function errorMessage(error: string) {
+  if (errorMessages[error]) return errorMessages[error];
+  return `Signing in didn't work${error === "oauth_error" || error === "unknown_error" ? "" : `: ${error}`}. Try again.`;
+}
+
 /** Google's own mark, as its branding guidelines require on a sign-in button. */
 function GoogleMark() {
   return (
@@ -28,7 +38,7 @@ function Login() {
       </div>
       <h1 className="login-title">Dash</h1>
       <p className="login-tagline">Log what you eat, drink and burn in a few taps.</p>
-      {error && <p className="login-error">Signing in didn't work{error === "oauth_error" || error === "unknown_error" ? "" : `: ${error}`}. Try again.</p>}
+      {error && <p className="login-error">{errorMessage(error)}</p>}
       <a className="google-btn" href={`/auth/google/authorize?returnTo=${encodeURIComponent(safeReturnTo)}`}>
         <GoogleMark />
         Sign in with Google

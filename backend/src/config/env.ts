@@ -17,6 +17,11 @@ export const env = zodStringify(
     DB_NAME: z.string(),
     /** The origin the browser sees, e.g. https://dash.example.com; sign-in redirects back to it. */
     API_HOST: z.url().transform((u) => u.replace(/\/+$/, "")),
+    /** The public origin for invite links, for when the invite script runs where API_HOST is a dev address. */
+    INVITE_ORIGIN: z
+      .url()
+      .transform((u) => u.replace(/\/+$/, ""))
+      .optional(),
     OFF_USER_AGENT: z.string().default("Dash/0.1 (personal nutrition tracker)"),
     /** The built frontend (frontend/dist); unset in development, where Vite serves it. */
     FRONTEND_DIR: z.string().optional(),
