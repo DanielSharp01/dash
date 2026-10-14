@@ -9,7 +9,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.cli.ts",
-    "invite": "tsx src/db/invite.cli.ts"
+    "invite": "tsx src/db/invite.cli.ts",
+    "copies-to-overrides": "tsx src/db/copies-to-overrides.cli.ts"
   },
   "dependencies": {
     "@danielsharp/auth": "^0.1.1",
