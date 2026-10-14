@@ -36,21 +36,37 @@ export const nutrientsSchema = z.partialRecord(nutrientKeySchema, amountNumber);
 
 /** g and ml come from a per-100 label or a weighed serving; piece from a serving with no size. */
 export const foodUnitSchema = z.enum(["g", "ml", "piece"]);
-/** Provenance only: a typed value is as known as a printed one. */
-export const labelSourceSchema = z.enum(["package", "database", "reference", "typed"]);
+/** What filled a label in. Absent means typed straight off the package. */
+export const labelOriginSchema = z.enum(["open-food-facts", "usda", "ciqual", "online", "estimate"]);
+/** Reference tables and estimates have no package to check against. */
+export const checkableOrigins: readonly (LabelOrigin | undefined)[] = [undefined, "open-food-facts", "online"];
 
-/** Values as printed on the package: per 100 of the item's unit, or per serving. */
-export const labelSchema = z.object({
-  from: versionStartSchema,
-  per: z.enum(["100", "serving"]),
-  /** In the item's unit. Absent on a piece item, where the serving is one piece. */
-  servingSize: positive.optional(),
-  servingName: z.string().max(200).optional(),
-  /** "Per serving (2 cookies)": the serving is this many of a countable piece. */
-  servingPieces: z.object({ count: positive, name: z.string().max(200) }).optional(),
-  values: nutrientsSchema,
-  source: labelSourceSchema,
-});
+/**
+ * Values as printed on the package: per 100 of the item's unit, or per serving. Provenance is
+ * two separate facts, whether someone checked the values against the package and what filled
+ * them in, because a prefilled label someone checked is both.
+ */
+export const labelSchema = z
+  .object({
+    from: versionStartSchema,
+    per: z.enum(["100", "serving"]),
+    /** In the item's unit. Absent on a piece item, where the serving is one piece. */
+    servingSize: positive.optional(),
+    servingName: z.string().max(200).optional(),
+    /** "Per serving (2 cookies)": the serving is this many of a countable piece. */
+    servingPieces: z.object({ count: positive, name: z.string().max(200) }).optional(),
+    values: nutrientsSchema,
+    verified: z.boolean(),
+    origin: labelOriginSchema.optional(),
+    /** Open Food Facts' revision of the product record the values were compared with. */
+    originRev: z.number().int().positive().optional(),
+    /** Where values found online came from. */
+    url: z.url({ protocol: /^https?$/ }).max(2000).optional(),
+  })
+  .refine((l) => !l.verified || checkableOrigins.includes(l.origin), { message: "Nothing to check this against", path: ["verified"] })
+  .refine((l) => l.verified || l.origin, { message: "Values typed off the package are verified", path: ["verified"] })
+  .refine((l) => l.originRev === undefined || l.origin === "open-food-facts", { message: "Only Open Food Facts has revisions", path: ["originRev"] })
+  .refine((l) => l.url === undefined || l.origin === "online", { message: "Only values found online have a URL", path: ["url"] });
 
 /** A named portion in the item's unit; the size can wait, e.g. "bowl" typed while logging. */
 export const servingSchema = z.object({ name, size: positive.optional() });
@@ -476,7 +492,7 @@ export type VersionStart = z.infer<typeof versionStartSchema>;
 export type NutrientKey = z.infer<typeof nutrientKeySchema>;
 export type Nutrients = z.infer<typeof nutrientsSchema>;
 export type FoodUnit = z.infer<typeof foodUnitSchema>;
-export type LabelSource = z.infer<typeof labelSourceSchema>;
+export type LabelOrigin = z.infer<typeof labelOriginSchema>;
 export type Label = z.infer<typeof labelSchema>;
 export type Serving = z.infer<typeof servingSchema>;
 export type Amount = z.infer<typeof amountSchema>;

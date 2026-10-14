@@ -1,9 +1,9 @@
-import { BEGINNING, type ActivityInput, type FoodItemInput, type Nutrients, type Serving } from "@dash/core";
+import { BEGINNING, type ActivityInput, type FoodItemInput, type LabelOrigin, type Nutrients, type Serving } from "@dash/core";
 
 export type PublicFood = { key: string; starter: boolean; food: Omit<FoodItemInput, "id"> };
 export type PublicActivity = { key: string; starter: boolean; activity: Omit<ActivityInput, "id"> };
 
-const item = (name: string, icon: string, unit: "g" | "ml", values: Nutrients, servings: Serving[], variant?: string): Omit<FoodItemInput, "id"> => ({
+const item = (name: string, icon: string, unit: "g" | "ml", values: Nutrients, servings: Serving[], variant?: string, origin: LabelOrigin = "usda"): Omit<FoodItemInput, "id"> => ({
   kind: "item",
   name,
   icon,
@@ -13,7 +13,7 @@ const item = (name: string, icon: string, unit: "g" | "ml", values: Nutrients, s
   ...(variant ? { variant } : {}),
   notFluid: false,
   unsure: false,
-  labels: [{ from: BEGINNING, per: "100", values, source: "reference" }],
+  labels: [{ from: BEGINNING, per: "100", values, verified: false, origin }],
   servings,
 });
 
@@ -40,7 +40,7 @@ export const publicFoods: PublicFood[] = [
   {
     key: "cooking-cream",
     starter: false,
-    food: item("Cooking cream", "🥛", "g", { kcal: 200, fat: 20, saturates: 13, carbs: 3.7, sugars: 3.7, protein: 2.7, salt: 0.1 }, [], "20%"),
+    food: item("Cooking cream", "🥛", "g", { kcal: 200, fat: 20, saturates: 13, carbs: 3.7, sugars: 3.7, protein: 2.7, salt: 0.1 }, [], "20%", "estimate"),
   },
 ];
 

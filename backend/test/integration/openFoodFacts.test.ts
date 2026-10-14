@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { openFoodFacts } from "../../src/providers/openFoodFacts";
 
-const answer = (nutriments: Record<string, number>) =>
-  vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ status: 1, product: { product_name: "Rice cakes", quantity: "100 g", nutriments } }));
+const answer = (nutriments: Record<string, number>, rev?: number) =>
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ status: 1, product: { product_name: "Rice cakes", quantity: "100 g", nutriments, rev } }));
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -15,6 +15,11 @@ describe("openFoodFacts.lookup", () => {
   it("works kcal out from kJ when the product only lists kJ", async () => {
     answer({ "energy-kj_100g": 1590 });
     expect((await openFoodFacts.lookup("1"))?.label?.values).toEqual({ kcal: 380 });
+  });
+
+  it("marks the label as an unchecked prefill of that revision", async () => {
+    answer({ "energy-kcal_100g": 380 }, 7);
+    expect((await openFoodFacts.lookup("1"))?.label).toMatchObject({ verified: false, origin: "open-food-facts", originRev: 7 });
   });
 
   it("leaves the label out without any energy", async () => {

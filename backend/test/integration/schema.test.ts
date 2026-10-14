@@ -24,7 +24,7 @@ const item = () => ({
   unit: "g" as const,
   notFluid: false,
   unsure: false,
-  labels: [{ from: BEGINNING, per: "100" as const, values: { kcal: 130 }, source: "package" as const }],
+  labels: [{ from: BEGINNING, per: "100" as const, values: { kcal: 130 }, verified: true }],
   servings: [{ name: "Bowl", size: 200 }],
 });
 

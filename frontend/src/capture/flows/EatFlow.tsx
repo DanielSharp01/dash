@@ -13,6 +13,7 @@ import {
   currentBatch,
   defaultAmount,
   displayName,
+  estimated,
   type Food,
   type FoodData,
   type FoodEntry,
@@ -132,7 +133,7 @@ function newFoodOf(source: FoodEntry | undefined, foods: FoodLookup): NewFood | 
     variant: existing?.variant ?? "",
     icon: existing && !existing.iconAuto ? existing.icon : undefined,
     barcode: only.barcode ?? existing?.barcode,
-    draft: draftFrom(existing?.unit, existing && labelAt(existing), "typed"),
+    draft: draftFrom(existing?.unit, existing && labelAt(existing), estimated),
     servings: existing?.servings ?? [],
     existing,
   };
@@ -237,7 +238,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
       variant: fromDb ? (found.brand ?? "") : "",
       icon: base && !base.iconAuto ? base.icon : undefined,
       barcode,
-      draft: fromDb ? draftFrom(found.unit, found.label, "database") : draftFrom(base?.unit ?? (via === "drank" ? "ml" : undefined), undefined),
+      draft: fromDb ? draftFrom(found.unit, found.label) : draftFrom(base?.unit ?? (via === "drank" ? "ml" : undefined), undefined),
       servings: fromDb ? found.servings : [],
     });
     setComboId(undefined);
@@ -410,7 +411,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
                 unit: "piece",
                 notFluid: false,
                 unsure: false,
-                labels: [{ from: BEGINNING, per: "serving", values: calories, source: "typed" }],
+                labels: [{ from: BEGINNING, per: "serving", values: calories, verified: false, origin: "estimate" }],
                 servings: [],
               };
               commit([{ id: newId(), foodId: item.id, ...(note.trim() ? { rawName: note.trim() } : {}), amount: { value: 1, unit: "piece" } }], { comboId: undefined }, [item]);

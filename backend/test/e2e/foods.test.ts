@@ -89,7 +89,7 @@ describe("replacing", () => {
     const u = await newUser();
     const milk = item();
     await u.post("/foods", milk);
-    const later = { from: "2026-09-01", per: "100", values: { kcal: 45 }, source: "package" };
+    const later = { from: "2026-09-01", per: "100", values: { kcal: 45 }, verified: true };
     const saved = await u.put(`/foods/${milk.id}`, { ...milk, labels: [...milk.labels, later], revision: 1 });
     expect(saved.status).toBe(200);
     expect(saved.body.food.revision).toBe(2);

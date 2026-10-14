@@ -18,7 +18,7 @@ const oats: FoodItem = {
   unit: "g",
   notFluid: false,
   unsure: false,
-  labels: [{ from: BEGINNING, per: "100", values: { kcal: 400, protein: 13, carbs: 60, fat: 7 }, source: "package" }],
+  labels: [{ from: BEGINNING, per: "100", values: { kcal: 400, protein: 13, carbs: 60, fat: 7 }, verified: true }],
   servings: [],
 };
 const lookup = lookupOf([oats]);

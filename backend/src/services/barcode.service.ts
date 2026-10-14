@@ -23,7 +23,8 @@ function isStoreCode(code: string) {
 
 async function cachedLookup(code: string): Promise<OpenFoodFactsResult | undefined> {
   if (isStoreCode(code)) return undefined;
-  const key = `off:${code}`;
+  // The version changes with the cached shape; old keys just expire.
+  const key = `off:v2:${code}`;
   const cached = await redis.get(key, codecs.json<Cached>());
   if (cached) return cached.found ?? undefined;
   try {

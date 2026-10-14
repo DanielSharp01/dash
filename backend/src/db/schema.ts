@@ -34,7 +34,7 @@ export const macroPresetEnum = pgEnum("macro_preset", ["balanced", "high-protein
 export const foodKindEnum = pgEnum("food_kind", ["item", "recipe", "combo"]);
 export const foodUnitEnum = pgEnum("food_unit", ["g", "ml", "piece"]);
 export const labelPerEnum = pgEnum("label_per", ["100", "serving"]);
-export const labelSourceEnum = pgEnum("label_source", ["package", "database", "reference", "typed"]);
+export const labelOriginEnum = pgEnum("label_origin", ["open-food-facts", "usda", "ciqual", "online", "estimate"]);
 export const measureKeyEnum = pgEnum("measure_key", ["distance", "duration", "sets", "reps", "weight", "laps"]);
 export const burnBasisEnum = pgEnum("burn_basis", ["distance", "reps", "duration"]);
 export const entryKindEnum = pgEnum("entry_kind", ["food", "exercise"]);
@@ -188,7 +188,10 @@ export const labelsTable = pgTable(
     servingName: text(),
     servingPiecesCount: doublePrecision(),
     servingPiecesName: text(),
-    source: labelSourceEnum().notNull(),
+    verified: boolean().notNull(),
+    origin: labelOriginEnum(),
+    originRev: integer(),
+    url: text(),
     kcal: doublePrecision(),
     fat: doublePrecision(),
     saturates: doublePrecision(),
@@ -201,6 +204,7 @@ export const labelsTable = pgTable(
   (t) => [
     unique().on(t.foodId, t.effectiveFrom),
     check("labels_pieces", sql`(${t.servingPiecesCount} is null) = (${t.servingPiecesName} is null)`),
+    check("labels_provenance", sql`case when ${t.verified} then ${t.origin} is null or ${t.origin} in ('open-food-facts', 'online') else ${t.origin} is not null end`),
   ],
 );
 

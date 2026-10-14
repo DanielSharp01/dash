@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { autoFoodIcon, basisLabel, BEGINNING, type Combo, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, type Portion, round, sameValues, type Serving } from "@dash/core";
+import { autoFoodIcon, basisLabel, BEGINNING, type Combo, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
 import { completeAsCombo, mergeFood } from "../../queries/commands.queries";
 import { saveFood, useFoodUsage, useFoods } from "../../queries/foods.queries";
 import { productForBarcode } from "../../queries/lookups.queries";
@@ -48,7 +48,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   // Undefined while the icon follows the name.
   const [icon, setIcon] = useState(item.iconAuto ? undefined : item.icon);
   const [barcode, setBarcode] = useState(item.barcode ?? "");
-  const [draft, setDraft] = useState(() => draftFrom(item.unit, latest, item.unsure ? "package" : "typed"));
+  const [draft, setDraft] = useState(() => draftFrom(item.unit, latest, item.unsure ? offThePackage : estimated));
   const [servings, setServings] = useState<Serving[]>(item.servings);
   const [fluid, setFluid] = useState(!item.notFluid);
   const [scanning, setScanning] = useState(false);
@@ -130,7 +130,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const fillFrom = (product: OpenFoodFactsResult) => {
     if (!name.trim()) setName(product.name);
     if (!variant.trim() && product.brand) setVariant(product.brand);
-    if (product.label) setDraft(draftFrom(product.unit, product.label, "database"));
+    if (product.label) setDraft(draftFrom(product.unit, product.label));
     const missing = product.servings.filter((p) => !servings.some((s) => s.name.trim().toLowerCase() === p.name.toLowerCase()));
     setServings([...servings, ...missing]);
     setOffer(undefined);

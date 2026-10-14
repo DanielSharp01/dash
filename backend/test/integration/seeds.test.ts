@@ -20,7 +20,7 @@ const def: PublicFood = {
     unit: "g",
     notFluid: false,
     unsure: false,
-    labels: [{ from: BEGINNING, per: "100", values: { kcal: 116 }, source: "reference" }],
+    labels: [{ from: BEGINNING, per: "100", values: { kcal: 116 }, verified: false, origin: "usda" }],
     servings: [],
   },
 };
@@ -40,7 +40,7 @@ describe("public item seeding", () => {
     await seedPublicItems();
     expect((await loadFood(db, id))!.revision).toBe(1);
 
-    def.food.labels.push({ from: "2026-10-01", per: "100", values: { kcal: 120 }, source: "reference" });
+    def.food.labels.push({ from: "2026-10-01", per: "100", values: { kcal: 120 }, verified: false, origin: "usda" });
     await seedPublicItems();
     const updated = await loadFood(db, id);
     expect(updated).toMatchObject({ revision: 2 });

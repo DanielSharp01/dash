@@ -1,5 +1,5 @@
 import { namedAmount } from "./units";
-import { nutrientKeys, type Amount, type FoodItemInput, type FoodUnit, type Label, type Nutrients, type Serving, type UnitSystem } from "./schemas";
+import { nutrientKeys, type Amount, type FoodItemInput, type FoodUnit, type Label, type LabelOrigin, type Nutrients, type Serving, type UnitSystem } from "./schemas";
 
 export { nutrientKeys };
 
@@ -123,11 +123,25 @@ export function basisLabel(label: Pick<Label, "per" | "servingSize" | "servingNa
   return detail ? `per ${name} (${detail})` : `per ${name}`;
 }
 
-export const sourceLabels: Record<Label["source"], string> = {
-  package: "Package label",
-  database: "Product database",
-  reference: "Reference table",
-  typed: "Typed by hand",
+export const originLabels: Record<LabelOrigin, string> = {
+  "open-food-facts": "Open Food Facts",
+  usda: "USDA",
+  ciqual: "Ciqual",
+  online: "Found online",
+  estimate: "Estimate",
 };
+
+export type Provenance = Pick<Label, "verified" | "origin" | "originRev" | "url">;
+export const offThePackage: Provenance = { verified: true };
+export const estimated: Provenance = { verified: false, origin: "estimate" };
+
+export function provenanceOf({ verified, origin, originRev, url }: Label): Provenance {
+  return { verified, ...(origin ? { origin } : {}), ...(originRev ? { originRev } : {}), ...(url ? { url } : {}) };
+}
+
+/** "Label verified", then what filled it in; nothing more for values typed off the package. */
+export function provenanceChips(label: Pick<Label, "verified" | "origin">): string[] {
+  return [...(label.verified ? ["Label verified"] : []), ...(label.origin ? [originLabels[label.origin]] : [])];
+}
 
 export const sameValues = (a: Nutrients, b: Nutrients) => nutrientKeys.every((k) => a[k] === b[k]);

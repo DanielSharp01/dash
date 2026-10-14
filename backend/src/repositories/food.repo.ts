@@ -48,7 +48,10 @@ function toLabel(row: LabelRow): Label {
       ? { servingPieces: { count: row.servingPiecesCount, name: row.servingPiecesName } }
       : {}),
     values,
-    source: row.source,
+    verified: row.verified,
+    ...opt("origin", row.origin),
+    ...opt("originRev", row.originRev),
+    ...opt("url", row.url),
   };
 }
 
@@ -238,7 +241,10 @@ function labelValues(foodId: string, l: Label) {
     servingName: l.servingName ?? null,
     servingPiecesCount: l.servingPieces?.count ?? null,
     servingPiecesName: l.servingPieces?.name ?? null,
-    source: l.source,
+    verified: l.verified,
+    origin: l.origin ?? null,
+    originRev: l.originRev ?? null,
+    url: l.url ?? null,
     ...nutrients,
   };
 }

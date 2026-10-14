@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { type IconGroup, iconGroups, type LabelSource, searchIcons, sourceLabels } from "@dash/core";
+import { checkableOrigins, type IconGroup, iconGroups, type LabelOrigin, originLabels, type Provenance, provenanceChips, searchIcons } from "@dash/core";
 import { Sheet } from "./Sheet";
 
 /** The current icon as one control; the full set only opens on demand. */
@@ -58,36 +58,68 @@ export function IconField({ value, fallback, groups, onChange }: { value?: strin
   );
 }
 
-const sourceHints: Record<LabelSource, string> = {
-  package: "Read off the package in your hand",
-  database: "Looked up by barcode",
-  reference: "A food composition table, for things without a package",
-  typed: "Your own numbers",
-};
+type Choice = { origin?: LabelOrigin; title: string; hint: string };
 
-export function SourceField({ value, onChange }: { value: LabelSource; onChange: (s: LabelSource) => void }) {
+const choices: Choice[] = [
+  { title: "The package", hint: "Read off the package in your hand" },
+  { origin: "open-food-facts", title: originLabels["open-food-facts"], hint: "Filled in from a barcode scan" },
+  { origin: "usda", title: originLabels.usda, hint: "A food composition table, for things without a package" },
+  { origin: "ciqual", title: originLabels.ciqual, hint: "A food composition table, for things without a package" },
+  { origin: "online", title: originLabels.online, hint: "A menu or the maker's site" },
+  { origin: "estimate", title: "Your estimate", hint: "Your own numbers, worked out or guessed" },
+];
+
+/** Typed off the package counts as verified; reference tables and estimates have no package to check. */
+function choose(current: Provenance, origin?: LabelOrigin): Provenance {
+  if (origin === current.origin) return current;
+  return { verified: origin === undefined, ...(origin ? { origin } : {}) };
+}
+
+/**
+ * Open Food Facts is only offered while it's what filled the label in; picking it by hand would
+ * claim a lookup that never happened.
+ */
+export function ProvenanceField({ value, onChange }: { value: Provenance; onChange: (p: Provenance) => void }) {
   const [open, setOpen] = useState(false);
+  const shown = choices.filter((c) => c.origin !== "open-food-facts" || value.origin === "open-food-facts");
+  const checkable = checkableOrigins.includes(value.origin) && value.origin !== undefined;
   return (
     <>
       <button className="value-chip" onClick={() => setOpen(true)}>
-        <small>Source</small> {sourceLabels[value]} ▾
+        <small>Source</small> {provenanceChips(value).join(" · ")} ▾
       </button>
+      {checkable && (
+        <label className="check-line">
+          <input type="checkbox" checked={value.verified} onChange={(e) => onChange({ ...value, verified: e.target.checked })} />
+          Matches the package
+        </label>
+      )}
+      {value.origin === "online" && (
+        <input
+          className="text-input"
+          type="url"
+          placeholder="Where you found it (link)"
+          value={value.url ?? ""}
+          onChange={(e) => onChange({ verified: value.verified, origin: "online", ...(e.target.value.trim() ? { url: e.target.value.trim() } : {}) })}
+          aria-label="Link to where the values were found"
+        />
+      )}
       {open && (
         <Sheet title="Where are these values from?" onClose={() => setOpen(false)}>
-          {(Object.keys(sourceLabels) as LabelSource[]).map((s) => (
+          {shown.map((c) => (
             <button
-              key={s}
-              className={`row ${value === s ? "row-selected" : ""}`}
+              key={c.origin ?? "package"}
+              className={`row ${value.origin === c.origin ? "row-selected" : ""}`}
               onClick={() => {
-                onChange(s);
+                onChange(choose(value, c.origin));
                 setOpen(false);
               }}
             >
               <span className="row-main">
-                <span className="row-title">{sourceLabels[s]}</span>
-                <span className="row-sub">{sourceHints[s]}</span>
+                <span className="row-title">{c.title}</span>
+                <span className="row-sub">{c.hint}</span>
               </span>
-              {value === s && <span className="row-check">✓</span>}
+              {value.origin === c.origin && <span className="row-check">✓</span>}
             </button>
           ))}
         </Sheet>

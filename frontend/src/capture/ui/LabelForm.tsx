@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { basisLabel, BEGINNING, type FoodUnit, type Label, type LabelSource, mainNutrients, nutrientKeys, nutrientMeta, type Nutrients } from "@dash/core";
+import { basisLabel, BEGINNING, type FoodUnit, type Label, mainNutrients, nutrientKeys, nutrientMeta, type Nutrients, offThePackage, type Provenance, provenanceOf } from "@dash/core";
 import { NumberInput } from "./NumberInput";
-import { SourceField } from "./Pickers";
+import { ProvenanceField } from "./Pickers";
 
 /** The label as it's being typed; the item's unit follows from the basis printed on the package. */
 export interface LabelDraft {
@@ -12,10 +12,11 @@ export interface LabelDraft {
   pieceCount?: number;
   pieceName: string;
   values: Nutrients;
-  source: LabelSource;
+  provenance: Provenance;
 }
 
-export function draftFrom(unit: FoodUnit | undefined, label: Label | undefined, source: LabelSource = "package"): LabelDraft {
+/** A new label is typed off the package unless the caller knows better. */
+export function draftFrom(unit: FoodUnit | undefined, label: Label | undefined, fallback: Provenance = offThePackage): LabelDraft {
   const sized = unit === "g" || unit === "ml" ? unit : "g";
   return {
     basis: !label ? (unit === "ml" ? "100ml" : unit === "piece" ? "serving" : "100g") : label.per === "100" ? (unit === "ml" ? "100ml" : "100g") : "serving",
@@ -25,7 +26,7 @@ export function draftFrom(unit: FoodUnit | undefined, label: Label | undefined, 
     pieceCount: label?.servingPieces?.count,
     pieceName: label?.servingPieces?.name ?? "",
     values: label?.values ?? {},
-    source: label?.source ?? source,
+    provenance: label ? provenanceOf(label) : fallback,
   };
 }
 
@@ -42,9 +43,9 @@ export const hasValues = (d: LabelDraft) => Object.values(d.values).some((v) => 
 export function labelFrom(d: LabelDraft, from: string = BEGINNING): Label | undefined {
   if (!hasValues(d)) return undefined;
   const values = Object.fromEntries(Object.entries(d.values).filter(([, v]) => v !== undefined)) as Nutrients;
-  if (d.basis !== "serving") return { from, per: "100", values, source: d.source };
+  if (d.basis !== "serving") return { from, per: "100", values, ...d.provenance };
   const servingPieces = d.pieceCount && d.pieceCount > 0 && d.pieceName.trim() ? { count: d.pieceCount, name: d.pieceName.trim() } : undefined;
-  return { from, per: "serving", servingSize: d.servingSize || undefined, servingName: d.servingName.trim() || undefined, servingPieces, values, source: d.source };
+  return { from, per: "serving", servingSize: d.servingSize || undefined, servingName: d.servingName.trim() || undefined, servingPieces, values, ...d.provenance };
 }
 
 export function LabelForm({ draft, onChange, autoFocus }: { draft: LabelDraft; onChange: (d: LabelDraft) => void; autoFocus?: boolean }) {
@@ -124,7 +125,7 @@ export function LabelForm({ draft, onChange, autoFocus }: { draft: LabelDraft; o
       </div>
 
       <div className="label-meta">
-        <SourceField value={draft.source} onChange={(source) => set({ source })} />
+        <ProvenanceField value={draft.provenance} onChange={(provenance) => set({ provenance })} />
         <span className="hint">Empty rows stay unknown, not zero.</span>
       </div>
     </div>

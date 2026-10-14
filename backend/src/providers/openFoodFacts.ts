@@ -12,6 +12,7 @@ const fields: [keyof Nutrients, string][] = [
 ];
 
 interface Product {
+  rev?: number;
   product_name?: string;
   brands?: string;
   quantity?: string;
@@ -50,12 +51,13 @@ async function lookup(code: string): Promise<OpenFoodFactsResult | undefined> {
   const pack = Number(p.product_quantity);
   if (pack > 0) servings.push({ name: "pack", size: pack });
   const brand = p.brands?.split(",")[0]?.trim();
+  const rev = Number.isInteger(p.rev) && p.rev! > 0 ? p.rev : undefined;
 
   return {
     name: p.product_name.trim(),
     ...(brand ? { brand } : {}),
     unit,
-    ...(values.kcal !== undefined ? { label: { from: BEGINNING, per: "100", values, source: "database" } as const } : {}),
+    ...(values.kcal !== undefined ? { label: { from: BEGINNING, per: "100", values, verified: false, origin: "open-food-facts", ...(rev ? { originRev: rev } : {}) } as const } : {}),
     servings,
   };
 }

@@ -170,6 +170,15 @@ function strict<T>(schema: z.ZodType<T>, value: unknown, what: string): T {
 
 const upgradeFrom = (from: string) => (from === "" ? BEGINNING : from);
 
+/** Exports before provenance had one source; a package label was the only checked one. */
+const legacyProvenance = { package: {}, database: { origin: "open-food-facts" }, reference: { origin: "usda" }, typed: { origin: "estimate" } } as const;
+
+function upgradeLabel({ source, ...rest }: z.infer<typeof label>) {
+  const upgraded = { ...rest, from: upgradeFrom(rest.from) };
+  if (typeof source !== "string" || !(source in legacyProvenance)) return upgraded;
+  return { ...upgraded, verified: source === "package", ...legacyProvenance[source as keyof typeof legacyProvenance] };
+}
+
 async function accountIsEmpty(tx: Tx, userId: string) {
   const counts = [
     await tx.select({ n: count() }).from(foodsTable).where(eq(foodsTable.userId, userId)),
@@ -210,7 +219,7 @@ export async function importExport(userId: string, req: ImportRequest) {
     for (const f of data["dash.foods.v1"]) {
       const common = { id: idFor(f.id), name: f.name.trim() || "Unnamed", iconAuto: !f.icon, catalogued: true };
       if (f.kind === "item") {
-        const input = { ...common, kind: "item", icon: f.icon ?? autoFoodIcon(f.name, "item", f.unit), unit: f.unit, variant: f.variant, barcode: f.barcode || undefined, notFluid: !!f.notFluid, unsure: !!f.unsure, labels: f.labels.map((l) => ({ ...l, from: upgradeFrom(l.from) })), servings: f.servings };
+        const input = { ...common, kind: "item", icon: f.icon ?? autoFoodIcon(f.name, "item", f.unit), unit: f.unit, variant: f.variant, barcode: f.barcode || undefined, notFluid: !!f.notFluid, unsure: !!f.unsure, labels: f.labels.map(upgradeLabel), servings: f.servings };
         foods.push({ input: strict(foodInputSchema, input, `item "${f.name}"`), deleted: !!f.deleted });
       } else if (f.kind === "recipe") {
         foods.push({ input: strict(foodInputSchema, { ...common, kind: "recipe", icon: f.icon ?? autoFoodIcon(f.name, "recipe") }, `recipe "${f.name}"`), deleted: !!f.deleted });
@@ -268,7 +277,7 @@ export async function importExport(userId: string, req: ImportRequest) {
         let foodId = kind === "item" || kind === "recipe" ? idFor(legacyFoodId!) : undefined;
         if (!foodId && l.own) {
           const name = l.rawName?.trim() || "Entry-only label";
-          const own = { id: randomUUID(), kind: "item", name, icon: autoFoodIcon(name, "item", l.own.unit), iconAuto: true, catalogued: false, unit: l.own.unit, notFluid: false, unsure: false, labels: l.own.labels.map((x) => ({ ...x, from: upgradeFrom(x.from) })), servings: l.own.servings };
+          const own = { id: randomUUID(), kind: "item", name, icon: autoFoodIcon(name, "item", l.own.unit), iconAuto: true, catalogued: false, unit: l.own.unit, notFluid: false, unsure: false, labels: l.own.labels.map(upgradeLabel), servings: l.own.servings };
           foods.push({ input: strict(foodInputSchema, own, `the entry-only label "${name}"`), deleted: false });
           foodId = own.id;
         }

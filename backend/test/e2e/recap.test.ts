@@ -3,7 +3,7 @@ import { logicalDateIn } from "@dash/core";
 import { foodEntry, item } from "../support/fixtures";
 import { newUser } from "../support/helpers";
 
-const oats = () => item({ name: "Oats", unit: "g", labels: [{ from: "0001-01-01", per: "100", values: { kcal: 400, protein: 13, carbs: 60, fat: 7 }, source: "package" }], servings: [] });
+const oats = () => item({ name: "Oats", unit: "g", labels: [{ from: "0001-01-01", per: "100", values: { kcal: 400, protein: 13, carbs: 60, fat: 7 }, verified: true }], servings: [] });
 const ate = (foodId: string, date: string, kcal: number) => foodEntry([{ foodId, amount: { value: kcal / 4, unit: "g" }, base: kcal / 4 }], date);
 
 describe("recap", () => {

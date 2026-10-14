@@ -60,11 +60,13 @@ describe("import", () => {
     const foods = (await u.get("/foods")).body.foods.filter((f: any) => !f.public);
     const water = foods.find((f: any) => f.name === "Water");
     expect(water.id).not.toBe("seed-water");
-    expect(foods.find((f: any) => f.id === ids.milk)).toMatchObject({ labels: [{ from: BEGINNING }], iconAuto: true, icon: expect.any(String) });
+    expect(foods.find((f: any) => f.id === ids.milk)).toMatchObject({ labels: [{ from: BEGINNING, verified: true }], iconAuto: true, icon: expect.any(String) });
+    expect(foods.find((f: any) => f.id === ids.milk).labels[0].origin).toBeUndefined();
+    expect(water.labels[0]).toMatchObject({ verified: false, origin: "usda" });
     expect(foods.find((f: any) => f.id === ids.breakfast).parts).toHaveLength(1);
     expect(foods.find((f: any) => f.id === ids.chili).batches[0]).toMatchObject({ id: ids.batch, yield: { portions: 4 } });
     const kebab = foods.find((f: any) => f.name === "Kebab");
-    expect(kebab).toMatchObject({ catalogued: false, unit: "g" });
+    expect(kebab).toMatchObject({ catalogued: false, unit: "g", labels: [{ verified: false, origin: "estimate" }] });
     const lunch = foods.find((f: any) => f.name === "Lunch");
     expect(lunch).toMatchObject({ kind: "combo", catalogued: false });
 

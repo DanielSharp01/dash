@@ -12,7 +12,7 @@ export function item(overrides: Partial<FoodItemInput> = {}): FoodItemInput {
     unit: "ml",
     notFluid: false,
     unsure: false,
-    labels: [{ from: BEGINNING, per: "100", values: { kcal: 50, protein: 1, carbs: 7, fat: 1.5 }, source: "package" }],
+    labels: [{ from: BEGINNING, per: "100", values: { kcal: 50, protein: 1, carbs: 7, fat: 1.5 }, verified: true }],
     servings: [{ name: "glass", size: 200 }],
     ...overrides,
   };

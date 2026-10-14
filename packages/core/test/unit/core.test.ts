@@ -9,6 +9,8 @@ import {
   defaultPlan,
   entryNeedsFollowUp,
   foodInputSchema,
+  labelSchema,
+  provenanceChips,
   lookupOf,
   unsureItemsInUse,
   type Entry,
@@ -33,8 +35,8 @@ const milk: FoodItem = {
   notFluid: false,
   unsure: false,
   labels: [
-    { from: BEGINNING, per: "100", values: { kcal: 50, protein: 3, carbs: 5, fat: 2 }, source: "package" },
-    { from: "2026-06-01", per: "100", values: { kcal: 60, protein: 3, carbs: 5, fat: 3 }, source: "package" },
+    { from: BEGINNING, per: "100", values: { kcal: 50, protein: 3, carbs: 5, fat: 2 }, verified: true },
+    { from: "2026-06-01", per: "100", values: { kcal: 60, protein: 3, carbs: 5, fat: 3 }, verified: true },
   ],
   servings: [{ name: "glass", size: 200 }],
 };
@@ -44,7 +46,7 @@ const oats: FoodItem = {
   id: "00000000-0000-4000-8000-000000000002",
   name: "Oats",
   unit: "g",
-  labels: [{ from: BEGINNING, per: "100", values: { kcal: 380, protein: 13, carbs: 60, fat: 7 }, source: "package" }],
+  labels: [{ from: BEGINNING, per: "100", values: { kcal: 380, protein: 13, carbs: 60, fat: 7 }, verified: true }],
   servings: [],
 };
 
@@ -154,6 +156,26 @@ describe("schemas", () => {
     const { revision: _r, deleted: _d, public: _p, starter: _s, ...input } = milk;
     expect(foodInputSchema.safeParse(input).success).toBe(true);
     expect(foodInputSchema.safeParse({ ...input, labels: [milk.labels[0], milk.labels[0]] }).success).toBe(false);
+  });
+
+  it("keeps provenance consistent: only a package or a prefill can be verified, and nothing unverified lacks an origin", () => {
+    const label = { from: BEGINNING, per: "100", values: { kcal: 64 } } as const;
+    const ok = (p: object) => labelSchema.safeParse({ ...label, ...p }).success;
+    expect(ok({ verified: true })).toBe(true);
+    expect(ok({ verified: true, origin: "open-food-facts", originRev: 12 })).toBe(true);
+    expect(ok({ verified: false, origin: "online", url: "https://example.com/menu" })).toBe(true);
+    expect(ok({ verified: false })).toBe(false);
+    expect(ok({ verified: true, origin: "usda" })).toBe(false);
+    expect(ok({ verified: true, origin: "estimate" })).toBe(false);
+    expect(ok({ verified: false, origin: "usda", originRev: 3 })).toBe(false);
+    expect(ok({ verified: false, origin: "estimate", url: "https://example.com" })).toBe(false);
+    expect(ok({ verified: false, origin: "online", url: "javascript:alert(1)" })).toBe(false);
+  });
+
+  it("shows verification and origin as separate chips", () => {
+    expect(provenanceChips({ verified: true })).toEqual(["Label verified"]);
+    expect(provenanceChips({ verified: true, origin: "open-food-facts" })).toEqual(["Label verified", "Open Food Facts"]);
+    expect(provenanceChips({ verified: false, origin: "open-food-facts" })).toEqual(["Open Food Facts"]);
   });
 });
 
