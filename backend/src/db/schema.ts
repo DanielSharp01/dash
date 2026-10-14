@@ -1,5 +1,4 @@
 import { sql } from "drizzle-orm";
-import type { FoodOverride } from "@dash/core";
 import {
   boolean,
   check,
@@ -227,7 +226,7 @@ export const servingsTable = pgTable(
   (t) => [uniqueIndex("servings_food_name").on(t.foodId, sql`lower(${t.name})`)],
 );
 
-/** A person's own values for some fields of a public item; see foodOverrideSchema. */
+/** Unused: own versions are copies now. Dropped once the remaining rows are converted (overrides-to-copies). */
 export const foodOverridesTable = pgTable(
   "food_overrides",
   {
@@ -235,7 +234,7 @@ export const foodOverridesTable = pgTable(
     foodId: uuid()
       .notNull()
       .references(() => foodsTable.id, { onDelete: "cascade" }),
-    values: jsonb().$type<FoodOverride>().notNull(),
+    values: jsonb().$type<Record<string, unknown>>().notNull(),
     updatedAt: updatedAt(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.foodId] })],

@@ -1,5 +1,4 @@
-import { deepEqual } from "./equal";
-import { type Food, type FoodItem, type FoodItemInput, type FoodOverride, overrideKeys, type Recipe, type StoredBatch } from "./schemas";
+import type { Food, FoodItem, Recipe, StoredBatch } from "./schemas";
 
 /** Every food lookup in core goes through one of these, so the caller decides where foods come from. */
 export type FoodLookup = (id: string | undefined) => Food | undefined;
@@ -41,28 +40,4 @@ export function usesFood(f: Food, id: string) {
   if (f.kind === "combo") return f.parts.some((p) => p.foodId === id);
   if (f.kind === "recipe") return f.batches.some((b) => !b.deleted && b.ingredients.some((p) => p.foodId === id));
   return false;
-}
-
-/** A public item as the person sees it: their overrides on top, the public values kept as the original. */
-export function withOverride(item: FoodItem, override: FoodOverride): FoodItem {
-  const merged: Record<string, unknown> = { ...item };
-  const original: Record<string, unknown> = {};
-  for (const key of overrideKeys) {
-    const value = override[key];
-    if (value === undefined) continue;
-    original[key] = item[key] ?? null;
-    if (value === null) delete merged[key];
-    else merged[key] = value;
-  }
-  return Object.keys(original).length ? ({ ...merged, mine: { original } } as FoodItem) : item;
-}
-
-/** The fields of an edit that differ from the public item; empty when it matches. */
-export function overrideFrom(publicItem: FoodItem, edit: FoodItemInput): FoodOverride {
-  const override: Record<string, unknown> = {};
-  for (const key of overrideKeys) {
-    const value = edit[key] ?? null;
-    if (!deepEqual(value, publicItem[key] ?? null)) override[key] = value;
-  }
-  return override as FoodOverride;
 }

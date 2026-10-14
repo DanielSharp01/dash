@@ -4,8 +4,6 @@ import {
   type Batch,
   type Food,
   type FoodInput,
-  type FoodOverride,
-  withOverride,
   type Label,
   type Nutrients,
   type Portion,
@@ -17,7 +15,6 @@ import {
   comboPartsTable,
   entriesTable,
   entryLinesTable,
-  foodOverridesTable,
   foodsTable,
   labelsTable,
   servingsTable,
@@ -280,39 +277,7 @@ export async function catalogueVersion(ex: Executor, userId: string) {
     .select({ count: sql<number>`count(*)::int`, latest: sql<string | null>`max(${foodsTable.updatedAt})::text` })
     .from(foodsTable)
     .where(visibleTo(userId));
-  const [own] = await ex
-    .select({ count: sql<number>`count(*)::int`, latest: sql<string | null>`max(${foodOverridesTable.updatedAt})::text` })
-    .from(foodOverridesTable)
-    .where(eq(foodOverridesTable.userId, userId));
-  return { count: `${row!.count}.${own!.count}`, latest: `${row!.latest}.${own!.latest}` };
-}
-
-/** The person's own values on top of the public items among the foods. */
-export async function withOverrides(ex: Executor, userId: string, foods: Food[]): Promise<Food[]> {
-  const ids = foods.filter((f) => f.public && f.kind === "item").map((f) => f.id);
-  if (!ids.length) return foods;
-  const rows = await ex
-    .select()
-    .from(foodOverridesTable)
-    .where(and(eq(foodOverridesTable.userId, userId), inArray(foodOverridesTable.foodId, ids)));
-  const byFood = new Map(rows.map((r) => [r.foodId, r.values]));
-  return foods.map((f) => {
-    const values = byFood.get(f.id);
-    return values && f.kind === "item" ? withOverride(f, values) : f;
-  });
-}
-
-/** An empty override means the person sees the public item as it is again. */
-export async function saveOverride(ex: Executor, userId: string, foodId: string, values: FoodOverride) {
-  const key = and(eq(foodOverridesTable.userId, userId), eq(foodOverridesTable.foodId, foodId));
-  if (!Object.keys(values).length) {
-    await ex.delete(foodOverridesTable).where(key);
-    return;
-  }
-  await ex
-    .insert(foodOverridesTable)
-    .values({ userId, foodId, values })
-    .onConflictDoUpdate({ target: [foodOverridesTable.userId, foodOverridesTable.foodId], set: { values, updatedAt: new Date() } });
+  return row!;
 }
 
 export type BatchRef = { recipeId: string; owner: string | null; batch: StoredBatch };

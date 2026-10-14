@@ -166,29 +166,7 @@ export const storedBatchSchema = batchSchema.extend({
   shared: z.boolean().optional(),
 });
 
-/**
- * What a person changed on a public item just for themselves; every other field keeps following
- * the public item. Null clears an optional field the public item has.
- */
-export const foodOverrideSchema = z
-  .object({
-    name,
-    icon: z.string().min(1).max(32),
-    iconAuto: z.boolean(),
-    variant: z.string().trim().max(200).nullable(),
-    brand: z.string().trim().max(200).nullable(),
-    labels: z.array(labelSchema).max(200),
-    servings: z.array(servingSchema).max(100),
-  })
-  .partial();
-export const overrideKeys = ["name", "icon", "iconAuto", "variant", "brand", "labels", "servings"] as const;
-
-export const foodItemSchema = foodItemInputSchema.safeExtend({
-  ...stored,
-  ...publicFlags,
-  /** On a public item the person changed just for themselves: the public values of those fields. */
-  mine: z.object({ original: foodOverrideSchema }).optional(),
-});
+export const foodItemSchema = foodItemInputSchema.safeExtend({ ...stored, ...publicFlags });
 export const recipeSchema = recipeInputSchema.extend({ ...stored, ...publicFlags, batches: z.array(storedBatchSchema) });
 export const comboSchema = comboInputSchema.extend({ ...stored, ...publicFlags });
 export const foodSchema = z.discriminatedUnion("kind", [foodItemSchema, recipeSchema, comboSchema]);
@@ -477,7 +455,7 @@ export const followUpResponseSchema = z.object({
 
 export const commandResultSchema = z.object({ foods: z.array(foodSchema), entries: z.array(entrySchema), ...undoFields });
 export const mergeRequestSchema = z.object({ targetId: idSchema });
-export const ownValuesResponseSchema = z.object({ food: foodSchema });
+export const foodResponseSchema = z.object({ food: foodSchema });
 export const completeAsComboRequestSchema = z.object({ combo: comboInputSchema, ...newFoodsField });
 export const reconvertRequestSchema = z.object({ lineIds: z.array(idSchema).min(1).max(1000) });
 export const moveToBatchRequestSchema = z.object({ lineIds: z.array(idSchema).min(1).max(1000), batchId: idSchema });
@@ -537,8 +515,6 @@ export type BatchYield = z.infer<typeof batchYieldSchema>;
 export type Batch = z.infer<typeof batchSchema>;
 export type StoredBatch = z.infer<typeof storedBatchSchema>;
 export type FoodItem = z.infer<typeof foodItemSchema>;
-export type FoodOverride = z.infer<typeof foodOverrideSchema>;
-export type OverrideKey = (typeof overrideKeys)[number];
 export type Recipe = z.infer<typeof recipeSchema>;
 export type Combo = z.infer<typeof comboSchema>;
 export type Food = z.infer<typeof foodSchema>;

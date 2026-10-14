@@ -1,7 +1,7 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { asItem, type Batch, type Food, type FoodInput, type FoodItemInput, isFinished, overrideFrom, type Recipe, type StoredBatch } from "@dash/core";
-import { comboPartsTable, foodsTable } from "../db/schema";
+import { asItem, BEGINNING, type Batch, type Food, type FoodInput, type FoodItemInput, isFinished, type Recipe, type StoredBatch } from "@dash/core";
+import { batchesTable, batchIngredientsTable, comboPartsTable, entriesTable, entryLinesTable, foodsTable } from "../db/schema";
 import { db, type Executor, type Tx } from "../providers/db";
 import {
   catalogueVersion,
@@ -13,13 +13,12 @@ import {
   loadFoodUsage,
   loadFoods,
   lockFood,
-  saveOverride,
   setFoodDeleted,
   updateBatch,
   updateFood,
   visibleTo,
-  withOverrides,
   type BatchRef,
+  type FoodRow,
 } from "../repositories/food.repo";
 import { weakEtag } from "../http/respond";
 import { claimId, editableFood, expectRevision, notFound, readOnly, sameId, unprocessable, visible, writable } from "./common";
@@ -52,7 +51,7 @@ export async function createFoodRow(tx: Tx, userId: string, input: FoodInput, un
 
 export async function listFoods(userId: string) {
   const version = await catalogueVersion(db, userId);
-  return { foods: await withOverrides(db, userId, await loadFoods(db, visibleTo(userId), userId)), etag: weakEtag("foods", userId, version.count, version.latest) };
+  return { foods: await loadFoods(db, visibleTo(userId), userId), etag: weakEtag("foods", userId, version.count, version.latest) };
 }
 
 export async function createFood(userId: string, req: FoodInput & { newFoods?: FoodInput[] | undefined }) {
@@ -88,10 +87,12 @@ export async function updateFoodDoc(
  * Makes one of the person's items public for everyone, with them recorded as its publisher.
  * Final through the app: others may be logging it straight away.
  */
-export async function publishFood(userId: string, id: string, referenceBatchId?: string) {
+export async function publishFood(userId: string, id: string, opts: { batch?: string | undefined; asNew?: boolean } = {}) {
   return db.transaction(async (tx) => {
     const row = writable(await lockFood(tx, id), userId);
     if (!row.catalogued || row.unsure || row.deletedAt) throw unprocessable("Only a filled-in food in the catalogue can be published");
+    if (opts.asNew) return publishAsNew(tx, userId, row);
+    const referenceBatchId = opts.batch;
     if (row.kind === "recipe") await publishReferenceBatch(tx, id, referenceBatchId);
     if (row.kind === "combo") {
       // Everyone must be able to see every part, so a private part has to be published first.
@@ -126,6 +127,58 @@ async function publishReferenceBatch(tx: Tx, recipeId: string, batchId?: string)
   if (own.length) throw unprocessable("Publish its ingredients first", { private: own });
   const { revision: _r, deleted: _d, shared: _s, ...batch } = chosen;
   await insertBatch(tx, recipeId, { ...batch, id: randomUUID(), gone: false }, null);
+}
+
+/**
+ * Publishes a fresh public item with only the current label and archives the person's own, whose
+ * past entries keep pointing at it and so keep the values they were logged with.
+ */
+async function publishAsNew(tx: Tx, userId: string, row: FoodRow) {
+  if (row.kind !== "item") throw unprocessable("Only items can be published as a new item");
+  const own = asItem(await loadFood(tx, row.id))!;
+  const current = own.labels.at(-1);
+  const { revision: _r, deleted: _d, public: _p, starter: _s, originId: _o, ...input } = own;
+  const id = randomUUID();
+  await insertFood(tx, { userId: null }, { ...input, id, labels: current ? [{ ...current, from: BEGINNING }] : [] });
+  await tx.update(foodsTable).set({ publishedBy: userId }).where(eq(foodsTable.id, id));
+  await setFoodDeleted(tx, row.id, true, row.revision + 1);
+  return { food: (await loadFood(tx, id, userId))! };
+}
+
+/**
+ * "Make my own version": a private copy of a public item or combo. The person's entries, combos
+ * and batches move onto it, so it's theirs from the first day; fixes to the shared one no longer
+ * reach it.
+ */
+export async function copyFood(userId: string, id: string) {
+  return db.transaction(async (tx) => {
+    const row = visible(await lockFood(tx, id), userId);
+    if (row.userId !== null || row.kind === "recipe") throw unprocessable("Only a shared item or combo can be copied; recipes keep your own batches instead");
+    const shared = (await loadFood(tx, id))!;
+    const { revision: _r, deleted: _d, public: _p, starter: _s, ...input } = shared as Exclude<Food, Recipe>;
+    const copyId = randomUUID();
+    await insertFood(tx, { userId }, { ...input, id: copyId, originId: id });
+    await moveUses(tx, userId, id, copyId);
+    return { food: (await loadFood(tx, copyId, userId))! };
+  });
+}
+
+async function moveUses(tx: Tx, userId: string, from: string, to: string) {
+  const entryIds = (
+    await tx
+      .select({ id: entriesTable.id })
+      .from(entriesTable)
+      .innerJoin(entryLinesTable, eq(entryLinesTable.entryId, entriesTable.id))
+      .where(and(eq(entriesTable.userId, userId), eq(entryLinesTable.foodId, from)))
+  ).map((e) => e.id);
+  if (entryIds.length) {
+    await tx.update(entryLinesTable).set({ foodId: to }).where(and(eq(entryLinesTable.foodId, from), inArray(entryLinesTable.entryId, entryIds)));
+    await tx.update(entriesTable).set({ revision: sql`${entriesTable.revision} + 1`, updatedAt: new Date() }).where(inArray(entriesTable.id, entryIds));
+  }
+  const combos = tx.select({ id: foodsTable.id }).from(foodsTable).where(eq(foodsTable.userId, userId));
+  await tx.update(comboPartsTable).set({ foodId: to }).where(and(eq(comboPartsTable.foodId, from), inArray(comboPartsTable.comboId, combos)));
+  const batches = tx.select({ id: batchesTable.id }).from(batchesTable).where(eq(batchesTable.userId, userId));
+  await tx.update(batchIngredientsTable).set({ foodId: to }).where(and(eq(batchIngredientsTable.foodId, from), inArray(batchIngredientsTable.batchId, batches)));
 }
 
 /** Public items too: retiring one is soft, so past entries keep it and it can be restored. */
@@ -199,22 +252,5 @@ export async function foodsWithBarcode(userId: string, code: string) {
     db,
     and(visibleTo(userId), eq(foodsTable.barcode, code), eq(foodsTable.catalogued, true), isNull(foodsTable.deletedAt)),
   );
-  const shown = await withOverrides(db, userId, foods);
-  return [...shown.filter((f) => !f.public), ...shown.filter((f) => f.public)];
-}
-
-/**
- * "Just for me" on a public item: whatever differs from it is kept as the person's own values,
- * and a field set back to the public value follows the public item again.
- */
-export async function setOwnValues(userId: string, id: string, req: FoodItemInput) {
-  sameId(id, req.id);
-  return db.transaction(async (tx) => {
-    const row = visible(await lockFood(tx, id), userId);
-    if (row.userId !== null || row.kind !== "item") throw unprocessable("Only a public item takes your own values; edit your own items directly");
-    const shared = asItem(await loadFood(tx, id))!;
-    await saveOverride(tx, userId, id, overrideFrom(shared, req));
-    const [food] = await withOverrides(tx, userId, [shared]);
-    return { food: food! };
-  });
+  return [...foods.filter((f) => !f.public), ...foods.filter((f) => f.public)];
 }

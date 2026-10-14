@@ -2,10 +2,9 @@ import { resEnd, validateBody, validateParams, validateQuery } from "@danielshar
 import {
   createFoodRequestSchema,
   createFoodResponseSchema,
-  foodItemInputSchema,
   foodSchema,
   foodsResponseSchema,
-  ownValuesResponseSchema,
+  foodResponseSchema,
   idSchema,
   previewSchema,
   saveBatchRequestSchema,
@@ -61,20 +60,19 @@ export function foodController() {
       .pipe(jsonSend(z.union([updateFoodResponseSchema, previewSchema]), 200)),
   );
 
-  r.put("/foods/:id/mine", (line) =>
+  r.post("/foods/:id/copy", (line) =>
     line
       .pipe(validateParams(idParams))
-      .pipe(validateBody(foodItemInputSchema))
-      .pipe(async ({ auth, params, body }) => ok(await foods.setOwnValues(auth.userId, params.id, body)))
-      .pipe(jsonSend(ownValuesResponseSchema, 200)),
+      .pipe(async ({ auth, params }) => ok(await foods.copyFood(auth.userId, params.id)))
+      .pipe(jsonSend(foodResponseSchema, 200)),
   );
 
   r.post("/foods/:id/publish", (line) =>
     line
       .pipe(validateParams(idParams))
       .pipe(validateQuery(publishQuery))
-      .pipe(async ({ auth, params, query }) => ok(await foods.publishFood(auth.userId, params.id, query.batch)))
-      .pipe(jsonSend(ownValuesResponseSchema, 200)),
+      .pipe(async ({ auth, params, query }) => ok(await foods.publishFood(auth.userId, params.id, { batch: query.batch, asNew: query.as === "new" })))
+      .pipe(jsonSend(foodResponseSchema, 200)),
   );
 
   r.delete("/foods/:id", (line) =>

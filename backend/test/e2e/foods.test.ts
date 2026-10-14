@@ -148,41 +148,31 @@ describe("replacing", () => {
   });
 });
 
-describe("just for me", () => {
-  const publicWater = async (u: Awaited<ReturnType<typeof newUser>>) => (await u.get("/foods")).body.foods.find((f: any) => f.id === water);
-  const asInput = ({ revision: _r, deleted: _d, public: _p, starter: _s, mine: _m, ...input }: any) => input;
-
-  it("keeps a person's own values on a public item for them only, with the public ones as the original", async () => {
+describe("own versions", () => {
+  it("copies a public item for the person and moves their entries onto it", async () => {
     const u = await newUser();
     const other = await newUser();
-    const shared = await publicWater(u);
-    const etag = (await u.get("/foods")).headers.get("etag")!;
+    const logged = await u.post("/entries", foodEntry([{ foodId: water, amount: { value: 1, unit: "glass" }, base: 250 }], "2026-09-10"));
+    const theirs = await other.post("/entries", foodEntry([{ foodId: water, amount: { value: 1, unit: "glass" }, base: 250 }], "2026-09-10"));
 
-    const res = await u.put(`/foods/${water}/mine`, { ...asInput(shared), name: "Víz", brand: "Szentkirályi" });
+    const res = await u.post(`/foods/${water}/copy`);
     expect(res.status).toBe(200);
-    expect(res.body.food).toMatchObject({ name: "Víz", brand: "Szentkirályi", public: true, mine: { original: { name: "Water", brand: null } } });
-    expect(res.body.food.mine.original).not.toHaveProperty("labels");
+    expect(res.body.food).toMatchObject({ name: "Water", public: false, originId: water });
+    const copy = res.body.food.id;
 
-    expect((await u.get("/foods", { "if-none-match": etag })).status).toBe(200);
-    expect(await publicWater(u)).toMatchObject({ name: "Víz", brand: "Szentkirályi" });
-    expect(await publicWater(other)).toMatchObject({ name: "Water" });
-    expect((await publicWater(other)).mine).toBeUndefined();
+    const mine = (await u.get("/entries?from=2026-09-10&to=2026-09-10")).body.entries.find((e: any) => e.id === logged.body.entry.id);
+    expect(mine.lines[0].foodId).toBe(copy);
+    expect(mine.revision).toBe(2);
+    const untouched = (await other.get("/entries?from=2026-09-10&to=2026-09-10")).body.entries.find((e: any) => e.id === theirs.body.entry.id);
+    expect(untouched.lines[0].foodId).toBe(water);
+    expect((await u.get("/foods")).body.foods.filter((f: any) => f.name === "Water" && !f.deleted)).toHaveLength(2);
   });
 
-  it("follows the public item again once a field is set back to it", async () => {
-    const u = await newUser();
-    const shared = await publicWater(u);
-    await u.put(`/foods/${water}/mine`, { ...asInput(shared), name: "Víz" });
-    const back = await u.put(`/foods/${water}/mine`, asInput(shared));
-    expect(back.body.food.name).toBe("Water");
-    expect(back.body.food.mine).toBeUndefined();
-  });
-
-  it("refuses the person's own items, which they edit directly", async () => {
+  it("refuses to copy one's own item or a recipe", async () => {
     const u = await newUser();
     const own = item();
     await u.post("/foods", own);
-    expect((await u.put(`/foods/${own.id}/mine`, own)).status).toBe(422);
+    expect((await u.post(`/foods/${own.id}/copy`)).status).toBe(422);
   });
 });
 
@@ -229,6 +219,22 @@ describe("publishing", () => {
     expect(res.status).toBe(200);
     expect(res.body.food).toMatchObject({ kind: "combo", public: true });
     expect((await (await newUser()).get("/foods")).body.foods.some((f: any) => f.id === breakfast.id)).toBe(true);
+  });
+
+  it("publishes an item as a new one and archives the person's own, whose entries keep their values", async () => {
+    const u = await newUser();
+    const own = item({ labels: [item().labels[0]!, { ...item().labels[0]!, from: "2026-10-01", values: { kcal: 45, protein: 1, carbs: 7, fat: 1 } }] });
+    await u.post("/foods", own);
+    const logged = await u.post("/entries", foodEntry([{ foodId: own.id, amount: { value: 1, unit: "glass" }, base: 200 }], "2026-09-10"));
+
+    const res = await u.post(`/foods/${own.id}/publish?as=new`);
+    expect(res.status).toBe(200);
+    expect(res.body.food.id).not.toBe(own.id);
+    expect(res.body.food).toMatchObject({ public: true, labels: [{ from: BEGINNING, values: { kcal: 45 } }] });
+    const foods = (await u.get("/foods")).body.foods;
+    expect(foods.find((f: any) => f.id === own.id)).toMatchObject({ public: false, deleted: true });
+    const entry = (await u.get("/entries?from=2026-09-10&to=2026-09-10")).body.entries.find((e: any) => e.id === logged.body.entry.id);
+    expect(entry.lines[0].foodId).toBe(own.id);
   });
 
   it("refuses an unsure item and someone else's", async () => {
