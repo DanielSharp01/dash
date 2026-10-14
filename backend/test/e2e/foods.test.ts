@@ -213,6 +213,24 @@ describe("publishing", () => {
     expect((await u.post(`/foods/${own.id}/restore`)).body).toMatchObject({ deleted: false });
   });
 
+  it("publishes a combo once all its parts are public", async () => {
+    const u = await newUser();
+    const milk = item();
+    const breakfast = combo([{ foodId: milk.id, amount: { value: 1, unit: "glass" } }]);
+    await u.post("/foods", milk);
+    await u.post("/foods", breakfast);
+
+    const refused = await u.post(`/foods/${breakfast.id}/publish`);
+    expect(refused.status).toBe(422);
+    expect(refused.body.private).toEqual(["Oat milk"]);
+
+    await u.post(`/foods/${milk.id}/publish`);
+    const res = await u.post(`/foods/${breakfast.id}/publish`);
+    expect(res.status).toBe(200);
+    expect(res.body.food).toMatchObject({ kind: "combo", public: true });
+    expect((await (await newUser()).get("/foods")).body.foods.some((f: any) => f.id === breakfast.id)).toBe(true);
+  });
+
   it("refuses an unsure item and someone else's", async () => {
     const u = await newUser();
     const unsure = unsureItem();

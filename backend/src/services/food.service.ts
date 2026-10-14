@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { asItem, type Batch, type Food, type FoodInput, type FoodItemInput, overrideFrom, type StoredBatch } from "@dash/core";
-import { foodsTable } from "../db/schema";
+import { comboPartsTable, foodsTable } from "../db/schema";
 import { db, type Executor, type Tx } from "../providers/db";
 import {
   catalogueVersion,
@@ -89,8 +89,18 @@ export async function updateFoodDoc(
 export async function publishFood(userId: string, id: string) {
   return db.transaction(async (tx) => {
     const row = writable(await lockFood(tx, id), userId);
-    if (row.kind !== "item") throw unprocessable("Only items can be published for now");
-    if (!row.catalogued || row.unsure || row.deletedAt) throw unprocessable("Only a filled-in item in the catalogue can be published");
+    if (row.kind === "recipe") throw unprocessable("Recipes can't be published yet");
+    if (!row.catalogued || row.unsure || row.deletedAt) throw unprocessable("Only a filled-in food in the catalogue can be published");
+    if (row.kind === "combo") {
+      // Everyone must be able to see every part, so a private part has to be published first.
+      const parts = await tx
+        .select({ name: foodsTable.name, userId: foodsTable.userId })
+        .from(comboPartsTable)
+        .innerJoin(foodsTable, eq(foodsTable.id, comboPartsTable.foodId))
+        .where(eq(comboPartsTable.comboId, id));
+      const own = parts.filter((p) => p.userId !== null).map((p) => p.name);
+      if (own.length) throw unprocessable("Publish its parts first", { private: own });
+    }
     await tx.update(foodsTable).set({ userId: null, publishedBy: userId, revision: row.revision + 1, updatedAt: new Date() }).where(eq(foodsTable.id, id));
     return { food: (await loadFood(tx, id))! };
   });

@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { asItem, autoFoodIcon, type Batch, type Combo, type ComboInput, type FoodLookup, portionContents, type RecipeInput, withBase } from "@dash/core";
-import { saveFood, useFoodLookup } from "../../queries/foods.queries";
+import { asItem, autoFoodIcon, displayName, type Batch, type Combo, type ComboInput, type FoodLookup, portionContents, type RecipeInput, withBase } from "@dash/core";
+import { publishFood, saveFood, useFoodLookup } from "../../queries/foods.queries";
 import { ownCopy } from "../foods";
 import { NutritionPreview } from "../flows/EatFlow";
 import { todayKey } from "../time";
 import { IconField } from "../ui/Pickers";
+import { PublishButton } from "../ui/PublishButton";
 import { PortionList } from "./PortionList";
 
 /** A combo becomes a recipe still being made, so its cooked weight or portions can be filled in. */
@@ -54,6 +55,14 @@ export function ComboEditor({
     parts,
   };
 
+  // Everyone must be able to see every part, so private ones have to be published first.
+  const privateParts = parts.map((p) => foods(p.foodId)).filter((f) => f && !f.public).map((f) => displayName(f!));
+  const save = (publish: boolean) => {
+    const input = ownCopy(draft, combo);
+    const saved = saveFood(input);
+    onSaved({ ...combo, ...input }, publish ? saved.then(async (r) => (await publishFood(combo.id), r)) : saved);
+  };
+
   return (
     <div className="item-editor">
       <div className="name-row">
@@ -79,16 +88,23 @@ export function ComboEditor({
       )}
 
       <div className="flow-footer">
-        <button
-          className="btn btn-primary btn-block"
-          disabled={!name.trim() || parts.length === 0}
-          onClick={() => {
-            const input = ownCopy(draft, combo);
-            onSaved({ ...combo, ...input }, saveFood(input));
-          }}
-        >
-          Save
-        </button>
+        {combo.public || !combo.catalogued ? (
+          <button className="btn btn-primary btn-block" disabled={!name.trim() || parts.length === 0} onClick={() => save(false)}>
+            Save
+          </button>
+        ) : (
+          <div className="save-choices">
+            <PublishButton
+              blockers={privateParts.length ? [`Publish ${privateParts.join(", ")} first`] : []}
+              label="Save and publish"
+              disabled={!name.trim() || parts.length === 0 || privateParts.length > 0}
+              onClick={() => save(true)}
+            />
+            <button className={`btn btn-block ${privateParts.length ? "btn-primary" : ""}`} disabled={!name.trim() || parts.length === 0} onClick={() => save(false)}>
+              Save privately
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
