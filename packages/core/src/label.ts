@@ -145,3 +145,15 @@ export function provenanceChips(label: Pick<Label, "verified" | "origin">): stri
 }
 
 export const sameValues = (a: Nutrients, b: Nutrients) => nutrientKeys.every((k) => a[k] === b[k]);
+
+/**
+ * The kcal the macros add up to (4 per g of protein and carbs, 9 per g of fat) when that's far
+ * from the stated kcal, which usually means a typo. Fibre, rounding and alcohol cause small or
+ * known gaps, so only a big one counts. Undefined while the label agrees or isn't filled in.
+ */
+export function energyMismatch(values: Nutrients): number | undefined {
+  const { kcal, protein, carbs, fat } = values;
+  if (kcal === undefined || protein === undefined || carbs === undefined || fat === undefined) return undefined;
+  const fromMacros = 4 * protein + 4 * carbs + 9 * fat;
+  return Math.abs(kcal - fromMacros) > Math.max(15, 0.15 * Math.max(kcal, fromMacros)) ? Math.round(fromMacros) : undefined;
+}

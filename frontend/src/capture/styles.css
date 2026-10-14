@@ -2848,6 +2848,14 @@ input[type="checkbox"]:focus-visible {
   margin: 0;
 }
 
+.warn-hint {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
 /* Amount */
 
 .amount-field {

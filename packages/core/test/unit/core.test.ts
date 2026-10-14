@@ -9,6 +9,7 @@ import {
   defaultPlan,
   entryNeedsFollowUp,
   displayName,
+  energyMismatch,
   foodInputSchema,
   groupKey,
   labelSchema,
@@ -185,6 +186,14 @@ describe("schemas", () => {
     expect(ok({ verified: false, origin: "usda", originRev: 3 })).toBe(false);
     expect(ok({ verified: false, origin: "estimate", url: "https://example.com" })).toBe(false);
     expect(ok({ verified: false, origin: "online", url: "javascript:alert(1)" })).toBe(false);
+  });
+
+  it("flags a label whose macros don't add up to its kcal", () => {
+    expect(energyMismatch({ kcal: 30, protein: 10, carbs: 10, fat: 10 })).toBe(170);
+    expect(energyMismatch({ kcal: 20, protein: 0, carbs: 0, fat: 0 })).toBe(0);
+    expect(energyMismatch({ kcal: 205, protein: 13, carbs: 2, fat: 16 })).toBeUndefined();
+    expect(energyMismatch({ kcal: 1, protein: 0, carbs: 0, fat: 0 })).toBeUndefined();
+    expect(energyMismatch({ kcal: 30, protein: 10 })).toBeUndefined();
   });
 
   it("shows verification and origin as separate chips", () => {

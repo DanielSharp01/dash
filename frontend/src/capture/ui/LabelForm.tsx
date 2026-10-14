@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { basisLabel, BEGINNING, type FoodUnit, type Label, mainNutrients, nutrientKeys, nutrientMeta, type Nutrients, offThePackage, type Provenance, provenanceOf } from "@dash/core";
+import { basisLabel, BEGINNING, energyMismatch, type FoodUnit, type Label, mainNutrients, nutrientKeys, nutrientMeta, type Nutrients, offThePackage, type Provenance, provenanceOf } from "@dash/core";
 import { NumberInput } from "./NumberInput";
 import { ProvenanceField } from "./Pickers";
 
@@ -54,6 +54,7 @@ export function LabelForm({ draft, onChange, autoFocus }: { draft: LabelDraft; o
   const shown = nutrientKeys.filter((k) => more || (mainNutrients as readonly string[]).includes(k));
   const set = (patch: Partial<LabelDraft>) => onChange({ ...draft, ...patch });
   const unit = unitOf(draft);
+  const mismatch = energyMismatch(draft.values);
 
   return (
     <div className="label-form">
@@ -123,6 +124,12 @@ export function LabelForm({ draft, onChange, autoFocus }: { draft: LabelDraft; o
           {more ? "Fewer rows" : "Sugars, salt, caffeine…"}
         </button>
       </div>
+
+      {mismatch !== undefined && (
+        <p className="hint warn-hint">
+          The macros add up to about {mismatch} kcal, but it says {draft.values.kcal}. A typo? Alcohol or lots of fibre can explain a gap.
+        </p>
+      )}
 
       <div className="label-meta">
         <ProvenanceField value={draft.provenance} onChange={(provenance) => set({ provenance })} />
