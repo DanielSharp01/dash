@@ -120,13 +120,13 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   /** A public item is changed just for the person, or for everyone; their own items as they are. */
   const sameLabels = (a: Label[], b: Label[]) => a.length === b.length && a.every((l, i) => l.from === b[i]!.from && sameValues(l.values, b[i]!.values));
 
-  const save = (unsure: boolean, change: "fix" | "changed" = "fix", to = scope) => {
+  const save = (unsure: boolean, change: "fix" | "changed" = "fix", to = scope, withHistory = false) => {
     const input = build(reverted.includes("labels") && original?.labels ? original.labels : labelsFor(change), unsure);
     if (!item.public && to === "everyone") {
       // Everyone starts from the current label; the person's own label history stays theirs as
       // their own values, so their past days keep what they were logged with.
       const current = input.labels.at(-1);
-      const shared = current ? { ...input, labels: [{ ...current, from: BEGINNING }] } : input;
+      const shared = current && !withHistory ? { ...input, labels: [{ ...current, from: BEGINNING }] } : input;
       const published = saveFood(shared).then(async (r) => {
         await publishFood(item.id);
         if (!sameLabels(shared.labels, input.labels)) await saveOwnValues(input);
@@ -501,6 +501,14 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
               <DateChip prefix={firstPublish ? "Published values from" : "New values from"} value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
             </span>
           </div>
+          {firstPublish && (
+            <button className="row row-choice" onClick={() => save(false, "changed", "everyone", true)}>
+              <span className="row-main">
+                <span className="row-title">Publish with its history</span>
+                <span className="row-sub">Everyone gets the old label before the date too, e.g. after a recipe change</span>
+              </span>
+            </button>
+          )}
         </Sheet>
       )}
     </div>
