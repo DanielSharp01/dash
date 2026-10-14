@@ -496,16 +496,16 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           </button>
           <div className="row row-choice" {...tapCard(() => save(false, "changed"))}>
             <span className="row-main">
-              <span className="row-title">{firstPublish ? "Publish from a date" : "The product changed"}</span>
-              <span className="row-sub">{firstPublish ? "Entries before it keep the old values" : "Past days keep the old values"}</span>
-              <DateChip prefix={firstPublish ? "Published values from" : "New values from"} value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
+              <span className="row-title">{firstPublish ? "Publish, keep my earlier entries" : "The product changed"}</span>
+              <span className="row-sub">{firstPublish ? "Everyone gets the new label; your entries before the date keep the old values" : "Past days keep the old values"}</span>
+              <DateChip prefix={firstPublish ? "Your new values from" : "New values from"} value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
             </span>
           </div>
           {firstPublish && (
             <button className="row row-choice" onClick={() => save(false, "changed", "everyone", true)}>
               <span className="row-main">
                 <span className="row-title">Publish with its history</span>
-                <span className="row-sub">Everyone gets the old label before the date too, e.g. after a recipe change</span>
+                <span className="row-sub">Everyone gets the old label before that date too, e.g. after a recipe change</span>
               </span>
             </button>
           )}
