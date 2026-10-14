@@ -72,11 +72,16 @@ export function toBatch(row: BatchRow, ingredients: IngredientRow[]): StoredBatc
     gone: row.gone,
     revision: row.revision,
     deleted: row.deletedAt !== null,
+    ...(row.userId === null ? { shared: true } : {}),
   };
 }
 
 /** Loads whole aggregates: labels and servings, combo parts, and every batch with its ingredients. */
-export async function loadFoods(ex: Executor, where: SQL | undefined): Promise<Food[]> {
+/**
+ * With a viewer, a recipe comes with only their own batches and the reference one; a public
+ * recipe's other cooks are nobody else's business. Without one, every batch, for internal work.
+ */
+export async function loadFoods(ex: Executor, where: SQL | undefined, viewer?: string): Promise<Food[]> {
   const rows = await ex.select().from(foodsTable).where(where).orderBy(asc(foodsTable.createdAt), asc(foodsTable.id));
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
@@ -86,7 +91,7 @@ export async function loadFoods(ex: Executor, where: SQL | undefined): Promise<F
   const batches = await ex
     .select()
     .from(batchesTable)
-    .where(inArray(batchesTable.recipeId, ids))
+    .where(and(inArray(batchesTable.recipeId, ids), viewer ? or(eq(batchesTable.userId, viewer), isNull(batchesTable.userId)) : undefined))
     .orderBy(asc(batchesTable.madeOn), asc(batchesTable.createdAt), asc(batchesTable.id));
   const ingredients = batches.length
     ? await ex
@@ -146,8 +151,8 @@ function toFood(
   };
 }
 
-export async function loadFood(ex: Executor, id: string): Promise<Food | undefined> {
-  const [food] = await loadFoods(ex, eq(foodsTable.id, id));
+export async function loadFood(ex: Executor, id: string, viewer?: string): Promise<Food | undefined> {
+  const [food] = await loadFoods(ex, eq(foodsTable.id, id), viewer);
   return food;
 }
 
@@ -310,14 +315,14 @@ export async function saveOverride(ex: Executor, userId: string, foodId: string,
     .onConflictDoUpdate({ target: [foodOverridesTable.userId, foodOverridesTable.foodId], set: { values, updatedAt: new Date() } });
 }
 
-export type BatchRef = { recipeId: string; batch: StoredBatch };
+export type BatchRef = { recipeId: string; owner: string | null; batch: StoredBatch };
 
 export async function loadBatch(ex: Executor, id: string, opts: { lock?: boolean } = {}): Promise<BatchRef | undefined> {
   const query = ex.select().from(batchesTable).where(eq(batchesTable.id, id));
   const [row] = opts.lock ? await query.for("update") : await query;
   if (!row) return undefined;
   const ingredients = await ex.select().from(batchIngredientsTable).where(eq(batchIngredientsTable.batchId, id)).orderBy(asc(batchIngredientsTable.position));
-  return { recipeId: row.recipeId, batch: toBatch(row, ingredients) };
+  return { recipeId: row.recipeId, owner: row.userId, batch: toBatch(row, ingredients) };
 }
 
 export function batchRefRows(ex: Executor, ids: string[]) {
@@ -337,10 +342,11 @@ function batchValues(batch: Batch) {
   };
 }
 
-export async function insertBatch(ex: Executor, recipeId: string, batch: Batch, state: WriteState = { revision: 1, deleted: false }) {
+export async function insertBatch(ex: Executor, recipeId: string, batch: Batch, owner: string | null, state: WriteState = { revision: 1, deleted: false }) {
   await ex.insert(batchesTable).values({
     id: batch.id,
     recipeId,
+    userId: owner,
     ...batchValues(batch),
     revision: state.revision,
     deletedAt: state.deleted ? new Date() : null,

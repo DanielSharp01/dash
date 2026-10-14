@@ -8,7 +8,7 @@ import { loadFoods, visibleTo } from "../repositories/food.repo";
 /** The inbox, computed with core's rules over every live entry; two people's history fits in memory. */
 export async function followUp(userId: string) {
   const [foods, entries] = await Promise.all([
-    loadFoods(db, visibleTo(userId)),
+    loadFoods(db, visibleTo(userId), userId),
     loadEntries(db, and(eq(entriesTable.userId, userId), isNull(entriesTable.deletedAt))),
   ]);
   const lookup = lookupOf(foods);

@@ -9,6 +9,9 @@ export const idParams = z.object({ id: idSchema });
 /** `?preview=true` runs the write, reports every affected day before and after, and rolls back. */
 export const previewQuery = zodStringify(z.object({ preview: z.boolean().default(false) }));
 
+/** `?batch=<id>` picks a published recipe's reference batch; the latest finished one otherwise. */
+export const publishQuery = zodStringify(z.object({ batch: idSchema.optional() }));
+
 export function written<T>(out: WriteResult<T> | { kind: "done"; result: T }): Responded<T | Preview> {
   return out.kind === "preview" ? ok(out.preview) : ok(out.result);
 }

@@ -87,7 +87,7 @@ type Snapshot = { foods: Food[]; entries: Entry[] };
 
 async function snapshot(tx: Tx, userId: string): Promise<Snapshot> {
   return {
-    foods: await loadFoods(tx, visibleTo(userId)),
+    foods: await loadFoods(tx, visibleTo(userId), userId),
     entries: await loadEntries(tx, and(eq(entriesTable.userId, userId), isNull(entriesTable.deletedAt))),
   };
 }

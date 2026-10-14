@@ -22,7 +22,7 @@ export async function recap(userId: string, day: string) {
     getProfile(db, userId),
     getPlanVersions(db, userId),
     listWeighIns(db, userId),
-    loadFoods(db, visibleTo(userId)),
+    loadFoods(db, visibleTo(userId), userId),
     loadEntries(db, and(eq(entriesTable.userId, userId), isNull(entriesTable.deletedAt), between(entriesTable.whenDate, shiftDate(day, -RECAP_WINDOW_DAYS), day))),
   ]);
   return dayRecap(day, entries, (d) => dailyTargets(profile!, versions, weighIns, d), lookupOf(foods));

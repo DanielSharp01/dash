@@ -280,6 +280,47 @@ describe("batches", () => {
     expect((await u.get("/foods")).body.foods.find((f: any) => f.id === chili.id).batches[0].deleted).toBe(true);
   });
 
+  it("publishes a recipe with a copy of a finished batch as everyone's reference, and keeps each cook's batches their own", async () => {
+    const u = await newUser();
+    const other = await newUser();
+    const beans = item({ name: "Beans", unit: "g" });
+    const chili = recipe();
+    await u.post("/foods", beans);
+    await u.post("/foods", chili);
+    const mine = { id: uuid(), madeOn: "2026-09-09", ingredients: [{ foodId: beans.id, amount: { value: 400, unit: "g" }, base: 400 }], yield: { portions: 4 }, gone: false };
+    await u.put(`/foods/${chili.id}/batches/${mine.id}`, { ...mine, revision: 0 });
+
+    const refused = await u.post(`/foods/${chili.id}/publish`);
+    expect(refused.status).toBe(422);
+    expect(refused.body.private).toEqual(["Beans"]);
+    await u.post(`/foods/${beans.id}/publish`);
+
+    const published = await u.post(`/foods/${chili.id}/publish`);
+    expect(published.status).toBe(200);
+    expect(published.body.food).toMatchObject({ kind: "recipe", public: true });
+    expect(published.body.food.batches.map((b: any) => [b.id === mine.id, !!b.shared])).toEqual([
+      [true, false],
+      [false, true],
+    ]);
+
+    const seen = (await other.get("/foods")).body.foods.find((f: any) => f.id === chili.id);
+    expect(seen.batches).toHaveLength(1);
+    expect(seen.batches[0]).toMatchObject({ shared: true, yield: { portions: 4 } });
+
+    const theirs = { ...mine, id: uuid(), madeOn: "2026-10-01" };
+    expect((await other.put(`/foods/${chili.id}/batches/${theirs.id}`, { ...theirs, revision: 0 })).status).toBe(200);
+    expect((await other.put(`/foods/${chili.id}/batches/${mine.id}`, { ...mine, gone: true, revision: 1 })).status).toBe(404);
+    expect((await other.put(`/foods/${chili.id}/batches/${seen.batches[0].id}`, { ...mine, id: seen.batches[0].id, revision: 1 })).status).toBe(403);
+    expect((await u.get("/foods")).body.foods.find((f: any) => f.id === chili.id).batches).toHaveLength(2);
+  });
+
+  it("refuses to publish a recipe nobody has cooked yet", async () => {
+    const u = await newUser();
+    const chili = recipe();
+    await u.post("/foods", chili);
+    expect((await u.post(`/foods/${chili.id}/publish`)).status).toBe(422);
+  });
+
   it("only takes items as ingredients", async () => {
     const u = await newUser();
     const chili = recipe();

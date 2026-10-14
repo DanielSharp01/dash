@@ -160,7 +160,11 @@ const publicFlags = {
   starter: z.boolean(),
 };
 
-export const storedBatchSchema = batchSchema.extend(stored);
+export const storedBatchSchema = batchSchema.extend({
+  ...stored,
+  /** A public recipe's reference batch: what everyone logs and cooks from until they've made it themselves. */
+  shared: z.boolean().optional(),
+});
 
 /**
  * What a person changed on a public item just for themselves; every other field keeps following

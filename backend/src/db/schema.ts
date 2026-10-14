@@ -248,6 +248,8 @@ export const batchesTable = pgTable(
     id: uuid().primaryKey(),
     recipeId: uuid().notNull(),
     recipeKind: foodKindEnum().notNull().default("recipe"),
+    /** Whose cooking it is; null is a public recipe's reference batch, which everyone sees. */
+    userId: uuid().references(() => usersTable.id, { onDelete: "cascade" }),
     madeOn: day().notNull(),
     yieldGrams: doublePrecision(),
     yieldPortions: doublePrecision(),

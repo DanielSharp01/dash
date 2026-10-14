@@ -1,5 +1,6 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { asItem, type Batch, type Food, type FoodInput, type FoodItemInput, overrideFrom, type StoredBatch } from "@dash/core";
+import { randomUUID } from "node:crypto";
+import { asItem, type Batch, type Food, type FoodInput, type FoodItemInput, isFinished, overrideFrom, type Recipe, type StoredBatch } from "@dash/core";
 import { comboPartsTable, foodsTable } from "../db/schema";
 import { db, type Executor, type Tx } from "../providers/db";
 import {
@@ -18,9 +19,10 @@ import {
   updateFood,
   visibleTo,
   withOverrides,
+  type BatchRef,
 } from "../repositories/food.repo";
 import { weakEtag } from "../http/respond";
-import { claimId, editableFood, expectRevision, notFound, sameId, unprocessable, visible, writable } from "./common";
+import { claimId, editableFood, expectRevision, notFound, readOnly, sameId, unprocessable, visible, writable } from "./common";
 import { batchInputRefs, checkFoodRefs, foodDocRefIds, foodInputRefs } from "./refs";
 import { runWrite, type UndoRecorder } from "./write";
 
@@ -50,7 +52,7 @@ export async function createFoodRow(tx: Tx, userId: string, input: FoodInput, un
 
 export async function listFoods(userId: string) {
   const version = await catalogueVersion(db, userId);
-  return { foods: await withOverrides(db, userId, await loadFoods(db, visibleTo(userId))), etag: weakEtag("foods", userId, version.count, version.latest) };
+  return { foods: await withOverrides(db, userId, await loadFoods(db, visibleTo(userId), userId)), etag: weakEtag("foods", userId, version.count, version.latest) };
 }
 
 export async function createFood(userId: string, req: FoodInput & { newFoods?: FoodInput[] | undefined }) {
@@ -86,11 +88,11 @@ export async function updateFoodDoc(
  * Makes one of the person's items public for everyone, with them recorded as its publisher.
  * Final through the app: others may be logging it straight away.
  */
-export async function publishFood(userId: string, id: string) {
+export async function publishFood(userId: string, id: string, referenceBatchId?: string) {
   return db.transaction(async (tx) => {
     const row = writable(await lockFood(tx, id), userId);
-    if (row.kind === "recipe") throw unprocessable("Recipes can't be published yet");
     if (!row.catalogued || row.unsure || row.deletedAt) throw unprocessable("Only a filled-in food in the catalogue can be published");
+    if (row.kind === "recipe") await publishReferenceBatch(tx, id, referenceBatchId);
     if (row.kind === "combo") {
       // Everyone must be able to see every part, so a private part has to be published first.
       const parts = await tx
@@ -102,8 +104,28 @@ export async function publishFood(userId: string, id: string) {
       if (own.length) throw unprocessable("Publish its parts first", { private: own });
     }
     await tx.update(foodsTable).set({ userId: null, publishedBy: userId, revision: row.revision + 1, updatedAt: new Date() }).where(eq(foodsTable.id, id));
-    return { food: (await loadFood(tx, id))! };
+    return { food: (await loadFood(tx, id, userId))! };
   });
+}
+
+/**
+ * A published recipe gets a reference batch everyone logs and cooks from until they make it
+ * themselves: a copy of the chosen finished batch, the latest by default, so the publisher's own
+ * batch and the entries pointing at it stay theirs.
+ */
+async function publishReferenceBatch(tx: Tx, recipeId: string, batchId?: string) {
+  const recipe = (await loadFood(tx, recipeId)) as Recipe;
+  const finished = recipe.batches.filter((b) => !b.deleted && isFinished(b));
+  const chosen = batchId ? finished.find((b) => b.id === batchId) : finished.at(-1);
+  if (!chosen) throw unprocessable(batchId ? "Pick a finished batch of this recipe" : "Cook it once before publishing, so others have a batch to start from");
+  const ingredients = await tx
+    .select({ name: foodsTable.name, userId: foodsTable.userId })
+    .from(foodsTable)
+    .where(inArray(foodsTable.id, chosen.ingredients.map((i) => i.foodId)));
+  const own = ingredients.filter((i) => i.userId !== null).map((i) => i.name);
+  if (own.length) throw unprocessable("Publish its ingredients first", { private: own });
+  const { revision: _r, deleted: _d, shared: _s, ...batch } = chosen;
+  await insertBatch(tx, recipeId, { ...batch, id: randomUUID(), gone: false }, null);
 }
 
 /** Public items too: retiring one is soft, so past entries keep it and it can be restored. */
@@ -111,14 +133,22 @@ export async function setFoodDeletedFor(userId: string, id: string, deleted: boo
   return db.transaction(async (tx) => {
     const row = editableFood(await lockFood(tx, id), userId);
     if ((row.deletedAt !== null) !== deleted) await setFoodDeleted(tx, id, deleted, row.revision + 1);
-    return (await loadFood(tx, id))!;
+    return (await loadFood(tx, id, userId))!;
   });
 }
 
+/** One's own recipes and public ones, which everyone cooks in their own batches. */
 async function recipeFor(ex: Executor, userId: string, recipeId: string) {
-  const row = writable(await lockFood(ex, recipeId), userId);
+  const row = visible(await lockFood(ex, recipeId), userId);
   if (row.kind !== "recipe") throw notFound();
   return row;
+}
+
+/** A batch is its cook's; a reference batch belongs to nobody and isn't changed through the app. */
+function ownBatch(existing: BatchRef | undefined, recipeId: string, userId: string) {
+  if (!existing || existing.recipeId !== recipeId) return undefined;
+  if (existing.owner !== userId) throw existing.owner === null ? readOnly() : notFound();
+  return existing;
 }
 
 /** I cooked writes a draft at every step, so a batch is created and replaced on its own. */
@@ -132,13 +162,14 @@ export async function saveBatch(
   return db.transaction(async (tx) => {
     const newFoods = await createNewFoods(tx, userId, req.newFoods);
     await recipeFor(tx, userId, recipeId);
-    const existing = await loadBatch(tx, batchId, { lock: true });
-    if (existing && existing.recipeId !== recipeId) throw notFound();
+    const found = await loadBatch(tx, batchId, { lock: true });
+    if (found && found.recipeId !== recipeId) throw notFound();
+    const existing = ownBatch(found, recipeId, userId);
     const batch: Batch = { id: req.id, madeOn: req.madeOn, ingredients: req.ingredients, gone: req.gone, ...(req.yield ? { yield: req.yield } : {}) };
     if (!existing) {
       if (req.revision !== 0) throw notFound();
       await checkFoodRefs(tx, userId, batchInputRefs(batch));
-      await insertBatch(tx, recipeId, batch);
+      await insertBatch(tx, recipeId, batch, userId);
     } else {
       await expectRevision(existing.batch.revision, req.revision, async () => existing.batch);
       await checkFoodRefs(tx, userId, batchInputRefs(batch), new Set(existing.batch.ingredients.map((i) => i.foodId)));
@@ -151,8 +182,8 @@ export async function saveBatch(
 export async function setBatchDeleted(userId: string, recipeId: string, batchId: string, deleted: boolean): Promise<StoredBatch> {
   return db.transaction(async (tx) => {
     await recipeFor(tx, userId, recipeId);
-    const existing = await loadBatch(tx, batchId, { lock: true });
-    if (!existing || existing.recipeId !== recipeId) throw notFound();
+    const existing = ownBatch(await loadBatch(tx, batchId, { lock: true }), recipeId, userId);
+    if (!existing) throw notFound();
     if (existing.batch.deleted !== deleted) await updateBatch(tx, recipeId, existing.batch, { revision: existing.batch.revision + 1, deleted });
     return (await loadBatch(tx, batchId))!.batch;
   });

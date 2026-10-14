@@ -296,7 +296,7 @@ export async function importExport(userId: string, req: ImportRequest) {
 
     const order = { item: 0, recipe: 1, combo: 2 } as const;
     for (const f of [...foods].sort((a, b) => order[a.input.kind] - order[b.input.kind])) await insertFood(tx, { userId }, f.input, { revision: 1, deleted: f.deleted });
-    for (const b of batches) await insertBatch(tx, b.recipeId, b.batch, { revision: 1, deleted: b.deleted });
+    for (const b of batches) await insertBatch(tx, b.recipeId, b.batch, userId, { revision: 1, deleted: b.deleted });
     for (const a of activities) await insertActivity(tx, { userId }, a.input, { revision: 1, deleted: a.deleted });
     for (const e of entries) await insertEntry(tx, userId, e.input, { revision: 1, deleted: false }, e.createdAt);
 

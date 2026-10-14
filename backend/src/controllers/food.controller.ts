@@ -19,7 +19,7 @@ import { z } from "zod";
 import { created, jsonSend, ok } from "../http/respond";
 import { authedRouter } from "../routers";
 import * as foods from "../services/food.service";
-import { idParams, previewQuery, written } from "./params";
+import { idParams, previewQuery, publishQuery, written } from "./params";
 
 const batchParams = z.object({ recipeId: idSchema, batchId: idSchema });
 
@@ -72,7 +72,8 @@ export function foodController() {
   r.post("/foods/:id/publish", (line) =>
     line
       .pipe(validateParams(idParams))
-      .pipe(async ({ auth, params }) => ok(await foods.publishFood(auth.userId, params.id)))
+      .pipe(validateQuery(publishQuery))
+      .pipe(async ({ auth, params, query }) => ok(await foods.publishFood(auth.userId, params.id, query.batch)))
       .pipe(jsonSend(ownValuesResponseSchema, 200)),
   );
 
