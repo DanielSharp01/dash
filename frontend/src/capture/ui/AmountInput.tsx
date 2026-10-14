@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type CSSProperties, useState } from "react";
 import { type Amount, autoStep, countOf, fineStepsFor, type QuickSize, quickSizesFor, round, unitDimension } from "@dash/core";
 import { NumberInput } from "./NumberInput";
 
@@ -10,6 +10,15 @@ const startFor = (unit: string) => (isBulk(unit) ? 100 : isOunce(unit) ? 4 : 1);
 
 const counts = [1, 2, 4, 6, 8, 10];
 const formatCount = (n: number) => (n === 0.5 ? "½" : n === 1.5 ? "1½" : String(n));
+
+/** Drawn rather than typed: font glyphs for − and + sit off the middle of a round button. */
+function StepIcon({ plus = false }: { plus?: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <path d={plus ? "M3 9h12M9 3v12" : "M3 9h12"} />
+    </svg>
+  );
+}
 
 /** A quick size picked as the step, or a chosen fine step; unset follows the amount. */
 type Step = { size: QuickSize } | { fine: number } | undefined;
@@ -36,6 +45,43 @@ export function AmountInput({ amount, units, onChange, allowOther = false, hints
   // g against oz alone isn't worth a row; a serving is, even one named "piece" on a weighed item.
   const canSwitch = allowOther || !amount.unit || new Set(shownUnits.map((u) => unitDimension(u) ?? u)).size > 1;
 
+  const unitTabs = (
+    <div className="unit-tabs" role="radiogroup" aria-label="Unit">
+      {shownUnits.map((u) => (
+        <button
+          key={u}
+          role="radio"
+          aria-checked={amount.unit === u}
+          onClick={() => {
+            setOtherOpen(false);
+            if (amount.unit !== u) setStep(undefined);
+            onChange({ unit: u, value: amount.unit === u ? amount.value : startFor(u) });
+          }}
+        >
+          {u}
+          {hints?.[u] && <small> {hints[u]}</small>}
+        </button>
+      ))}
+      {allowOther &&
+        (otherOpen ? (
+          <input
+            className="unit-input"
+            autoFocus
+            placeholder="bowl, pack…"
+            value={other}
+            onChange={(e) => {
+              setOther(e.target.value);
+              if (e.target.value.trim()) onChange({ value: amount.value ?? 1, unit: e.target.value.trim() });
+            }}
+          />
+        ) : (
+          <button onClick={() => setOtherOpen(true)}>
+            Other…
+          </button>
+        ))}
+    </div>
+  );
+
   const tapSize = (s: QuickSize) => {
     set(size?.value === s.value ? value + s.value : s.value);
     setStep({ size: s });
@@ -43,13 +89,19 @@ export function AmountInput({ amount, units, onChange, allowOther = false, hints
 
   return (
     <div className="amount">
+      {canSwitch && unitTabs}
       <div className="amount-display">
         <button className="round-btn" onClick={() => set(size ? Math.max(size.value, value - by) : Math.max(0, value - by))} aria-label={`Less by ${formatCount(by)}`}>
-          −
+          <StepIcon />
         </button>
         <span className="amount-field">
+          {/* Mirrors the unit on the left, so the number itself sits centred between − and +. */}
+          <span className="amount-unit amount-unit-balance" aria-hidden>
+            {amount.unit}
+          </span>
           <NumberInput
             className="amount-value"
+            style={{ width: `${Math.max(1, String(amount.value ?? "").length) + 0.6}ch` }}
             value={amount.value}
             placeholder="?"
             onFocus={(e) => e.target.select()}
@@ -62,7 +114,7 @@ export function AmountInput({ amount, units, onChange, allowOther = false, hints
           <span className="amount-unit">{amount.unit}</span>
         </span>
         <button className="round-btn" onClick={() => set(value + by)} aria-label={`More by ${formatCount(by)}`}>
-          +
+          <StepIcon plus />
         </button>
       </div>
       {times && (
@@ -70,17 +122,19 @@ export function AmountInput({ amount, units, onChange, allowOther = false, hints
           {times} × {size?.name}
         </p>
       )}
-      <div className="chip-row center" role="radiogroup" aria-label="Step">
-        {fine.map((n) => (
-          <button key={n} role="radio" className="chip chip-ghost" aria-checked={!size && fineStep === n} onClick={() => setStep({ fine: n })}>
-            ±{formatCount(n)}
-            {amount.unit && <small> {amount.unit}</small>}
-          </button>
-        ))}
-      </div>
+      {fine.length > 1 && (
+        <div className="step-toggle" role="radiogroup" aria-label="Step">
+          <span>step</span>
+          {fine.map((n) => (
+            <button key={n} role="radio" aria-checked={!size && fineStep === n} onClick={() => setStep({ fine: n })}>
+              {formatCount(n)}
+            </button>
+          ))}
+        </div>
+      )}
       {sizes ? (
         sizes.map((row) => (
-          <div key={row[0]!.value} className="chip-row center">
+          <div key={row[0]!.value} className="chip-row size-row" style={{ "--cols": row.length > 4 ? Math.ceil(row.length / 2) : row.length } as CSSProperties}>
             {row.map((s) => (
               <button key={s.value} className={`chip chip-ghost ${s.name ? "chip-size" : ""}`} aria-pressed={size?.value === s.value} onClick={() => tapSize(s)}>
                 <span>
@@ -99,43 +153,6 @@ export function AmountInput({ amount, units, onChange, allowOther = false, hints
               {n}
             </button>
           ))}
-        </div>
-      )}
-      {canSwitch && (
-        <div className="chip-row center" role="radiogroup" aria-label="Unit">
-          {shownUnits.map((u) => (
-            <button
-              key={u}
-              role="radio"
-              aria-checked={amount.unit === u}
-              className="chip"
-              onClick={() => {
-                setOtherOpen(false);
-                if (amount.unit !== u) setStep(undefined);
-                onChange({ unit: u, value: amount.unit === u ? amount.value : startFor(u) });
-              }}
-            >
-              {u}
-              {hints?.[u] && <small> {hints[u]}</small>}
-            </button>
-          ))}
-          {allowOther &&
-            (otherOpen ? (
-              <input
-                className="chip chip-input"
-                autoFocus
-                placeholder="bowl, pack…"
-                value={other}
-                onChange={(e) => {
-                  setOther(e.target.value);
-                  if (e.target.value.trim()) onChange({ value: amount.value ?? 1, unit: e.target.value.trim() });
-                }}
-              />
-            ) : (
-              <button className="chip chip-ghost" onClick={() => setOtherOpen(true)}>
-                Other…
-              </button>
-            ))}
         </div>
       )}
     </div>

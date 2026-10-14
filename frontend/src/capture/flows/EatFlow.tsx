@@ -701,11 +701,9 @@ function BatchChoice({ recipe, batchId, onChange }: { recipe: Recipe; batchId?: 
 }
 
 /** Other flavours or packs of the item, by its name; the amount carries over where it fits. */
-const MAX_VARIATION_CHIPS = 4;
-
 /**
- * Other flavours or packs of the item, by its name; the amount carries over where it fits. Only
- * what tells them apart is shown, and a long list moves into a sheet.
+ * Other flavours or packs of the item, by its name; the amount carries over where it fits. One
+ * dropdown however many there are, showing only what tells them apart.
  */
 function VariationChoice({ item, onChange }: { item: FoodItem; onChange: (v: FoodItem) => void }) {
   const listed = useListedFoods();
@@ -722,21 +720,10 @@ function VariationChoice({ item, onChange }: { item: FoodItem; onChange: (v: Foo
     if (v.id !== item.id) onChange(v);
   };
 
-  if (variations.length <= MAX_VARIATION_CHIPS)
-    return (
-      <div className="chip-row" role="radiogroup" aria-label="Variation">
-        {variations.map((v) => (
-          <button key={v.id} role="radio" aria-checked={v.id === item.id} className="chip" onClick={() => pick(v)}>
-            {label(v)}
-          </button>
-        ))}
-      </div>
-    );
-
   return (
     <>
-      <button className="link-btn" onClick={() => setOpen(true)}>
-        Choose a different variation ({others.length})
+      <button className="value-chip variation-choice" onClick={() => setOpen(true)}>
+        <small>Variation</small> {label(item)} ▾
       </button>
       {open && (
         <Sheet title={item.name} onClose={() => setOpen(false)}>
