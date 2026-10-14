@@ -127,13 +127,3 @@ export function sharedEdit(input: FoodItemInput, item: FoodItem): FoodItemInput 
   }
   return out as FoodItemInput;
 }
-
-/** The item with one field of the person's own put back to the public value. */
-export function backToOriginal(item: FoodItem, key: OverrideKey): FoodItemInput {
-  const out: Record<string, unknown> = { ...foodInput(item) };
-  const value = item.mine?.original[key];
-  if (value === null) delete out[key];
-  else if (value !== undefined) out[key] = value;
-  if (key === "icon" && item.mine?.original.iconAuto !== undefined) out.iconAuto = item.mine.original.iconAuto;
-  return out as FoodItemInput;
-}

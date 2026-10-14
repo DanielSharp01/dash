@@ -4,7 +4,7 @@ import { completeAsCombo, mergeFood } from "../../queries/commands.queries";
 import { saveFood, saveOwnValues, useFoodUsage, useFoods } from "../../queries/foods.queries";
 import { productForBarcode } from "../../queries/lookups.queries";
 import { undoBy } from "../errors";
-import { backToOriginal, sharedEdit, useListedFoods, usesOf, variantsOf } from "../foods";
+import { sharedEdit, useListedFoods, usesOf, variantsOf } from "../foods";
 import { todayKey } from "../time";
 import { PortionList } from "./PortionList";
 import { FoodRow, FoodSearch } from "../ui/FoodSearch";
@@ -63,6 +63,8 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const [lookedUp, setLookedUp] = useState(item.barcode ?? "");
   const [offer, setOffer] = useState<OpenFoodFactsResult>();
   const [scope, setScope] = useState<"me" | "everyone">("me");
+  // Fields put back to the public value in the form; like any edit, they only count once saved.
+  const [reverted, setReverted] = useState<OverrideKey[]>([]);
   const original = item.mine?.original;
   const yours = (key: OverrideKey) => original !== undefined && key in original;
 
@@ -112,16 +114,15 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
 
   /** A public item is changed just for the person, or for everyone; their own items as they are. */
   const save = (unsure: boolean, change: "fix" | "changed" = "fix", to = scope) => {
-    const input = build(labelsFor(change), unsure);
+    const input = build(reverted.includes("labels") && original?.labels ? original.labels : labelsFor(change), unsure);
     if (!item.public) onSaved({ ...item, ...input }, saveFood(input));
     else if (to === "me") onSaved({ ...item, ...input }, saveOwnValues(input));
     else onSaved({ ...item, ...sharedEdit(input, item) }, saveFood(sharedEdit(input, item)));
   };
 
-  /** Takes effect at once for that field; other unsaved edits stay in the form. */
   const revert = (key: OverrideKey) => {
     if (!original) return;
-    void saveOwnValues(backToOriginal(item, key));
+    setReverted((r) => [...r, key]);
     if (key === "name") setName(original.name ?? item.name);
     if (key === "variant") setVariant(original.variant ?? "");
     if (key === "brand") setBrand(original.brand ?? "");
@@ -130,9 +131,28 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
     if (key === "servings" && original.servings) setServings(original.servings);
   };
 
+  const keepMine = (key: OverrideKey) => {
+    setReverted((r) => r.filter((k) => k !== key));
+    if (key === "name") setName(item.name);
+    if (key === "variant") setVariant(item.variant ?? "");
+    if (key === "brand") setBrand(item.brand ?? "");
+    if (key === "icon" || key === "iconAuto") setIcon(item.iconAuto ? undefined : item.icon);
+    if (key === "labels") setDraft(draftFrom(item.unit, latest, offThePackage));
+    if (key === "servings") setServings(item.servings);
+  };
+
   const yoursTag = (...keys: OverrideKey[]) => {
     const own = keys.filter(yours);
     if (!own.length) return null;
+    if (own.every((k) => reverted.includes(k)))
+      return (
+        <span className="yours-tag">
+          <span className="badge">Original on save</span>
+          <button className="link-btn" onClick={() => own.forEach(keepMine)}>
+            Keep mine
+          </button>
+        </span>
+      );
     return (
       <span className="yours-tag">
         <span className="badge badge-yours">Yours</span>
@@ -182,7 +202,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
 
   const trySave = (unsure: boolean, to: "me" | "everyone" = "me") => {
     setScope(to);
-    if (changed && used && !item.unsure) setAsking(true);
+    if (changed && used && !item.unsure && !reverted.includes("labels")) setAsking(true);
     else save(unsure, "fix", to);
   };
 
@@ -268,7 +288,13 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
 
           <div className={`field ${yours("labels") ? "field-yours" : ""}`}>
             <span className="field-label">Label {yoursTag("labels")}</span>
-            <LabelForm draft={draft} onChange={setDraft} />
+            <LabelForm
+              draft={draft}
+              onChange={(d) => {
+                setDraft(d);
+                setReverted((r) => r.filter((k) => k !== "labels"));
+              }}
+            />
             {latest && item.labels.length > 1 && (
               <details className="version-history">
                 <summary>{item.labels.length} label versions</summary>
