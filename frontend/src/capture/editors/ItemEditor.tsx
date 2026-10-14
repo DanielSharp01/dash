@@ -343,8 +343,11 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
                 </button>
               </div>
             ))}
-            <button className="link-btn" onClick={() => setServings([...servings, { name: "" }])}>
-              ＋ Add serving
+            <button className="row row-create" onClick={() => setServings([...servings, { name: "" }])}>
+              <span className="row-icon">＋</span>
+              <span className="row-main">
+                <span className="row-title">Add serving</span>
+              </span>
             </button>
           </div>
 
