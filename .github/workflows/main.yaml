@@ -44,13 +44,13 @@ jobs:
           printf '%s' "$GHCR_TOKEN" |
             docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
-          docker build --pull \
+          # BuildKit pushes the layers it built; a separate docker push from the containerd image
+          # store can fail with "unknown blob" on base layers the daemon never fully pulled.
+          docker buildx build --pull --push \
             --secret "id=npmrc,src=$npmrc" \
             --label org.opencontainers.image.source=https://github.com/DanielSharp01/dash \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             -t "$IMAGE:$GITHUB_SHA" .
-
-          docker push "$IMAGE:$GITHUB_SHA"
 
   deploy:
     needs: build
