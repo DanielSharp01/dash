@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { asItem, asRecipe, autoFoodIcon, type Batch, batchPerUnit, batchTotal, type ComboInput, type FoodLookup, isFinished, type Recipe, type RecipeInput, round, withBase } from "@dash/core";
-import { saveBatch, saveFood, useFoodLookup } from "../../queries/foods.queries";
+import { asItem, asRecipe, autoFoodIcon, type Batch, displayName, batchPerUnit, batchTotal, type ComboInput, type FoodLookup, isFinished, type Recipe, type RecipeInput, round, withBase } from "@dash/core";
+import { publishFood, saveBatch, saveFood, useFoodLookup } from "../../queries/foods.queries";
 import { useMe } from "../../queries/me.queries";
 import { batchLabel, finishedBatches } from "../foods";
 import { NutritionPreview } from "../flows/EatFlow";
 import { todayKey } from "../time";
 import { NumberInput } from "../ui/NumberInput";
 import { IconField } from "../ui/Pickers";
+import { PublishButton } from "../ui/PublishButton";
 import { Sheet } from "../ui/Sheet";
 import { PortionList } from "./PortionList";
 
@@ -183,27 +184,42 @@ export function RecipeEditor({
   const latest = finishedBatches(current).at(-1);
   const batchCount = current.batches.filter((b) => !b.deleted).length;
   const [confirming, setConfirming] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [reference, setReference] = useState(latest?.id);
+  const chosen = finishedBatches(current).find((b) => b.id === reference);
+  // Everyone must be able to see every ingredient of the batch they start from.
+  const privateIngredients = (chosen?.ingredients ?? []).map((i) => foods(i.foodId)).filter((f) => f && !f.public).map((f) => displayName(f!));
 
   return (
     <div className="item-editor">
-      <div className="name-row">
-        <IconField
-          value={icon}
-          fallback={autoFoodIcon(name, "recipe")}
-          groups={["food"]}
-          onChange={(i) => {
-            setIcon(i);
-            rename({ icon: i ?? autoFoodIcon(name, "recipe"), iconAuto: i === undefined });
-          }}
-        />
-        <input
-          className="big-text"
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => name.trim() && name.trim() !== current.name && rename({ name: name.trim(), ...(icon === undefined ? { icon: autoFoodIcon(name, "recipe") } : {}) })}
-        />
-      </div>
+      {current.public ? (
+        <>
+          <div className="name-row">
+            <span className="row-icon big">{current.icon}</span>
+            <span className="big-text">{current.name}</span>
+          </div>
+          <p className="hint">A shared recipe. Your batches are yours; others only see the shared one it starts from.</p>
+        </>
+      ) : (
+        <div className="name-row">
+          <IconField
+            value={icon}
+            fallback={autoFoodIcon(name, "recipe")}
+            groups={["food"]}
+            onChange={(i) => {
+              setIcon(i);
+              rename({ icon: i ?? autoFoodIcon(name, "recipe"), iconAuto: i === undefined });
+            }}
+          />
+          <input
+            className="big-text"
+            placeholder="Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => name.trim() && name.trim() !== current.name && rename({ name: name.trim(), ...(icon === undefined ? { icon: autoFoodIcon(name, "recipe") } : {}) })}
+          />
+        </div>
+      )}
 
       <div className="field">
         <span className="field-label">Batches</span>
@@ -213,12 +229,13 @@ export function RecipeEditor({
             const sized = batchPerUnit(b, foods);
             return (
               <li key={b.id}>
-                <button className="row" onClick={() => onOpenBatch(b)}>
+                <button className="row" disabled={b.shared} onClick={() => onOpenBatch(b)}>
                   <span className="row-icon">{isFinished(b) ? "🍲" : "🔥"}</span>
                   <span className="row-main">
                     <span className="row-title">
                       {batchLabel(b)} {!isFinished(b) && <span className="badge badge-warn">Cooking</span>}
-                      {isFinished(b) && !b.gone && <span className="badge badge-info">Some left</span>}
+                      {b.shared && <span className="badge badge-info">Shared</span>}
+                      {isFinished(b) && !b.gone && !b.shared && <span className="badge badge-info">Some left</span>}
                     </span>
                     <span className="row-sub">
                       {b.ingredients.length} ingredients
@@ -241,7 +258,12 @@ export function RecipeEditor({
       </div>
 
       <div className="editor-links">
-        {latest && (
+        {!current.public && latest && (
+          <button className="btn btn-block" onClick={() => setPublishing(true)}>
+            Publish recipe
+          </button>
+        )}
+        {!current.public && latest && (
           <button className="btn btn-block" onClick={() => onToCombo(recipeToCombo(current, latest))}>
             Turn into a combo
           </button>
@@ -252,6 +274,32 @@ export function RecipeEditor({
           </button>
         )}
       </div>
+
+      {publishing && (
+        <Sheet title={`Publish ${current.name}`} onClose={() => setPublishing(false)}>
+          <p className="hint">Everyone can log it and cook it in their own batches. They start from the batch you pick here; your batches stay yours.</p>
+          {finishedBatches(current)
+            .reverse()
+            .map((b) => (
+              <button key={b.id} className={`row ${b.id === reference ? "row-selected" : ""}`} onClick={() => setReference(b.id)}>
+                <span className="row-main">
+                  <span className="row-title">{batchLabel(b)}</span>
+                  <span className="row-sub">{b.ingredients.length} ingredients</span>
+                </span>
+                {b.id === reference && <span className="row-check">✓</span>}
+              </button>
+            ))}
+          <PublishButton
+            blockers={privateIngredients.length ? [`Publish ${privateIngredients.join(", ")} first`] : []}
+            label="Publish recipe"
+            disabled={!chosen || privateIngredients.length > 0}
+            onClick={() => {
+              setPublishing(false);
+              void publishFood(current.id, reference);
+            }}
+          />
+        </Sheet>
+      )}
 
       {confirming && onDelete && (
         <Sheet title={`Delete ${current.name}?`} onClose={() => setConfirming(false)}>

@@ -18,10 +18,10 @@ export function useListedFoods() {
 
 const liveBatches = (r: Recipe) => r.batches.filter((b) => !b.deleted);
 
-/** Cooked and not eaten up yet, newest first; these lead the I ate cards. */
+/** Cooked and not eaten up yet, newest first; these lead the I ate cards. A shared batch is nobody's leftovers. */
 export const leftovers = (list: Food[]) =>
   list
-    .filter((f): f is Recipe => f.kind === "recipe" && liveBatches(f).some((b) => isFinished(b) && !b.gone))
+    .filter((f): f is Recipe => f.kind === "recipe" && liveBatches(f).some((b) => isFinished(b) && !b.gone && !b.shared))
     .sort((a, b) => (currentBatch(b)?.madeOn ?? "").localeCompare(currentBatch(a)?.madeOn ?? ""));
 
 export const cookingNow = (list: Food[]) => list.filter((f): f is Recipe => f.kind === "recipe" && liveBatches(f).some((b) => !isFinished(b)));

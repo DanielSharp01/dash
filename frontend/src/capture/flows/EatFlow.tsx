@@ -707,7 +707,7 @@ function BatchChoice({ recipe, batchId, onChange }: { recipe: Recipe; batchId?: 
     <div className="chip-row" role="radiogroup" aria-label="Batch">
       {batches.slice(0, 4).map((b) => (
         <button key={b.id} role="radio" aria-checked={b.id === batchId} className="chip" onClick={() => onChange(b.id)}>
-          {batchLabel(b)}
+          {b.shared ? "Shared" : batchLabel(b)}
         </button>
       ))}
     </div>
@@ -909,7 +909,7 @@ function FoodCards({ via, onPick, onSearch, onScan }: { via: FoodEntry["via"]; o
     if (f.kind === "combo") return "combo";
     if (f.kind === "recipe") {
       const b = currentBatch(f);
-      return b && !b.gone ? `${batchLabel(b)} batch` : "recipe";
+      return b && !b.gone && !b.shared ? `${batchLabel(b)} batch` : "recipe";
     }
     return formatAmount(usualAmount(usage, f.id) ?? defaultAmount(f, units));
   };

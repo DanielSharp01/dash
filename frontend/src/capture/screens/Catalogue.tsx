@@ -263,6 +263,14 @@ export function ComboRoute() {
       <ComboEditor
         key={combo.id}
         combo={stored ?? combo}
+        onBackToShared={
+          stored && !stored.public && stored.originId && foods(stored.originId)?.public
+            ? () => {
+                removeFood(stored);
+                close();
+              }
+            : undefined
+        }
         onSaved={(c, done) => {
           done.then((r) => notify(`Saved ${c.name}`, undoBy(r.undoToken)), () => {});
           close();
@@ -333,7 +341,7 @@ export function BatchRoute() {
       canGoBack
       onBack={close}
       onClose={close}
-      actions={!recipe.public && <DeleteButton label="batch" onDelete={removeBatch} />}
+      actions={!batch.shared && <DeleteButton label="batch" onDelete={removeBatch} />}
     >
       <BatchEditor
         recipeId={recipe.id}

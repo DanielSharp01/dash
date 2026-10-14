@@ -24,10 +24,13 @@ export function ComboEditor({
   combo,
   onSaved,
   onToRecipe,
+  onBackToShared,
 }: {
   combo: Combo;
   onSaved: (c: Combo, saved: Promise<{ undoToken?: string }>) => void;
   onToRecipe?: (c: ComboInput) => void;
+  /** Only on a copy of a public combo: dropping the copy shows the shared one again. */
+  onBackToShared?: () => void;
 }) {
   const foods = useFoodLookup();
   const [name, setName] = useState(combo.name);
@@ -79,13 +82,18 @@ export function ComboEditor({
 
       {parts.length > 0 && <NutritionPreview contents={total} />}
 
-      {onToRecipe && parts.length > 0 && allItems(parts, foods) && (
-        <div className="editor-links">
+      <div className="editor-links">
+        {onToRecipe && parts.length > 0 && allItems(parts, foods) && (
           <button className="btn btn-block" onClick={() => onToRecipe(draft)}>
             Turn into a recipe
           </button>
-        </div>
-      )}
+        )}
+        {onBackToShared && (
+          <button className="btn btn-block" onClick={onBackToShared}>
+            Back to the shared combo
+          </button>
+        )}
+      </div>
 
       <div className="flow-footer">
         {combo.public || !combo.catalogued ? (
