@@ -71,9 +71,11 @@ export function ComboEditor({
       {parts.length > 0 && <NutritionPreview contents={total} />}
 
       {onToRecipe && parts.length > 0 && allItems(parts, foods) && (
-        <button className="link-btn" onClick={() => onToRecipe(draft)}>
-          Turn into a recipe
-        </button>
+        <div className="editor-links">
+          <button className="btn btn-block" onClick={() => onToRecipe(draft)}>
+            Turn into a recipe
+          </button>
+        </div>
       )}
 
       <div className="flow-footer">
