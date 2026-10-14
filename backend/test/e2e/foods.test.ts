@@ -6,6 +6,7 @@ import { combo, foodEntry, item, recipe } from "../support/fixtures";
 import { newUser, uuid } from "../support/helpers";
 
 const water = publicFoodId("water");
+const onion = publicFoodId("onion");
 
 describe("catalogue", () => {
   it("lists the person's foods with every public item, and answers 304 while nothing changed", async () => {
@@ -103,12 +104,17 @@ describe("replacing", () => {
     expect((await u.put(`/foods/${milk.id}`, { ...recipe({ id: milk.id }), revision: 2 })).status).toBe(422);
   });
 
-  it("treats public items as read-only and someone else's as missing", async () => {
+  it("lets anyone fix a public item for everyone but not delete it, and treats someone else's as missing", async () => {
     const u = await newUser();
-    const stored = (await u.get("/foods")).body.foods.find((f: any) => f.id === water);
+    const stored = (await u.get("/foods")).body.foods.find((f: any) => f.id === onion);
     const { revision, deleted, public: _p, starter, ...input } = stored;
-    expect((await u.put(`/foods/${water}`, { ...input, name: "Mine", revision })).status).toBe(403);
-    expect((await u.delete(`/foods/${water}`)).status).toBe(403);
+    const fixed = await u.put(`/foods/${onion}`, { ...input, variant: "raw, yellow", revision });
+    expect(fixed.status).toBe(200);
+    expect(fixed.body.food).toMatchObject({ variant: "raw, yellow", public: true, revision: revision + 1 });
+    const someoneElse = await newUser();
+    expect((await someoneElse.get("/foods")).body.foods.find((f: any) => f.id === onion).variant).toBe("raw, yellow");
+    await u.put(`/foods/${onion}`, { ...input, revision: revision + 1 });
+    expect((await u.delete(`/foods/${onion}`)).status).toBe(403);
 
     const other = await newUser();
     const milk = item();

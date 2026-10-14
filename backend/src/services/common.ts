@@ -36,6 +36,16 @@ export function writable<T extends { userId: string | null }>(row: T | undefined
   return row;
 }
 
+/**
+ * A food the person may edit: their own, or a public item, since everyone invited curates the
+ * shared catalogue. Public recipes and combos stay read-only.
+ */
+export function editableFood<T extends { userId: string | null; kind: string }>(row: T | undefined, userId: string): T {
+  const own = visible(row, userId);
+  if (own.userId === null && own.kind !== "item") throw readOnly();
+  return own;
+}
+
 /** A row the person may read or refer to: their own or a public one. */
 export function visible<T extends { userId: string | null }>(row: T | undefined, userId: string): T {
   if (!row || (row.userId !== null && row.userId !== userId)) throw notFound();

@@ -31,7 +31,7 @@ afterAll(async () => {
 });
 
 describe("public item seeding", () => {
-  it("creates a definition once, leaves it alone while unchanged, and bumps the revision on a change", async () => {
+  it("creates a definition once, then leaves the stored item alone even when the definition changes", async () => {
     publicFoods.push(def);
     const id = publicFoodId(key);
     await seedPublicItems();
@@ -42,8 +42,8 @@ describe("public item seeding", () => {
 
     def.food.labels.push({ from: "2026-10-01", per: "100", values: { kcal: 120 }, verified: false, origin: "usda" });
     await seedPublicItems();
-    const updated = await loadFood(db, id);
-    expect(updated).toMatchObject({ revision: 2 });
-    expect(updated?.kind === "item" && updated.labels.map((l) => l.from)).toEqual([BEGINNING, "2026-10-01"]);
+    const kept = await loadFood(db, id);
+    expect(kept).toMatchObject({ revision: 1 });
+    expect(kept?.kind === "item" && kept.labels.map((l) => l.from)).toEqual([BEGINNING]);
   });
 });

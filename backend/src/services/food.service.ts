@@ -20,7 +20,7 @@ import {
   withOverrides,
 } from "../repositories/food.repo";
 import { weakEtag } from "../http/respond";
-import { claimId, expectRevision, notFound, sameId, unprocessable, visible, writable } from "./common";
+import { claimId, editableFood, expectRevision, notFound, sameId, unprocessable, visible, writable } from "./common";
 import { batchInputRefs, checkFoodRefs, foodDocRefIds, foodInputRefs } from "./refs";
 import { runWrite, type UndoRecorder } from "./write";
 
@@ -69,7 +69,7 @@ export async function updateFoodDoc(
 ) {
   sameId(id, req.id);
   return runWrite(userId, { preview, undo: true }, async (tx, undo) => {
-    const row = writable(await lockFood(tx, id), userId);
+    const row = editableFood(await lockFood(tx, id), userId);
     if (row.kind !== req.kind) throw unprocessable("A food's kind can't change");
     await expectRevision(row.revision, req.revision, () => loadFood(tx, id));
     const newFoods = await createNewFoods(tx, userId, req.newFoods, undo);
