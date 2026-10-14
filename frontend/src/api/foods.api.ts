@@ -4,6 +4,7 @@ import { api } from "./client";
 type WithNewFoods = { newFoods?: FoodInput[] };
 
 export const getFoods = () => api.get<{ foods: Food[] }>("/foods");
+export const searchFoods = (query: string) => api.get<{ foods: Food[] }>(`/foods/search?q=${encodeURIComponent(query)}`);
 export const getFoodUsage = () => api.get<{ usage: FoodUsage[] }>("/foods/usage");
 export const postFood = (food: FoodInput & WithNewFoods) => api.post<CreateFoodResponse>("/foods", food);
 export const putFood = (food: FoodInput & WithNewFoods & { revision: number }) => api.put<UpdateFoodResponse>(`/foods/${food.id}`, food);

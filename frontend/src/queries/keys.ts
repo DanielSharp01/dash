@@ -13,6 +13,7 @@ export const keys = {
   weighIns: ["weigh-ins"] as const,
   barcode: (code: string) => ["barcode", code] as const,
   product: (code: string) => ["barcode", code, "product"] as const,
+  foodSearch: (query: string) => ["food-search", query] as const,
   icons: ["icons"] as const,
   deployedBuild: ["deployed-build"] as const,
 };

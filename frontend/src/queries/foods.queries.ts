@@ -1,4 +1,4 @@
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { lookupOf, type Batch, type Food, type FoodInput, type StoredBatch, type UpdateFoodResponse } from "@dash/core";
 import * as foodsApi from "../api/foods.api";
@@ -163,3 +163,10 @@ export function restoreBatch(recipeId: string, batchId: string) {
     onSuccess: (batch) => setBatch(recipeId, batchId)(batch),
   });
 }
+
+/** The shared catalogue beyond the person's own foods, searched on the server. */
+export const useCatalogueSearch = (query: string) =>
+  useQuery({ queryKey: keys.foodSearch(query), queryFn: () => foodsApi.searchFoods(query).then((r) => r.foods), enabled: query.length >= 2, staleTime: 60_000 });
+
+/** A food picked from search or a scan, with what it points at, joins the person's foods. */
+export const rememberFoods = (foods: Food[]) => putFoods(qc, foods);

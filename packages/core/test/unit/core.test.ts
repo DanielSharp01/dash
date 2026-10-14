@@ -11,6 +11,7 @@ import {
   entryNeedsFollowUp,
   displayName,
   energyMismatch,
+  foldText,
   publishBlockers,
   foodInputSchema,
   groupKey,
@@ -172,6 +173,11 @@ describe("groupKey", () => {
   it("groups names regardless of case and spacing, but not accents", () => {
     expect(groupKey(" Füstli ")).toBe(groupKey("füstli"));
     expect(groupKey("Eger")).not.toBe(groupKey("Éger"));
+  });
+
+  it("folds accents and case for search, so fustli finds Füstli", () => {
+    expect(foldText("Füstli · Csípős · Sága")).toBe("fustli · csipos · saga");
+    expect(foldText("Őszibarack ÁRVÍZTŰRŐ")).toBe("oszibarack arvizturo");
   });
 
   it("names an item with its variant and brand", () => {

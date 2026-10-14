@@ -1,6 +1,16 @@
-import type { ReactNode } from "react";
-import { basisLabel, batchPerUnit, displayName, type Food, type FoodLookup, labelAt, latestBatch, loggable, round } from "@dash/core";
-import { useFoodLookup } from "../../queries/foods.queries";
+import { type ReactNode, useEffect, useState } from "react";
+
+/** The value once it has stopped changing for a moment, so typing doesn't search on every key. */
+function useDebounced<T>(value: T, ms: number) {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(timer);
+  }, [value, ms]);
+  return settled;
+}
+import { basisLabel, batchPerUnit, displayName, foldText, type Food, type FoodLookup, labelAt, latestBatch, loggable, round } from "@dash/core";
+import { rememberFoods, useCatalogueSearch, useFoodLookup } from "../../queries/foods.queries";
 import { batchLabel, useListedFoods } from "../foods";
 import { canScan } from "./Scanner";
 
@@ -68,8 +78,16 @@ export function FoodSearch({ query, onQuery, kinds, recentIds, onPick, onNew, on
   const listed = useListedFoods();
   const offered = (f: Food) => kinds.includes(f.kind) && (unfinished || loggable(f));
   const foods = listed.filter(offered);
-  const q = query.trim().toLowerCase();
-  const matches = q ? foods.filter((f) => displayName(f).toLowerCase().includes(q)) : [];
+  const q = foldText(query.trim());
+  const matches = q ? foods.filter((f) => foldText(displayName(f)).includes(q)) : [];
+  const searched = useDebounced(q, 250);
+  const catalogue = useCatalogueSearch(searched).data ?? [];
+  // The server also sends what results point at; only the matches themselves are offered.
+  const fromCatalogue = q ? catalogue.filter((f) => offered(f) && !lookup(f.id) && foldText(displayName(f)).includes(q)) : [];
+  const pickShared = (f: Food) => {
+    rememberFoods(catalogue);
+    onPick(f);
+  };
   const recent = recentIds.map(lookup).filter((f): f is Food => !!f && foods.includes(f));
   const rest = foods.filter((f) => !recent.includes(f)).sort((a, b) => a.name.localeCompare(b.name));
   const newName = query.trim() || foundName;
@@ -112,7 +130,15 @@ export function FoodSearch({ query, onQuery, kinds, recentIds, onPick, onNew, on
         )}
         {extra}
         {q ? (
-          matches.map((f) => <FoodRow key={f.id} food={f} onPick={onPick} />)
+          <>
+            {matches.map((f) => (
+              <FoodRow key={f.id} food={f} onPick={onPick} />
+            ))}
+            {fromCatalogue.length > 0 && <li className="list-heading">From the shared catalogue</li>}
+            {fromCatalogue.map((f) => (
+              <FoodRow key={f.id} food={f} onPick={pickShared} />
+            ))}
+          </>
         ) : (
           <>
             {recent.length > 0 && <li className="list-heading">Recent</li>}
@@ -125,7 +151,7 @@ export function FoodSearch({ query, onQuery, kinds, recentIds, onPick, onNew, on
             ))}
           </>
         )}
-        {q && matches.length === 0 && <li className="hint">Nothing called “{query.trim()}” yet.</li>}
+        {q && matches.length === 0 && fromCatalogue.length === 0 && <li className="hint">Nothing called “{query.trim()}” yet.</li>}
       </ul>
     </>
   );
