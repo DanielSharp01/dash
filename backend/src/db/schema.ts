@@ -261,6 +261,7 @@ export const batchesTable = pgTable(
     foreignKey({ columns: [t.recipeId, t.recipeKind], foreignColumns: [foodsTable.id, foodsTable.kind] }).onDelete("no action"),
     unique("batches_id_recipe").on(t.id, t.recipeId),
     index().on(t.recipeId),
+    uniqueIndex("batches_one_reference").on(t.recipeId).where(sql`${t.userId} is null`),
     check("batches_recipe_kind", sql`${t.recipeKind} = 'recipe'`),
     check("batches_one_yield", sql`${t.yieldGrams} is null or ${t.yieldPortions} is null`),
   ],

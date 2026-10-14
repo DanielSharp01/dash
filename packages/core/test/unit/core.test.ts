@@ -3,6 +3,7 @@ import {
   applyPlanChange,
   BEGINNING,
   comboAsLines,
+  currentBatch,
   dailyTargets,
   restingBurn,
   dayTotals,
@@ -152,6 +153,18 @@ describe("applyPlanChange", () => {
     const v3 = applyPlanChange(v2, defaultPlan, { from: "2026-07-01" })!;
     // Back to the first plan from July: neighbours collapse into the first version.
     expect(v3).toEqual([{ from: BEGINNING, plan: defaultPlan }]);
+  });
+});
+
+describe("currentBatch", () => {
+  it("prefers one's own leftovers, then one's own latest, over a shared recipe's reference batch", () => {
+    const batch = (id: string, madeOn: string, extra: object = {}) => ({ id, madeOn, ingredients: [], yield: { portions: 4 }, gone: false, revision: 1, deleted: false, ...extra });
+    const recipe = (batches: object[]) => ({ ...flags, id: uid(), kind: "recipe", name: "Chili", icon: "🌶️", public: true, batches }) as unknown as Recipe;
+    const leftover = batch("own-old", "2026-09-01");
+    const reference = batch("shared", "2026-10-01", { shared: true });
+    expect(currentBatch(recipe([leftover, reference]))!.id).toBe("own-old");
+    expect(currentBatch(recipe([{ ...leftover, gone: true }, reference]))!.id).toBe("own-old");
+    expect(currentBatch(recipe([reference]))!.id).toBe("shared");
   });
 });
 

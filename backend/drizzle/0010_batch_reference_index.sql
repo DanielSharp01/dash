@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "batches_one_reference" ON "batches" USING btree ("recipe_id") WHERE "batches"."user_id" is null;

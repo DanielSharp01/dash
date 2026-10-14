@@ -18,8 +18,14 @@ const liveBatches = (r: Recipe) => r.batches.filter((b) => !b.deleted);
 
 export const latestBatch = (r: Recipe) => [...liveBatches(r)].reverse().find(isFinished);
 
-/** The batch a portion comes from by default: the newest one not eaten up yet. */
-export const currentBatch = (r: Recipe) => [...liveBatches(r)].reverse().find((b) => isFinished(b) && !b.gone) ?? latestBatch(r);
+/**
+ * The batch a portion comes from by default: one's newest not eaten up yet, else one's newest,
+ * and only then a shared recipe's reference batch, whatever its date.
+ */
+export const currentBatch = (r: Recipe) => {
+  const own = [...liveBatches(r)].reverse().filter((b) => !b.shared);
+  return own.find((b) => isFinished(b) && !b.gone) ?? own.find(isFinished) ?? latestBatch(r);
+};
 
 /** The batch that was being eaten on a day: the newest finished one made on or before it. */
 export const batchOn = (r: Recipe, date: string) =>

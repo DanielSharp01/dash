@@ -71,6 +71,13 @@
       "when": 1792019861248,
       "tag": "0009_batch_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792020922865,
+      "tag": "0010_batch_reference_index",
+      "breakpoints": true
     }
   ]
 }
