@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { autoFoodIcon, basisLabel, BEGINNING, type Combo, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
+import { autoFoodIcon, basisLabel, BEGINNING, type Combo, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, type OverrideKey, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
 import { completeAsCombo, mergeFood } from "../../queries/commands.queries";
-import { saveFood, useFoodUsage, useFoods } from "../../queries/foods.queries";
+import { saveFood, saveOwnValues, useFoodUsage, useFoods } from "../../queries/foods.queries";
 import { productForBarcode } from "../../queries/lookups.queries";
 import { undoBy } from "../errors";
-import { ownCopy, useListedFoods, usesOf, variantsOf } from "../foods";
+import { backToOriginal, sharedEdit, useListedFoods, usesOf, variantsOf } from "../foods";
 import { todayKey } from "../time";
 import { PortionList } from "./PortionList";
 import { FoodRow, FoodSearch } from "../ui/FoodSearch";
@@ -62,6 +62,9 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const [busy, setBusy] = useState(false);
   const [lookedUp, setLookedUp] = useState(item.barcode ?? "");
   const [offer, setOffer] = useState<OpenFoodFactsResult>();
+  const [scope, setScope] = useState<"me" | "everyone">("me");
+  const original = item.mine?.original;
+  const yours = (key: OverrideKey) => original !== undefined && key in original;
 
   const next = labelFrom(draft);
   const unit = next ? unitOf(draft) : item.unit;
@@ -107,9 +110,37 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
     return [...item.labels.filter((l) => l.from < changedFrom), { ...next, from: changedFrom }];
   };
 
-  const save = (unsure: boolean, change: "fix" | "changed" = "fix") => {
-    const input = ownCopy(build(labelsFor(change), unsure), item);
-    onSaved({ ...item, ...input }, saveFood(input));
+  /** A public item is changed just for the person, or for everyone; their own items as they are. */
+  const save = (unsure: boolean, change: "fix" | "changed" = "fix", to = scope) => {
+    const input = build(labelsFor(change), unsure);
+    if (!item.public) onSaved({ ...item, ...input }, saveFood(input));
+    else if (to === "me") onSaved({ ...item, ...input }, saveOwnValues(input));
+    else onSaved({ ...item, ...sharedEdit(input, item) }, saveFood(sharedEdit(input, item)));
+  };
+
+  /** Takes effect at once for that field; other unsaved edits stay in the form. */
+  const revert = (key: OverrideKey) => {
+    if (!original) return;
+    void saveOwnValues(backToOriginal(item, key));
+    if (key === "name") setName(original.name ?? item.name);
+    if (key === "variant") setVariant(original.variant ?? "");
+    if (key === "brand") setBrand(original.brand ?? "");
+    if (key === "icon" || key === "iconAuto") setIcon(original.iconAuto ? undefined : (original.icon ?? item.icon));
+    if (key === "labels" && original.labels) setDraft(draftFrom(item.unit, labelAt({ ...item, labels: original.labels }), offThePackage));
+    if (key === "servings" && original.servings) setServings(original.servings);
+  };
+
+  const yoursTag = (...keys: OverrideKey[]) => {
+    const own = keys.filter(yours);
+    if (!own.length) return null;
+    return (
+      <span className="yours-tag">
+        <span className="badge badge-yours">Yours</span>
+        <button className="link-btn" onClick={() => own.forEach(revert)}>
+          Back to original
+        </button>
+      </span>
+    );
   };
 
   const makeEntryOnly = async () => {
@@ -149,17 +180,19 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
     else if (product.label) setOffer(product);
   };
 
-  const trySave = (unsure: boolean) => {
+  const trySave = (unsure: boolean, to: "me" | "everyone" = "me") => {
+    setScope(to);
     if (changed && used && !item.unsure) setAsking(true);
-    else save(unsure);
+    else save(unsure, "fix", to);
   };
 
   return (
     <div className="item-editor">
-      <div className="name-row">
+      <div className={`name-row ${yours("name") || yours("icon") ? "field-yours" : ""}`}>
         <IconField value={icon} fallback={autoFoodIcon(name, "item", unit)} groups={["food", "drink"]} onChange={setIcon} />
         <input className="big-text" placeholder="Name" autoFocus={!item.name} value={name} onChange={(e) => setName(e.target.value)} />
       </div>
+      {yoursTag("name", "icon", "iconAuto")}
       {item.unsure && onCombo && (
         <div className="segmented small" role="radiogroup" aria-label="Kind">
           <button role="radio" aria-selected={!asCombo} onClick={() => setAsCombo(false)}>
@@ -170,7 +203,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           </button>
         </div>
       )}
-      {item.public && <p className="hint">A built-in item. Saving makes it your own copy.</p>}
+      {item.public && <p className="hint">Shared with everyone. Change it just for you, or fix it for everyone.</p>}
       {item.unsure && onMerged && (
         <button className="link-btn" onClick={() => setMerging(true)}>
           It's something I already have…
@@ -185,12 +218,12 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
         </div>
       ) : (
         <>
-          <label className="field compact">
-            <span className="field-label">Variant</span>
+          <label className={`field compact ${yours("variant") ? "field-yours" : ""}`}>
+            <span className="field-label">Variant {yoursTag("variant")}</span>
             <input className="text-input" placeholder="Flavour, size, raw or cooked" value={variant} onChange={(e) => setVariant(e.target.value)} />
           </label>
-          <label className="field compact">
-            <span className="field-label">Brand</span>
+          <label className={`field compact ${yours("brand") ? "field-yours" : ""}`}>
+            <span className="field-label">Brand {yoursTag("brand")}</span>
             <input className="text-input" placeholder="Who makes or sells it" value={brand} onChange={(e) => setBrand(e.target.value)} />
           </label>
           {siblings.length > 0 && (
@@ -233,8 +266,8 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
             )}
           </div>
 
-          <div className="field">
-            <span className="field-label">Label</span>
+          <div className={`field ${yours("labels") ? "field-yours" : ""}`}>
+            <span className="field-label">Label {yoursTag("labels")}</span>
             <LabelForm draft={draft} onChange={setDraft} />
             {latest && item.labels.length > 1 && (
               <details className="version-history">
@@ -251,8 +284,8 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
             )}
           </div>
 
-          <div className="field">
-            <span className="field-label">Servings</span>
+          <div className={`field ${yours("servings") ? "field-yours" : ""}`}>
+            <span className="field-label">Servings {yoursTag("servings")}</span>
             <p className="hint">What a slice, pack or mug means for this item, in {unit === "piece" ? "pieces" : unit}.</p>
             {servings.map((s, i) => (
               <div key={i} className="serving-row">
@@ -309,6 +342,15 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
             </button>
             <button className="btn btn-block" disabled={!name.trim()} onClick={() => trySave(true)}>
               Keep unsure
+            </button>
+          </div>
+        ) : item.public ? (
+          <div className="save-choices">
+            <button className="btn btn-primary btn-block" disabled={!name.trim()} onClick={() => trySave(false, "me")}>
+              Save just for me
+            </button>
+            <button className="btn btn-block" disabled={!name.trim()} onClick={() => trySave(false, "everyone")}>
+              Fix it for everyone
             </button>
           </div>
         ) : (

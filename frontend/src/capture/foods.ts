@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { autoFoodIcon, BEGINNING, currentBatch, groupKey, isFinished, type Amount, type Batch, type Food, type FoodInput, type FoodItem, type FoodLookup, type FoodUsage, labelAt, type Recipe } from "@dash/core";
+import { autoFoodIcon, BEGINNING, currentBatch, deepEqual, groupKey, isFinished, type Amount, type Batch, type Food, type FoodInput, type FoodItem, type FoodItemInput, type FoodLookup, type FoodUsage, labelAt, type OverrideKey, type Recipe } from "@dash/core";
 import { asNewFood, useFoods } from "../queries/foods.queries";
 
 /**
@@ -102,7 +102,38 @@ export const ownCopy = <T extends { id: string; originId?: string }>(input: T, s
 /** The writable part of a stored food, for saving it again with a change. */
 export function foodInput(f: Food): FoodInput {
   const { revision: _, deleted: __, public: ___, starter: ____, ...rest } = f;
+  if (rest.kind === "item") {
+    const { mine: _m, ...item } = rest;
+    return item;
+  }
   if (rest.kind !== "recipe") return rest;
   const { batches: _____, ...recipe } = rest;
   return recipe;
+}
+
+/**
+ * An edit of a public item meant for everyone. The editor shows the person's own values, so a
+ * field they didn't touch goes back to the public value instead of spreading theirs.
+ */
+export function sharedEdit(input: FoodItemInput, item: FoodItem): FoodItemInput {
+  const original = item.mine?.original;
+  if (!original) return input;
+  const out: Record<string, unknown> = { ...input };
+  for (const key of Object.keys(original) as OverrideKey[]) {
+    if (!deepEqual(input[key] ?? null, item[key] ?? null)) continue;
+    const value = original[key];
+    if (value === null) delete out[key];
+    else out[key] = value;
+  }
+  return out as FoodItemInput;
+}
+
+/** The item with one field of the person's own put back to the public value. */
+export function backToOriginal(item: FoodItem, key: OverrideKey): FoodItemInput {
+  const out: Record<string, unknown> = { ...foodInput(item) };
+  const value = item.mine?.original[key];
+  if (value === null) delete out[key];
+  else if (value !== undefined) out[key] = value;
+  if (key === "icon" && item.mine?.original.iconAuto !== undefined) out.iconAuto = item.mine.original.iconAuto;
+  return out as FoodItemInput;
 }

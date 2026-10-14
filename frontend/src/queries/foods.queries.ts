@@ -1,6 +1,6 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { lookupOf, type Batch, type Food, type FoodInput, type StoredBatch, type UpdateFoodResponse } from "@dash/core";
+import { lookupOf, type Batch, type Food, type FoodInput, type FoodItemInput, type StoredBatch, type UpdateFoodResponse } from "@dash/core";
 import * as foodsApi from "../api/foods.api";
 import { queryClient as qc } from "./client";
 import { cachedFood, entriesChanged, mergeRows, putFoods } from "./cache";
@@ -66,6 +66,20 @@ export function saveFood(input: FoodInput, newFoods: FoodInput[] = []): Promise<
     onSuccess: (d) => putFoods(qc, d.newFoods),
     onError: hideNew,
   }).then((d) => ({ food: d.food, undoToken: "undoToken" in d ? (d as UpdateFoodResponse).undoToken : undefined }));
+}
+
+/** "Just for me" on a public item; the server works out which fields differ from it. */
+export async function saveOwnValues(input: FoodItemInput): Promise<{ food: Food; undoToken?: string }> {
+  const before = cachedFood(qc, input.id);
+  if (before) setFood(input.id)({ ...before, ...input } as Food);
+  try {
+    const { food } = await foodsApi.putOwnValues(input);
+    setFood(input.id)(food);
+    return { food };
+  } catch (error) {
+    if (before) setFood(input.id)(before);
+    throw error;
+  }
 }
 
 /** Soft: past entries keep pointing at it. */
