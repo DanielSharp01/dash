@@ -1,6 +1,6 @@
 /**
- * The publish button with why it isn't the suggestion attached on top, so the reasons read as
- * part of the choice. Publishing still works below the bar.
+ * The publish button with why it isn't the suggestion inside it, so the reasons read as part of
+ * the choice. Publishing still works below the bar.
  */
 export function PublishButton({ blockers, label, disabled, onClick }: { blockers: string[]; label: string; disabled?: boolean; onClick: () => void }) {
   if (!blockers.length)
@@ -10,16 +10,11 @@ export function PublishButton({ blockers, label, disabled, onClick }: { blockers
       </button>
     );
   return (
-    <div className="publish-block">
-      <div className="publish-note" role="note">
-        <strong>⚠ Not ready to share</strong>
-        {blockers.map((b) => (
-          <span key={b}>{b}</span>
-        ))}
-      </div>
-      <button className="btn btn-block" disabled={disabled} onClick={onClick}>
-        {label}
-      </button>
-    </div>
+    <button className="btn btn-block publish-warn" disabled={disabled} onClick={onClick}>
+      <span>{label}</span>
+      {blockers.map((b) => (
+        <small key={b}>⚠ {b}</small>
+      ))}
+    </button>
   );
 }
