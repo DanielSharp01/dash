@@ -46,7 +46,7 @@ import { lookupBarcode } from "../../queries/lookups.queries";
 import { useProfile } from "../../queries/me.queries";
 import { PortionList } from "../editors/PortionList";
 import { ItemEditor } from "../editors/ItemEditor";
-import { batchLabel, finishedBatches, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, useListedFoods, usualAmount, variantsOf } from "../foods";
+import { batchLabel, finishedBatches, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, useListedFoods, usualAmount, variantsOf, variationLabel } from "../foods";
 import { initialWhen, nowWhen } from "../time";
 import { AmountInput } from "../ui/AmountInput";
 import { Breakdown, ingredientRows } from "../ui/Breakdown";
@@ -710,9 +710,7 @@ function VariationChoice({ item, onChange }: { item: FoodItem; onChange: (v: Foo
   const others = variantsOf(listed, item);
   if (!others.length) return null;
   const all = [item, ...others];
-  const differs = (key: "variant" | "brand") => new Set(all.map((v) => v[key] ?? "")).size > 1;
-  const shownKeys = (["variant", "brand"] as const).filter(differs);
-  const label = (v: FoodItem) => shownKeys.map((k) => v[k]).filter(Boolean).join(" · ") || "Plain";
+  const label = (v: FoodItem) => variationLabel(v, listed) ?? "Plain";
   const variations = all.sort((a, b) => (a.brand ?? "").localeCompare(b.brand ?? "") || (a.variant ?? "").localeCompare(b.variant ?? ""));
   const pick = (v: FoodItem) => {
     setOpen(false);
@@ -917,6 +915,7 @@ function FoodCards({ via, onPick, onSearch, onScan }: { via: FoodEntry["via"]; o
             <button key={f.id} className={`tile drink-card ${f.kind === "recipe" ? "tile-leftover" : ""}`} onClick={() => onPick(f)}>
               <span className="tile-icon">{f.icon}</span>
               <span className="tile-label">{f.name}</span>
+              {f.kind === "item" && variationLabel(f, listed) && <span className="tile-variation">{variationLabel(f, listed)}</span>}
               <span className="tile-sub">{sub(f)}</span>
             </button>
           ))}

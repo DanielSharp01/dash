@@ -1228,6 +1228,15 @@ h1 {
   color: var(--muted);
 }
 
+.tile-variation {
+  font-size: 0.78rem;
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .exact-time {
   display: flex;
   flex-wrap: wrap;
