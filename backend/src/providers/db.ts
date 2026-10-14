@@ -4,7 +4,11 @@ import { env } from "../config/env";
 import { sqlFilterForDialect } from "@danielsharp/drizzle";
 
 export const pool = new Pool({
-  connectionString: env.DATABASE_URL,
+  host: env.DB_HOST,
+  port: env.DB_PORT,
+  user: env.DB_USER,
+  password: env.DB_PASSWORD,
+  database: env.DB_NAME,
 });
 
 export const db = drizzle({ client: pool, casing: "snake_case" });

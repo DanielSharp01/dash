@@ -1,12 +1,19 @@
 import "dotenv/config";
 import { defineConfig } from "vitest/config";
 
-/** Tests run against a throwaway database next to the dev one, recreated on every run. */
-function testDatabaseUrl() {
-  if (process.env.TEST_DATABASE_URL) return process.env.TEST_DATABASE_URL;
-  const url = new URL(process.env.DATABASE_URL!);
-  url.pathname = "/dash_test";
-  return url.toString();
+/**
+ * Tests run against a throwaway database, recreated on every run. Each TEST_DB_* overrides its
+ * DB_* counterpart, so the tests can use a local server while development points elsewhere.
+ */
+function testDatabase() {
+  const pick = (key: string, fallback?: string) => process.env[`TEST_DB_${key}`] ?? process.env[`DB_${key}`] ?? fallback;
+  return {
+    DB_HOST: pick("HOST")!,
+    DB_PORT: pick("PORT", "5432")!,
+    DB_USER: pick("USER")!,
+    DB_PASSWORD: pick("PASSWORD")!,
+    DB_NAME: process.env.TEST_DB_NAME ?? "dash_test",
+  };
 }
 
 export default defineConfig({
@@ -16,7 +23,7 @@ export default defineConfig({
     include: ["test/integration/**/*.test.ts", "test/e2e/**/*.test.ts"],
     globalSetup: ["./test/support/globalSetup.ts"],
     env: {
-      DATABASE_URL: testDatabaseUrl(),
+      ...testDatabase(),
       API_HOST: "http://localhost:5173",
       REDIS_URL: process.env.TEST_REDIS_URL ?? `${process.env.REDIS_URL ?? "redis://localhost:6379"}/15`,
     },

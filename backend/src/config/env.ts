@@ -10,7 +10,11 @@ export const env = zodStringify(
     /** 0.0.0.0 inside a container, so the published port reaches the server. */
     HOST: z.string().default("localhost"),
     REDIS_URL: z.string(),
-    DATABASE_URL: z.string(),
+    DB_HOST: z.string(),
+    DB_PORT: z.number().default(5432),
+    DB_USER: z.string(),
+    DB_PASSWORD: z.string(),
+    DB_NAME: z.string(),
     /** The origin the browser sees, e.g. https://dash.example.com; sign-in redirects back to it. */
     API_HOST: z.url().transform((u) => u.replace(/\/+$/, "")),
     OFF_USER_AGENT: z.string().default("Dash/0.1 (personal nutrition tracker)"),
