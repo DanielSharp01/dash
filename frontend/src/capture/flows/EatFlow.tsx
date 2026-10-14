@@ -46,7 +46,7 @@ import { lookupBarcode } from "../../queries/lookups.queries";
 import { useProfile } from "../../queries/me.queries";
 import { PortionList } from "../editors/PortionList";
 import { ItemEditor } from "../editors/ItemEditor";
-import { batchLabel, finishedBatches, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, useListedFoods, usualAmount, variantsOf, variationLabel } from "../foods";
+import { batchLabel, finishedBatches, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, useListedFoods, usualAmount, variantsOf } from "../foods";
 import { initialWhen, nowWhen } from "../time";
 import { AmountInput } from "../ui/AmountInput";
 import { Breakdown, ingredientRows } from "../ui/Breakdown";
@@ -702,7 +702,7 @@ function BatchChoice({ recipe, batchId, onChange }: { recipe: Recipe; batchId?: 
 /** Other flavours or packs of the item, by its name; the amount carries over where it fits. */
 /**
  * Other flavours or packs of the item, by its name; the amount carries over where it fits. One
- * dropdown however many there are, showing only what tells them apart.
+ * dropdown however many there are.
  */
 function VariationChoice({ item, onChange }: { item: FoodItem; onChange: (v: FoodItem) => void }) {
   const listed = useListedFoods();
@@ -710,7 +710,7 @@ function VariationChoice({ item, onChange }: { item: FoodItem; onChange: (v: Foo
   const others = variantsOf(listed, item);
   if (!others.length) return null;
   const all = [item, ...others];
-  const label = (v: FoodItem) => variationLabel(v, listed) ?? "Plain";
+  const label = (v: FoodItem) => [v.variant, v.brand].filter(Boolean).join(" · ") || "Plain";
   const variations = all.sort((a, b) => (a.brand ?? "").localeCompare(b.brand ?? "") || (a.variant ?? "").localeCompare(b.variant ?? ""));
   const pick = (v: FoodItem) => {
     setOpen(false);

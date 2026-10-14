@@ -32,17 +32,6 @@ export const finishedBatches = (r: Recipe) => liveBatches(r).filter(isFinished);
 
 export const batchLabel = (b: Pick<Batch, "madeOn">) => new Date(`${b.madeOn}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
-/**
- * What tells an item apart from others with its name: the variant, the brand, or both, whichever
- * differ among them. Undefined for an item whose name is its own.
- */
-export function variationLabel(item: FoodItem, list: Food[]): string | undefined {
-  const all = [item, ...variantsOf(list, item)];
-  if (all.length < 2) return undefined;
-  const keys = (["variant", "brand"] as const).filter((k) => new Set(all.map((v) => v[k] ?? "")).size > 1);
-  return keys.map((k) => item[k]).filter(Boolean).join(" · ") || "Plain";
-}
-
 /** Items sharing a name are variants of one another. */
 export const variantsOf = (list: Food[], item: Pick<FoodItem, "id" | "name">) =>
   list.filter((f): f is FoodItem => f.kind === "item" && f.id !== item.id && !f.unsure && groupKey(f.name) === groupKey(item.name));
