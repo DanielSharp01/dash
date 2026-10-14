@@ -100,7 +100,7 @@ export function ProvenanceField({ value, onChange }: { value: Provenance; onChan
           type="url"
           placeholder="Where you found it (link)"
           value={value.url ?? ""}
-          onChange={(e) => onChange({ verified: value.verified, origin: "online", ...(e.target.value.trim() ? { url: e.target.value.trim() } : {}) })}
+          onChange={(e) => onChange({ verified: false, origin: "online", ...(e.target.value.trim() ? { url: e.target.value.trim() } : {}) })}
           aria-label="Link to where the values were found"
         />
       )}

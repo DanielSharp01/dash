@@ -178,6 +178,7 @@ describe("schemas", () => {
     expect(ok({ verified: true })).toBe(true);
     expect(ok({ verified: true, origin: "open-food-facts", originRev: 12 })).toBe(true);
     expect(ok({ verified: false, origin: "online", url: "https://example.com/menu" })).toBe(true);
+    expect(ok({ verified: true, origin: "online", url: "https://example.com/menu" })).toBe(false);
     expect(ok({ verified: false })).toBe(false);
     expect(ok({ verified: true, origin: "usda" })).toBe(false);
     expect(ok({ verified: true, origin: "estimate" })).toBe(false);

@@ -38,8 +38,11 @@ export const nutrientsSchema = z.partialRecord(nutrientKeySchema, amountNumber);
 export const foodUnitSchema = z.enum(["g", "ml", "piece"]);
 /** What filled a label in. Absent means typed straight off the package. */
 export const labelOriginSchema = z.enum(["open-food-facts", "usda", "ciqual", "online", "estimate"]);
-/** Reference tables and estimates have no package to check against. */
-export const checkableOrigins: readonly (LabelOrigin | undefined)[] = [undefined, "open-food-facts", "online"];
+/**
+ * Only a package, or a prefill someone checked against one, is verified. Reference tables and
+ * estimates have no package, and values are looked up online because none is at hand.
+ */
+export const checkableOrigins: readonly (LabelOrigin | undefined)[] = [undefined, "open-food-facts"];
 
 /**
  * Values as printed on the package: per 100 of the item's unit, or per serving. Provenance is
