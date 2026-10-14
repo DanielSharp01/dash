@@ -156,8 +156,10 @@ export const foodsTable = pgTable(
     barcode: text(),
     notFluid: boolean().notNull().default(false),
     unsure: boolean().notNull().default(false),
-    /** The key in backend/src/seeds/; public rows only. */
+    /** The key in backend/src/seeds/; seeded public rows only. */
     publicKey: text().unique(),
+    /** Who made a public row public; seeds have none. */
+    publishedBy: uuid().references(() => usersTable.id, { onDelete: "set null" }),
     starter: boolean().notNull().default(false),
     /** Duplicated from this public item; provenance only. */
     originId: uuid(),
@@ -172,7 +174,7 @@ export const foodsTable = pgTable(
     index().on(t.userId),
     index("foods_user_barcode").on(t.userId, t.barcode).where(sql`${t.barcode} is not null`),
     check("foods_item_unit", sql`(${t.kind} = 'item') = (${t.unit} is not null)`),
-    check("foods_public_key", sql`(${t.userId} is null) = (${t.publicKey} is not null)`),
+    check("foods_seed_key", sql`${t.publicKey} is null or ${t.userId} is null`),
     check("foods_starter_public", sql`not ${t.starter} or ${t.userId} is null`),
   ],
 );
