@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { autoFoodIcon, basisLabel, BEGINNING, type Combo, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, type OverrideKey, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
+import { autoFoodIcon, basisLabel, BEGINNING, type Combo, energyMismatch, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, type OverrideKey, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
 import { completeAsCombo, mergeFood } from "../../queries/commands.queries";
 import { saveFood, saveOwnValues, useFoodUsage, useFoods } from "../../queries/foods.queries";
 import { productForBarcode } from "../../queries/lookups.queries";
@@ -65,6 +65,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const [scope, setScope] = useState<"me" | "everyone">("me");
   // Fields put back to the public value in the form; like any edit, they only count once saved.
   const [reverted, setReverted] = useState<OverrideKey[]>([]);
+  const [doubtful, setDoubtful] = useState(false);
   const original = item.mine?.original;
   const yours = (key: OverrideKey) => original !== undefined && key in original;
 
@@ -200,9 +201,11 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
     else if (product.label) setOffer(product);
   };
 
-  const trySave = (unsure: boolean, to: "me" | "everyone" = "me") => {
+  const trySave = (unsure: boolean, to: "me" | "everyone" = "me", sharingChecked = false) => {
     setScope(to);
-    if (changed && used && !item.unsure && !reverted.includes("labels")) setAsking(true);
+    // Sharing a label whose macros don't add up asks first; a typo shouldn't reach everyone.
+    if (to === "everyone" && !sharingChecked && next && energyMismatch(next.values) !== undefined) setDoubtful(true);
+    else if (changed && used && !item.unsure && !reverted.includes("labels")) setAsking(true);
     else save(unsure, "fix", to);
   };
 
@@ -413,6 +416,42 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
               void merge(target);
             }}
           />
+        </Sheet>
+      )}
+
+      {doubtful && next && (
+        <Sheet title="The macros don't add up" onClose={() => setDoubtful(false)}>
+          <p className="hint">
+            They make about {energyMismatch(next.values)} kcal, but the label says {next.values.kcal}. Everyone would get this label.
+          </p>
+          <button
+            className="row row-choice"
+            onClick={() => {
+              setDoubtful(false);
+              trySave(false, "everyone", true);
+            }}
+          >
+            <span className="row-main">
+              <span className="row-title">Share it anyway</span>
+              <span className="row-sub">It's right, e.g. alcohol or lots of fibre</span>
+            </span>
+          </button>
+          <button
+            className="row row-choice"
+            onClick={() => {
+              setDoubtful(false);
+              trySave(false, "me");
+            }}
+          >
+            <span className="row-main">
+              <span className="row-title">Save just for me</span>
+            </span>
+          </button>
+          <button className="row row-choice" onClick={() => setDoubtful(false)}>
+            <span className="row-main">
+              <span className="row-title">Keep editing</span>
+            </span>
+          </button>
         </Sheet>
       )}
 
