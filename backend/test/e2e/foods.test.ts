@@ -33,6 +33,36 @@ describe("catalogue", () => {
   });
 });
 
+describe("loading", () => {
+  it("loads the person's own foods, the starters, and shared ones only once they've used them", async () => {
+    const u = await newUser();
+    const ids = async () => (await u.get("/foods")).body.foods.map((f: any) => f.id);
+    expect(await ids()).toContain(water);
+    expect(await ids()).not.toContain(onion);
+
+    await u.post("/entries", foodEntry([{ foodId: onion, amount: { value: 100, unit: "g" }, base: 100 }], "2026-09-10"));
+    expect(await ids()).toContain(onion);
+  });
+
+  it("loads what a used combo points at, so its total adds up", async () => {
+    const u = await newUser();
+    const salad = combo([{ foodId: onion, amount: { value: 50, unit: "g" } }]);
+    await u.post("/foods", salad);
+    expect((await u.get("/foods")).body.foods.map((f: any) => f.id)).toContain(onion);
+  });
+
+  it("searches the shared catalogue by name, variant or brand, ignoring accents and case", async () => {
+    const u = await newUser();
+    const owner = await newUser();
+    const fustli = item({ name: "Füstli", variant: "Csípős", brand: "Sága" });
+    await owner.post("/foods", fustli);
+    expect((await u.get("/foods/search?q=fustli")).body.foods.some((f: any) => f.id === fustli.id)).toBe(false);
+    await owner.post(`/foods/${fustli.id}/publish`);
+    for (const q of ["fustli", "FÜST", "csipos", "saga"]) expect((await u.get(`/foods/search?q=${encodeURIComponent(q)}`)).body.foods.some((f: any) => f.id === fustli.id)).toBe(true);
+    expect((await u.get("/foods/search?q=x")).status).toBe(400);
+  });
+});
+
 describe("creating", () => {
   it("returns 201, then the stored food with 200 on a retry, and 409 for someone else's id", async () => {
     const u = await newUser();
@@ -106,13 +136,13 @@ describe("replacing", () => {
 
   it("lets anyone fix a public item for everyone but not delete it, and treats someone else's as missing", async () => {
     const u = await newUser();
-    const stored = (await u.get("/foods")).body.foods.find((f: any) => f.id === onion);
+    const stored = (await u.get("/foods/search?q=onion")).body.foods.find((f: any) => f.id === onion);
     const { revision, deleted, public: _p, starter, ...input } = stored;
     const fixed = await u.put(`/foods/${onion}`, { ...input, variant: "raw, yellow", revision });
     expect(fixed.status).toBe(200);
     expect(fixed.body.food).toMatchObject({ variant: "raw, yellow", public: true, revision: revision + 1 });
     const someoneElse = await newUser();
-    expect((await someoneElse.get("/foods")).body.foods.find((f: any) => f.id === onion).variant).toBe("raw, yellow");
+    expect((await someoneElse.get("/foods/search?q=onion")).body.foods.find((f: any) => f.id === onion).variant).toBe("raw, yellow");
     await u.put(`/foods/${onion}`, { ...input, revision: revision + 1 });
 
     const other = await newUser();
@@ -186,7 +216,7 @@ describe("publishing", () => {
     const res = await u.post(`/foods/${own.id}/publish`);
     expect(res.status).toBe(200);
     expect(res.body.food).toMatchObject({ id: own.id, public: true, revision: 2 });
-    expect((await other.get("/foods")).body.foods.find((f: any) => f.id === own.id)).toMatchObject({ public: true, name: "Oat milk" });
+    expect((await other.get("/foods/search?q=oat milk")).body.foods.find((f: any) => f.id === own.id)).toMatchObject({ public: true, name: "Oat milk" });
 
     expect((await u.post(`/foods/${own.id}/publish`)).status).toBe(403);
   });
@@ -218,7 +248,7 @@ describe("publishing", () => {
     const res = await u.post(`/foods/${breakfast.id}/publish`);
     expect(res.status).toBe(200);
     expect(res.body.food).toMatchObject({ kind: "combo", public: true });
-    expect((await (await newUser()).get("/foods")).body.foods.some((f: any) => f.id === breakfast.id)).toBe(true);
+    expect((await (await newUser()).get("/foods/search?q=breakfast")).body.foods.some((f: any) => f.id === breakfast.id)).toBe(true);
   });
 
   it("refuses an unsure item and someone else's", async () => {
@@ -293,7 +323,7 @@ describe("batches", () => {
       [false, true],
     ]);
 
-    const seen = (await other.get("/foods")).body.foods.find((f: any) => f.id === chili.id);
+    const seen = (await other.get("/foods/search?q=chili")).body.foods.find((f: any) => f.id === chili.id);
     expect(seen.batches).toHaveLength(1);
     expect(seen.batches[0]).toMatchObject({ shared: true, yield: { portions: 4 } });
 

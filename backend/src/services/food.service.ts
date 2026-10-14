@@ -17,6 +17,8 @@ import {
   updateBatch,
   updateFood,
   visibleTo,
+  loadYourFoods,
+  searchShared,
   type BatchRef,
 } from "../repositories/food.repo";
 import { weakEtag } from "../http/respond";
@@ -50,7 +52,11 @@ export async function createFoodRow(tx: Tx, userId: string, input: FoodInput, un
 
 export async function listFoods(userId: string) {
   const version = await catalogueVersion(db, userId);
-  return { foods: await loadFoods(db, visibleTo(userId), userId), etag: weakEtag("foods", userId, version.count, version.latest) };
+  return { foods: await loadYourFoods(db, userId), etag: weakEtag("foods", userId, version.count, version.latest) };
+}
+
+export async function searchFoods(userId: string, query: string) {
+  return { foods: await searchShared(db, userId, query) };
 }
 
 export async function createFood(userId: string, req: FoodInput & { newFoods?: FoodInput[] | undefined }) {

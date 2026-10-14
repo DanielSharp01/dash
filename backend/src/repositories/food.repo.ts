@@ -1,9 +1,11 @@
-import { and, asc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import {
   nutrientKeys,
   type Batch,
   type Food,
   type FoodInput,
+  foldAccents,
+  foldText,
   type Label,
   type Nutrients,
   type Portion,
@@ -146,6 +148,61 @@ function toFood(
     labels: children.labels.map(toLabel),
     servings: children.servings.map((s) => ({ name: s.name, ...opt("size", s.size) })),
   };
+}
+
+/** Shared foods the person has used: in their entries, as a logged combo, or cooked in their own batches. */
+async function usedSharedIds(ex: Executor, userId: string) {
+  const lines = await ex
+    .selectDistinct({ id: entryLinesTable.foodId })
+    .from(entryLinesTable)
+    .innerJoin(entriesTable, eq(entriesTable.id, entryLinesTable.entryId))
+    .where(and(eq(entriesTable.userId, userId), isNotNull(entryLinesTable.foodId)));
+  const combos = await ex
+    .selectDistinct({ id: entriesTable.comboId })
+    .from(entriesTable)
+    .where(and(eq(entriesTable.userId, userId), isNotNull(entriesTable.comboId)));
+  const cooked = await ex.selectDistinct({ id: batchesTable.recipeId }).from(batchesTable).where(eq(batchesTable.userId, userId));
+  return [...new Set([...lines, ...combos, ...cooked].map((r) => r.id).filter((id): id is string => !!id))];
+}
+
+/**
+ * What the person loads up front: their own foods, the shared ones they've used or published,
+ * the starters, and whatever those point at. The rest of the catalogue comes by search or barcode.
+ */
+export async function loadYourFoods(ex: Executor, userId: string): Promise<Food[]> {
+  const used = await usedSharedIds(ex, userId);
+  const shared = or(eq(foodsTable.publishedBy, userId), eq(foodsTable.starter, true), used.length ? inArray(foodsTable.id, used) : undefined);
+  return withReferenced(ex, userId, await loadFoods(ex, or(eq(foodsTable.userId, userId), and(isNull(foodsTable.userId), shared)), userId));
+}
+
+/** Adds the foods that combos and batches point at, until nothing is missing, so totals always add up. */
+export async function withReferenced(ex: Executor, userId: string, foods: Food[]): Promise<Food[]> {
+  const byId = new Map(foods.map((f) => [f.id, f]));
+  for (;;) {
+    const missing = new Set<string>();
+    for (const f of byId.values()) {
+      const refs = f.kind === "combo" ? f.parts.map((p) => p.foodId) : f.kind === "recipe" ? f.batches.flatMap((b) => b.ingredients.map((i) => i.foodId)) : [];
+      for (const id of refs) if (!byId.has(id)) missing.add(id);
+    }
+    if (!missing.size) return [...byId.values()];
+    const found = await loadFoods(ex, inArray(foodsTable.id, [...missing]), userId);
+    if (!found.length) return [...byId.values()];
+    for (const f of found) byId.set(f.id, f);
+  }
+}
+
+/** Shared, catalogued foods whose name, variant or brand contains the query, accents ignored. */
+export async function searchShared(ex: Executor, userId: string, query: string, limit = 30): Promise<Food[]> {
+  const text = sql`translate(lower(${foodsTable.name} || ' ' || coalesce(${foodsTable.variant}, '') || ' ' || coalesce(${foodsTable.brand}, '')), ${foldAccents.accented}, ${foldAccents.unaccented})`;
+  const pattern = `%${foldText(query.trim()).replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  const ids = await ex
+    .select({ id: foodsTable.id })
+    .from(foodsTable)
+    .where(and(isNull(foodsTable.userId), eq(foodsTable.catalogued, true), isNull(foodsTable.deletedAt), sql`${text} like ${pattern}`))
+    .orderBy(asc(foodsTable.name))
+    .limit(limit);
+  if (!ids.length) return [];
+  return withReferenced(ex, userId, await loadFoods(ex, inArray(foodsTable.id, ids.map((r) => r.id)), userId));
 }
 
 export async function loadFood(ex: Executor, id: string, viewer?: string): Promise<Food | undefined> {

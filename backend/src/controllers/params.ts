@@ -12,6 +12,9 @@ export const previewQuery = zodStringify(z.object({ preview: z.boolean().default
 /** `?batch=<id>` picks a published recipe's reference batch; the latest finished one otherwise. */
 export const publishQuery = zodStringify(z.object({ batch: idSchema.optional() }));
 
+/** `?q=` searches the shared catalogue by name, variant and brand, accents ignored. */
+export const searchQuery = zodStringify(z.object({ q: z.string().trim().min(2).max(100) }));
+
 export function written<T>(out: WriteResult<T> | { kind: "done"; result: T }): Responded<T | Preview> {
   return out.kind === "preview" ? ok(out.preview) : ok(out.result);
 }

@@ -47,3 +47,10 @@ export function usesFood(f: Food, id: string) {
   if (f.kind === "recipe") return f.batches.some((b) => !b.deleted && b.ingredients.some((p) => p.foodId === id));
   return false;
 }
+
+const accented = "áàâäãåéèêëíìîïóòôöõőúùûüűçñ";
+const unaccented = "aaaaaaeeeeiiiioooooouuuuucn";
+export const foldAccents = { accented, unaccented };
+
+/** Lower-case without accents, for search: "fustli" finds Füstli. Grouping by name stays accent-sensitive. */
+export const foldText = (text: string) => [...text.toLowerCase()].map((c) => unaccented[accented.indexOf(c)] ?? c).join("");

@@ -18,7 +18,7 @@ import { z } from "zod";
 import { created, jsonSend, ok } from "../http/respond";
 import { authedRouter } from "../routers";
 import * as foods from "../services/food.service";
-import { idParams, previewQuery, publishQuery, written } from "./params";
+import { idParams, previewQuery, publishQuery, searchQuery, written } from "./params";
 
 const batchParams = z.object({ recipeId: idSchema, batchId: idSchema });
 
@@ -31,6 +31,13 @@ export function foodController() {
         const { foods: list, etag } = await foods.listFoods(auth.userId);
         return ok({ foods: list }, etag);
       })
+      .pipe(jsonSend(foodsResponseSchema, 200)),
+  );
+
+  r.get("/foods/search", (line) =>
+    line
+      .pipe(validateQuery(searchQuery))
+      .pipe(async ({ auth, query }) => ok(await foods.searchFoods(auth.userId, query.q)))
       .pipe(jsonSend(foodsResponseSchema, 200)),
   );
 
