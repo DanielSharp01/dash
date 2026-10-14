@@ -1,18 +1,9 @@
-import { type ReactNode, useEffect, useState } from "react";
-
-/** The value once it has stopped changing for a moment, so typing doesn't search on every key. */
-function useDebounced<T>(value: T, ms: number) {
-  const [settled, setSettled] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setSettled(value), ms);
-    return () => clearTimeout(timer);
-  }, [value, ms]);
-  return settled;
-}
+import type { ReactNode } from "react";
 import { basisLabel, batchPerUnit, displayName, foldText, type Food, type FoodLookup, labelAt, latestBatch, loggable, round } from "@dash/core";
 import { rememberFoods, useCatalogueSearch, useFoodLookup } from "../../queries/foods.queries";
 import { batchLabel, useListedFoods } from "../foods";
 import { canScan } from "./Scanner";
+import { useDebounced } from "./useDebounced";
 
 export function foodSummary(f: Food, foods: FoodLookup): string {
   if (f.kind === "combo") return f.parts.map((p) => foods(p.foodId)?.name ?? "?").join(" + ") || "empty combo";

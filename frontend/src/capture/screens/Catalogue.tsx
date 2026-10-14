@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router";
-import { type Activity, asItem, asRecipe, autoActivityIcon, autoFoodIcon, type Combo, defaultBurn, displayName, type Food, type FoodItem } from "@dash/core";
+import { type Activity, asItem, asRecipe, autoActivityIcon, autoFoodIcon, type Combo, defaultBurn, displayName, foldText, type Food, type FoodItem } from "@dash/core";
 import { deleteActivity, restoreActivity, saveActivity, useActivityLookup } from "../../queries/activities.queries";
-import { asNewFood, deleteBatch, deleteFood, restoreBatch, restoreFood, saveBatch, saveFood, useFoodLookup, useFoodUsage } from "../../queries/foods.queries";
+import { asNewFood, deleteBatch, deleteFood, restoreBatch, rememberFoods, restoreFood, saveBatch, saveFood, useCatalogueSearch, useFoodLookup, useFoodUsage } from "../../queries/foods.queries";
 import { useListedActivities } from "../activities";
 import { undoBy } from "../errors";
 import { ActivityEditor } from "../editors/ActivityEditor";
@@ -11,6 +11,7 @@ import { ItemEditor } from "../editors/ItemEditor";
 import { BatchEditor, createRecipe, RecipeEditor, startBatch } from "../editors/RecipeEditors";
 import { blankItem, duplicateItem, ownCopy, unfinishedBatch, useListedFoods, usesOf } from "../foods";
 import { FlowShell } from "../ui/FlowShell";
+import { useDebounced } from "../ui/useDebounced";
 import { FoodRow } from "../ui/FoodSearch";
 import { notify } from "../ui/notify";
 import { Sheet } from "../ui/Sheet";
@@ -35,10 +36,18 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
   const activities = useListedActivities();
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<string>();
-  const q = query.trim().toLowerCase();
+  const q = foldText(query.trim());
   const meta = tabs.find((t) => t.tab === tab)!;
-  const matches = (name: string) => !q || name.toLowerCase().includes(q);
+  const matches = (name: string) => !q || foldText(name).includes(q);
   const foods = listed.filter((f) => f.kind === meta.kind && matches(displayName(f)));
+  const lookup = useFoodLookup();
+  const shared = useCatalogueSearch(useDebounced(q, 250)).data ?? [];
+  // The rest of the shared catalogue, reachable by searching; opening one keeps it for this session.
+  const fromCatalogue = q && meta.kind ? shared.filter((f) => f.kind === meta.kind && !f.deleted && !lookup(f.id) && matches(displayName(f))) : [];
+  const openShared = (f: Food) => {
+    rememberFoods(shared);
+    open(`/${tab}/${f.id}`);
+  };
   const uses = (id: string) => usesOf(usage, id);
   const unsure = foods.filter((f) => f.kind === "item" && f.unsure).sort((a, b) => uses(b.id) - uses(a.id));
   const rest = foods.filter((f) => !unsure.includes(f)).sort((a, b) => a.name.localeCompare(b.name));
@@ -129,7 +138,17 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
               ),
             )}
           </ul>
-          {foods.length === 0 && <p className="empty">{q ? `Nothing matches “${query.trim()}”.` : tab === "combos" ? "A combo is things you have together, like coffee with milk." : "Nothing here yet."}</p>}
+          {fromCatalogue.length > 0 && (
+            <>
+              <h2 className="list-heading">From the shared catalogue</h2>
+              <ul className="list">
+                {fromCatalogue.map((f) => (
+                  <FoodRow key={f.id} food={f} onPick={() => openShared(f)} />
+                ))}
+              </ul>
+            </>
+          )}
+          {foods.length === 0 && fromCatalogue.length === 0 && <p className="empty">{q ? `Nothing matches “${query.trim()}”.` : tab === "combos" ? "A combo is things you have together, like coffee with milk." : "Nothing here yet."}</p>}
         </>
       )}
     </FlowShell>
