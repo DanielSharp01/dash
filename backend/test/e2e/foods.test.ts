@@ -40,7 +40,9 @@ describe("loading", () => {
     expect(await ids()).toContain(water);
     expect(await ids()).not.toContain(onion);
 
+    const etag = (await u.get("/foods")).headers.get("etag")!;
     await u.post("/entries", foodEntry([{ foodId: onion, amount: { value: 100, unit: "g" }, base: 100 }], "2026-09-10"));
+    expect((await u.get("/foods", { "if-none-match": etag })).status).toBe(200);
     expect(await ids()).toContain(onion);
   });
 

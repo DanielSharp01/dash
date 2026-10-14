@@ -4,7 +4,6 @@ import { asItem, type Batch, type Food, type FoodInput, type FoodItemInput, isFi
 import { batchesTable, batchIngredientsTable, comboPartsTable, entriesTable, entryLinesTable, foodsTable } from "../db/schema";
 import { db, type Executor, type Tx } from "../providers/db";
 import {
-  catalogueVersion,
   foodRefRows,
   insertBatch,
   insertFood,
@@ -50,9 +49,14 @@ export async function createFoodRow(tx: Tx, userId: string, input: FoodInput, un
   return true;
 }
 
+/**
+ * The ETag describes the loaded set itself: which foods are the person's changes as they log
+ * shared ones, so a tag over the whole catalogue would answer "unchanged" to a stale list.
+ */
 export async function listFoods(userId: string) {
-  const version = await catalogueVersion(db, userId);
-  return { foods: await loadYourFoods(db, userId), etag: weakEtag("foods", userId, version.count, version.latest) };
+  const foods = await loadYourFoods(db, userId);
+  const version = foods.map((f) => [f.id, f.revision, f.deleted, f.kind === "recipe" ? f.batches.map((b) => [b.id, b.revision, b.deleted]) : []]);
+  return { foods, etag: weakEtag("foods", userId, version) };
 }
 
 export async function searchFoods(userId: string, query: string) {

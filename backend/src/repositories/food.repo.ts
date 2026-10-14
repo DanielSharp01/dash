@@ -329,14 +329,6 @@ export async function hardDeleteFood(ex: Executor, id: string) {
   await ex.delete(foodsTable).where(eq(foodsTable.id, id));
 }
 
-export async function catalogueVersion(ex: Executor, userId: string) {
-  const [row] = await ex
-    .select({ count: sql<number>`count(*)::int`, latest: sql<string | null>`max(${foodsTable.updatedAt})::text` })
-    .from(foodsTable)
-    .where(visibleTo(userId));
-  return row!;
-}
-
 export type BatchRef = { recipeId: string; owner: string | null; batch: StoredBatch };
 
 export async function loadBatch(ex: Executor, id: string, opts: { lock?: boolean } = {}): Promise<BatchRef | undefined> {
