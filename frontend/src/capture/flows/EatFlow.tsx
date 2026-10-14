@@ -14,7 +14,6 @@ import {
   defaultAmount,
   displayName,
   estimated,
-  groupKey,
   type Food,
   type FoodData,
   type FoodEntry,
@@ -890,15 +889,7 @@ function FoodCards({ via, onPick, onSearch, onScan }: { via: FoodEntry["via"]; o
         : [...leftovers(listed), ...recentFoodIds(usage, "ate").map(foods), ...starters];
     const live = new Set(listed);
     const offered = (f: Food | undefined): f is Food => !!f && live.has(f) && loggable(f) && !(f.kind === "item" && f.unsure) && (via === "ate" || drink(f));
-    // Variations share one card, showing whichever comes first: the one used last or most.
-    const seen = new Set<string>();
-    const firstOfGroup = (f: Food) => {
-      const key = f.kind === "item" ? `item:${groupKey(f.name)}` : f.id;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    };
-    return ordered.filter((f): f is Food => offered(f) && firstOfGroup(f)).slice(0, via === "drank" ? 12 : 9);
+    return ordered.filter((f, i, all): f is Food => offered(f) && all.indexOf(f) === i).slice(0, via === "drank" ? 12 : 9);
   }, [usage, foods, listed, via]);
 
   const sub = (f: Food) => {
