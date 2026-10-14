@@ -30,7 +30,7 @@ export function FoodRow({ food, onPick, sub, open }: { food: Food; onPick: (f: F
           <span className="row-title">
             {food.name} {food.kind === "item" && food.variant && <span className="badge badge-variant">{food.variant}</span>}
             {food.kind === "item" && food.brand && <span className="badge badge-brand">{food.brand}</span>}
-            {food.kind === "item" && food.mine && <span className="badge badge-yours">Yours</span>}
+            {!food.public && food.originId && <span className="badge badge-yours">Yours</span>}
             {food.kind === "combo" && <span className="badge badge-muted">combo</span>}
             {food.kind === "recipe" && <span className="badge badge-muted">recipe</span>}
             {food.kind === "item" && food.unsure && <span className="badge badge-warn">Unsure</span>}

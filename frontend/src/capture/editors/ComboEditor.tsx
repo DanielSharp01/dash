@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { asItem, autoFoodIcon, displayName, type Batch, type Combo, type ComboInput, type FoodLookup, portionContents, type RecipeInput, withBase } from "@dash/core";
-import { publishFood, saveFood, useFoodLookup } from "../../queries/foods.queries";
-import { ownCopy } from "../foods";
+import { copyFood, publishFood, saveFood, useFoodLookup } from "../../queries/foods.queries";
 import { NutritionPreview } from "../flows/EatFlow";
 import { todayKey } from "../time";
 import { IconField } from "../ui/Pickers";
@@ -24,13 +23,10 @@ export function ComboEditor({
   combo,
   onSaved,
   onToRecipe,
-  onBackToShared,
 }: {
   combo: Combo;
   onSaved: (c: Combo, saved: Promise<{ undoToken?: string }>) => void;
   onToRecipe?: (c: ComboInput) => void;
-  /** Only on a copy of a public combo: dropping the copy shows the shared one again. */
-  onBackToShared?: () => void;
 }) {
   const foods = useFoodLookup();
   const [name, setName] = useState(combo.name);
@@ -61,10 +57,12 @@ export function ComboEditor({
   // Everyone must be able to see every part, so private ones have to be published first.
   const privateParts = parts.map((p) => foods(p.foodId)).filter((f) => f && !f.public).map((f) => displayName(f!));
   const save = (publish: boolean) => {
-    const input = ownCopy(draft, combo);
-    const saved = saveFood(input);
-    onSaved({ ...combo, ...input }, publish ? saved.then(async (r) => (await publishFood(combo.id), r)) : saved);
+    const saved = saveFood(draft);
+    onSaved({ ...combo, ...draft }, publish ? saved.then(async (r) => (await publishFood(combo.id), r)) : saved);
   };
+  // The copy starts as the shared combo, with the edits made here on top.
+  const makeOwn = () => onSaved({ ...combo, ...draft }, copyFood(combo.id).then(({ food }) => saveFood({ ...draft, id: food.id, originId: combo.id })));
+  const sharedOrigin = !combo.public && combo.originId ? foods(combo.originId) : undefined;
 
   return (
     <div className="item-editor">
@@ -73,7 +71,8 @@ export function ComboEditor({
         <input className="big-text" placeholder="e.g. My coffee" autoFocus={!combo.name} value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       <p className="hint">Things you put together and have at once. Logging it uses these amounts; you can change any of them that day.</p>
-      {combo.public && <p className="hint">A built-in combo. Saving makes it your own copy.</p>}
+      {combo.public && <p className="hint">A shared combo. To change it, make your own version: a private copy your entries move to.</p>}
+      {sharedOrigin && <p className="hint own-version">Your own version of {sharedOrigin.name}. Changes to the shared one don't reach it.</p>}
 
       <div className="field">
         <span className="field-label">What's in it</span>
@@ -88,15 +87,14 @@ export function ComboEditor({
             Turn into a recipe
           </button>
         )}
-        {onBackToShared && (
-          <button className="btn btn-block" onClick={onBackToShared}>
-            Back to the shared combo
-          </button>
-        )}
       </div>
 
       <div className="flow-footer">
-        {combo.public || !combo.catalogued ? (
+        {combo.public ? (
+          <button className="btn btn-primary btn-block" disabled={!name.trim() || parts.length === 0} onClick={makeOwn}>
+            Make my own version
+          </button>
+        ) : !combo.catalogued ? (
           <button className="btn btn-primary btn-block" disabled={!name.trim() || parts.length === 0} onClick={() => save(false)}>
             Save
           </button>

@@ -47,7 +47,7 @@ import { lookupBarcode } from "../../queries/lookups.queries";
 import { useProfile } from "../../queries/me.queries";
 import { PortionList } from "../editors/PortionList";
 import { ItemEditor } from "../editors/ItemEditor";
-import { batchLabel, finishedBatches, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, sharedEdit, useListedFoods, usualAmount, variantsOf } from "../foods";
+import { batchLabel, finishedBatches, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, useListedFoods, usualAmount, variantsOf } from "../foods";
 import { initialWhen, nowWhen } from "../time";
 import { AmountInput } from "../ui/AmountInput";
 import { Breakdown, ingredientRows } from "../ui/Breakdown";
@@ -385,7 +385,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
   const canTakeBarcode = !!attachTo && !attachTo.barcode;
   const logAttached = (keep: boolean) => {
     if (!attachTo) return;
-    if (keep && barcode) void saveFood(sharedEdit({ ...(foodInput(attachTo) as FoodItemInput), barcode }, attachTo));
+    if (keep && barcode) void saveFood({ ...(foodInput(attachTo) as FoodItemInput), barcode });
     setBarcode(undefined);
     setLines([{ ...lineFor(attachTo, usual(attachTo)), ...(keep && barcode ? { barcode } : {}) }]);
     replace("amount");

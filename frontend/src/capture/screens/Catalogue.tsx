@@ -263,14 +263,6 @@ export function ComboRoute() {
       <ComboEditor
         key={combo.id}
         combo={stored ?? combo}
-        onBackToShared={
-          stored && !stored.public && stored.originId && foods(stored.originId)?.public
-            ? () => {
-                removeFood(stored);
-                close();
-              }
-            : undefined
-        }
         onSaved={(c, done) => {
           done.then((r) => notify(`Saved ${c.name}`, undoBy(r.undoToken)), () => {});
           close();

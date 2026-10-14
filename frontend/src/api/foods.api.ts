@@ -1,4 +1,4 @@
-import type { Batch, CreateFoodResponse, Food, FoodInput, FoodItemInput, FoodUsage, SaveBatchResponse, StoredBatch, UpdateFoodResponse } from "@dash/core";
+import type { Batch, CreateFoodResponse, Food, FoodInput, FoodUsage, SaveBatchResponse, StoredBatch, UpdateFoodResponse } from "@dash/core";
 import { api } from "./client";
 
 type WithNewFoods = { newFoods?: FoodInput[] };
@@ -10,7 +10,7 @@ export const putFood = (food: FoodInput & WithNewFoods & { revision: number }) =
 export const deleteFood = (id: string) => api.delete(`/foods/${id}`);
 /** A recipe takes the batch everyone starts from; the latest finished one otherwise. */
 export const publishFood = (id: string, batch?: string) => api.post<{ food: Food }>(`/foods/${id}/publish${batch ? `?batch=${batch}` : ""}`);
-export const putOwnValues = (food: FoodItemInput) => api.put<{ food: Food }>(`/foods/${food.id}/mine`, food);
+export const copyFood = (id: string) => api.post<{ food: Food }>(`/foods/${id}/copy`);
 export const restoreFood = (id: string) => api.post<Food>(`/foods/${id}/restore`);
 
 /** Revision 0 creates the batch. */

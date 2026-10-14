@@ -221,22 +221,6 @@ describe("publishing", () => {
     expect((await (await newUser()).get("/foods")).body.foods.some((f: any) => f.id === breakfast.id)).toBe(true);
   });
 
-  it("publishes an item as a new one and archives the person's own, whose entries keep their values", async () => {
-    const u = await newUser();
-    const own = item({ labels: [item().labels[0]!, { ...item().labels[0]!, from: "2026-10-01", values: { kcal: 45, protein: 1, carbs: 7, fat: 1 } }] });
-    await u.post("/foods", own);
-    const logged = await u.post("/entries", foodEntry([{ foodId: own.id, amount: { value: 1, unit: "glass" }, base: 200 }], "2026-09-10"));
-
-    const res = await u.post(`/foods/${own.id}/publish?as=new`);
-    expect(res.status).toBe(200);
-    expect(res.body.food.id).not.toBe(own.id);
-    expect(res.body.food).toMatchObject({ public: true, labels: [{ from: BEGINNING, values: { kcal: 45 } }] });
-    const foods = (await u.get("/foods")).body.foods;
-    expect(foods.find((f: any) => f.id === own.id)).toMatchObject({ public: false, deleted: true });
-    const entry = (await u.get("/entries?from=2026-09-10&to=2026-09-10")).body.entries.find((e: any) => e.id === logged.body.entry.id);
-    expect(entry.lines[0].foodId).toBe(own.id);
-  });
-
   it("refuses an unsure item and someone else's", async () => {
     const u = await newUser();
     const unsure = unsureItem();

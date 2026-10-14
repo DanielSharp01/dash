@@ -71,7 +71,7 @@ export function foodController() {
     line
       .pipe(validateParams(idParams))
       .pipe(validateQuery(publishQuery))
-      .pipe(async ({ auth, params, query }) => ok(await foods.publishFood(auth.userId, params.id, { batch: query.batch, asNew: query.as === "new" })))
+      .pipe(async ({ auth, params, query }) => ok(await foods.publishFood(auth.userId, params.id, query.batch)))
       .pipe(jsonSend(foodResponseSchema, 200)),
   );
 

@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { asItem, BEGINNING, type Batch, type Food, type FoodInput, type FoodItemInput, isFinished, type Recipe, type StoredBatch } from "@dash/core";
+import { asItem, type Batch, type Food, type FoodInput, type FoodItemInput, isFinished, type Recipe, type StoredBatch } from "@dash/core";
 import { batchesTable, batchIngredientsTable, comboPartsTable, entriesTable, entryLinesTable, foodsTable } from "../db/schema";
 import { db, type Executor, type Tx } from "../providers/db";
 import {
@@ -18,7 +18,6 @@ import {
   updateFood,
   visibleTo,
   type BatchRef,
-  type FoodRow,
 } from "../repositories/food.repo";
 import { weakEtag } from "../http/respond";
 import { claimId, editableFood, expectRevision, notFound, readOnly, sameId, unprocessable, visible, writable } from "./common";
@@ -87,12 +86,10 @@ export async function updateFoodDoc(
  * Makes one of the person's items public for everyone, with them recorded as its publisher.
  * Final through the app: others may be logging it straight away.
  */
-export async function publishFood(userId: string, id: string, opts: { batch?: string | undefined; asNew?: boolean } = {}) {
+export async function publishFood(userId: string, id: string, referenceBatchId?: string) {
   return db.transaction(async (tx) => {
     const row = writable(await lockFood(tx, id), userId);
     if (!row.catalogued || row.unsure || row.deletedAt) throw unprocessable("Only a filled-in food in the catalogue can be published");
-    if (opts.asNew) return publishAsNew(tx, userId, row);
-    const referenceBatchId = opts.batch;
     if (row.kind === "recipe") await publishReferenceBatch(tx, id, referenceBatchId);
     if (row.kind === "combo") {
       // Everyone must be able to see every part, so a private part has to be published first.
@@ -127,22 +124,6 @@ async function publishReferenceBatch(tx: Tx, recipeId: string, batchId?: string)
   if (own.length) throw unprocessable("Publish its ingredients first", { private: own });
   const { revision: _r, deleted: _d, shared: _s, ...batch } = chosen;
   await insertBatch(tx, recipeId, { ...batch, id: randomUUID(), gone: false }, null);
-}
-
-/**
- * Publishes a fresh public item with only the current label and archives the person's own, whose
- * past entries keep pointing at it and so keep the values they were logged with.
- */
-async function publishAsNew(tx: Tx, userId: string, row: FoodRow) {
-  if (row.kind !== "item") throw unprocessable("Only items can be published as a new item");
-  const own = asItem(await loadFood(tx, row.id))!;
-  const current = own.labels.at(-1);
-  const { revision: _r, deleted: _d, public: _p, starter: _s, originId: _o, ...input } = own;
-  const id = randomUUID();
-  await insertFood(tx, { userId: null }, { ...input, id, labels: current ? [{ ...current, from: BEGINNING }] : [] });
-  await tx.update(foodsTable).set({ publishedBy: userId }).where(eq(foodsTable.id, id));
-  await setFoodDeleted(tx, row.id, true, row.revision + 1);
-  return { food: (await loadFood(tx, id, userId))! };
 }
 
 /**

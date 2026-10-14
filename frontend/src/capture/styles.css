@@ -519,22 +519,11 @@ h1 {
   vertical-align: 1px;
 }
 
-.field-yours {
-  border-left: 3px solid var(--info);
-  padding-left: 10px;
-}
-
-.yours-tag {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-left: 6px;
-  font-weight: 400;
-}
-
-.yours-tag .link-btn {
-  padding: 2px 0;
-  font-size: 0.82rem;
+.own-version {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--info-bg);
+  color: var(--info);
 }
 
 .badge-brand {
