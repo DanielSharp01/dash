@@ -66,7 +66,7 @@ describe("loading", () => {
     await owner.post("/foods", fustli);
     expect((await u.get("/foods/search?q=fustli")).body.foods.some((f: any) => f.id === fustli.id)).toBe(false);
     await owner.post(`/foods/${fustli.id}/publish`);
-    for (const q of ["fustli", "FÜST", "csipos", "saga"]) expect((await u.get(`/foods/search?q=${encodeURIComponent(q)}`)).body.foods.some((f: any) => f.id === fustli.id)).toBe(true);
+    for (const q of ["fustli", "FÜST", "csipos", "saga", "saga fustli", "csipos füstli"]) expect((await u.get(`/foods/search?q=${encodeURIComponent(q)}`)).body.foods.some((f: any) => f.id === fustli.id)).toBe(true);
     expect((await u.get("/foods/search?q=x")).status).toBe(400);
   });
 });

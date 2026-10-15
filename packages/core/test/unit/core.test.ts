@@ -12,6 +12,7 @@ import {
   displayName,
   energyMismatch,
   foldText,
+  matchesQuery,
   publishBlockers,
   foodInputSchema,
   groupKey,
@@ -173,6 +174,12 @@ describe("groupKey", () => {
   it("groups names regardless of case and spacing, but not accents", () => {
     expect(groupKey(" Füstli ")).toBe(groupKey("füstli"));
     expect(groupKey("Eger")).not.toBe(groupKey("Éger"));
+  });
+
+  it("matches every word of a search anywhere, in any order", () => {
+    expect(matchesQuery("Potato · flesh, raw", "potato raw")).toBe(true);
+    expect(matchesQuery("Füstli · Csípős · Sága", "saga fustli")).toBe(true);
+    expect(matchesQuery("Potato · flesh, raw", "potato boiled")).toBe(false);
   });
 
   it("folds accents and case for search, so fustli finds Füstli", () => {

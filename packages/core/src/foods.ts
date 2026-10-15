@@ -61,6 +61,15 @@ export const foldAccents = { accented, unaccented };
 /** Lower-case without accents, for search: "fustli" finds Füstli. Grouping by name stays accent-sensitive. */
 export const foldText = (text: string) => [...text.toLowerCase()].map((c) => unaccented[accented.indexOf(c)] ?? c).join("");
 
+/** The search's words, folded; each must appear somewhere, in any order. */
+export const searchWords = (query: string) => foldText(query).split(/\s+/).filter(Boolean);
+
+/** "potato raw" finds Potato · flesh, raw: every word of the query appears in the text, accents and case aside. */
+export function matchesQuery(text: string, query: string) {
+  const folded = foldText(text);
+  return searchWords(query).every((w) => folded.includes(w));
+}
+
 /** USDA's values match what's sold in the Americas; Ciqual is the broadest open table elsewhere. */
 export function genericSourceOf(settings: { genericSource?: ReferenceTable; timeZone?: string }): ReferenceTable {
   return settings.genericSource ?? (settings.timeZone?.startsWith("America/") ? "usda" : "ciqual");

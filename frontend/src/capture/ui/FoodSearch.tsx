@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { basisLabel, batchPerUnit, displayName, foldText, type Food, type FoodLookup, labelAt, latestBatch, loggable, round } from "@dash/core";
+import { basisLabel, batchPerUnit, displayName, foldText, matchesQuery, type Food, type FoodLookup, labelAt, latestBatch, loggable, round } from "@dash/core";
 import { rememberFoods, useCatalogueSearch, useFoodLookup } from "../../queries/foods.queries";
 import { batchLabel, useListedFoods } from "../foods";
 import { canScan } from "./Scanner";
@@ -70,11 +70,11 @@ export function FoodSearch({ query, onQuery, kinds, recentIds, onPick, onNew, on
   const offered = (f: Food) => kinds.includes(f.kind) && (unfinished || loggable(f));
   const foods = listed.filter(offered);
   const q = foldText(query.trim());
-  const matches = q ? foods.filter((f) => foldText(displayName(f)).includes(q)) : [];
+  const matches = q ? foods.filter((f) => matchesQuery(displayName(f), q)) : [];
   const searched = useDebounced(q, 250);
   const catalogue = useCatalogueSearch(searched).data ?? [];
   // The server also sends what results point at; only the matches themselves are offered.
-  const fromCatalogue = q ? catalogue.filter((f) => offered(f) && !lookup(f.id) && foldText(displayName(f)).includes(q)) : [];
+  const fromCatalogue = q ? catalogue.filter((f) => offered(f) && !lookup(f.id) && matchesQuery(displayName(f), q)) : [];
   const pickShared = (f: Food) => {
     rememberFoods(catalogue);
     onPick(f);

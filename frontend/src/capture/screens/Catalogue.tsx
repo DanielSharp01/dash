@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router";
-import { type Activity, asItem, asRecipe, autoActivityIcon, autoFoodIcon, type Combo, defaultBurn, displayName, foldText, type Food, type FoodItem } from "@dash/core";
+import { type Activity, asItem, asRecipe, autoActivityIcon, autoFoodIcon, type Combo, defaultBurn, displayName, foldText, matchesQuery, type Food, type FoodItem } from "@dash/core";
 import { deleteActivity, restoreActivity, saveActivity, useActivityLookup } from "../../queries/activities.queries";
 import { asNewFood, deleteBatch, deleteFood, restoreBatch, rememberFoods, restoreFood, saveBatch, saveFood, useCatalogueSearch, useFoodLookup, useFoodUsage } from "../../queries/foods.queries";
 import { useListedActivities } from "../activities";
@@ -38,7 +38,7 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
   const [expanded, setExpanded] = useState<string>();
   const q = foldText(query.trim());
   const meta = tabs.find((t) => t.tab === tab)!;
-  const matches = (name: string) => !q || foldText(name).includes(q);
+  const matches = (name: string) => !q || matchesQuery(name, q);
   const foods = listed.filter((f) => f.kind === meta.kind && matches(displayName(f)));
   const lookup = useFoodLookup();
   const shared = useCatalogueSearch(useDebounced(q, 250)).data ?? [];
