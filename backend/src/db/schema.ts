@@ -34,6 +34,7 @@ export const macroPresetEnum = pgEnum("macro_preset", ["balanced", "high-protein
 export const foodKindEnum = pgEnum("food_kind", ["item", "recipe", "combo"]);
 export const foodUnitEnum = pgEnum("food_unit", ["g", "ml", "piece"]);
 export const labelPerEnum = pgEnum("label_per", ["100", "serving"]);
+export const referenceTableEnum = pgEnum("reference_table", ["usda", "ciqual"]);
 export const labelOriginEnum = pgEnum("label_origin", ["open-food-facts", "usda", "ciqual", "online", "estimate"]);
 export const measureKeyEnum = pgEnum("measure_key", ["distance", "duration", "sets", "reps", "weight", "laps"]);
 export const burnBasisEnum = pgEnum("burn_basis", ["distance", "reps", "duration"]);
@@ -78,6 +79,7 @@ export const profilesTable = pgTable(
     clock: clockEnum().notNull().default("24h"),
     autoRecap: boolean().notNull().default(true),
     timeZone: text(),
+    genericSource: referenceTableEnum(),
     /** Not part of the revisioned profile: devices only ever move it forward. */
     recapSeenOn: day(),
     revision: revision(),
@@ -156,8 +158,11 @@ export const foodsTable = pgTable(
     unsure: boolean().notNull().default(false),
     /** The key in backend/src/seeds/; seeded public rows only. */
     publicKey: text().unique(),
-    /** Who made a public row public; seeds have none. */
+    /** Who made a public row public; seeds and imports have none. */
     publishedBy: uuid().references(() => usersTable.id, { onDelete: "set null" }),
+    /** The reference table an imported public row came from, and its id there. */
+    source: referenceTableEnum(),
+    sourceRef: text(),
     starter: boolean().notNull().default(false),
     /** Duplicated from this public item; provenance only. */
     originId: uuid(),
@@ -173,6 +178,8 @@ export const foodsTable = pgTable(
     index("foods_user_barcode").on(t.userId, t.barcode).where(sql`${t.barcode} is not null`),
     check("foods_item_unit", sql`(${t.kind} = 'item') = (${t.unit} is not null)`),
     check("foods_seed_key", sql`${t.publicKey} is null or ${t.userId} is null`),
+    check("foods_source_public", sql`${t.source} is null or (${t.userId} is null and ${t.sourceRef} is not null)`),
+    uniqueIndex("foods_source_ref").on(t.source, t.sourceRef).where(sql`${t.source} is not null`),
     check("foods_starter_public", sql`not ${t.starter} or ${t.userId} is null`),
   ],
 );

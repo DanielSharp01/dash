@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ageOn, dailyTargets, type Entry, formatWeight, type Plan, planAt, type PlanVersion, type Pot, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weightUnit } from "@dash/core";
+import { ageOn, dailyTargets, genericSourceOf, type Entry, formatWeight, type Plan, planAt, type PlanVersion, type Pot, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weightUnit } from "@dash/core";
 import { useEntriesBetween } from "../../queries/entries.queries";
 import { savePlan, saveProfile, useMe, useProfile } from "../../queries/me.queries";
 import { addPot, removePot } from "../../queries/pots.queries";
@@ -185,6 +185,20 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
             </button>
           </div>
           <p className="hint">Once a day is over, its recap plays the next time you open Dash. Otherwise it waits in the strip under the day's summary.</p>
+        </div>
+        <div className="field">
+          <span className="field-label">Generic foods</span>
+          <div className="segmented small">
+            <button aria-selected={genericSourceOf(profile) === "usda"} onClick={() => updateProfile({ genericSource: "usda" })}>
+              USDA (US)
+            </button>
+            <button aria-selected={genericSourceOf(profile) === "ciqual"} onClick={() => updateProfile({ genericSource: "ciqual" })}>
+              Ciqual (Europe)
+            </button>
+          </div>
+          <p className="hint">
+            Values for foods like a banana or rolled oats differ by region, so search shows one table.{!profile.genericSource && " Picked from your time zone until you choose."}
+          </p>
         </div>
       </section>
 

@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { asItem, type Batch, type Food, type FoodInput, type FoodItemInput, isFinished, type Recipe, type StoredBatch } from "@dash/core";
-import { batchesTable, batchIngredientsTable, comboPartsTable, entriesTable, entryLinesTable, foodsTable } from "../db/schema";
+import { asItem, genericSourceOf, type Batch, type Food, type FoodInput, type FoodItemInput, isFinished, type Recipe, type StoredBatch } from "@dash/core";
+import { batchesTable, batchIngredientsTable, comboPartsTable, entriesTable, entryLinesTable, foodsTable, profilesTable } from "../db/schema";
 import { db, type Executor, type Tx } from "../providers/db";
 import {
   foodRefRows,
@@ -60,7 +60,9 @@ export async function listFoods(userId: string) {
 }
 
 export async function searchFoods(userId: string, query: string) {
-  return { foods: await searchShared(db, userId, query) };
+  const [profile] = await db.select({ genericSource: profilesTable.genericSource, timeZone: profilesTable.timeZone }).from(profilesTable).where(eq(profilesTable.userId, userId));
+  const table = genericSourceOf({ ...(profile?.genericSource ? { genericSource: profile.genericSource } : {}), ...(profile?.timeZone ? { timeZone: profile.timeZone } : {}) });
+  return { foods: await searchShared(db, userId, query, table) };
 }
 
 export async function createFood(userId: string, req: FoodInput & { newFoods?: FoodInput[] | undefined }) {

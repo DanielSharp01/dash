@@ -1,4 +1,4 @@
-import type { Food, FoodItem, Recipe, StoredBatch } from "./schemas";
+import type { Food, FoodItem, Recipe, ReferenceTable, StoredBatch } from "./schemas";
 
 /** Every food lookup in core goes through one of these, so the caller decides where foods come from. */
 export type FoodLookup = (id: string | undefined) => Food | undefined;
@@ -60,3 +60,8 @@ export const foldAccents = { accented, unaccented };
 
 /** Lower-case without accents, for search: "fustli" finds Füstli. Grouping by name stays accent-sensitive. */
 export const foldText = (text: string) => [...text.toLowerCase()].map((c) => unaccented[accented.indexOf(c)] ?? c).join("");
+
+/** USDA's values match what's sold in the Americas; Ciqual is the broadest open table elsewhere. */
+export function genericSourceOf(settings: { genericSource?: ReferenceTable; timeZone?: string }): ReferenceTable {
+  return settings.genericSource ?? (settings.timeZone?.startsWith("America/") ? "usda" : "ciqual");
+}

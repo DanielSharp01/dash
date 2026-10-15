@@ -4,6 +4,7 @@ import {
   type Batch,
   type Food,
   type FoodInput,
+  type ReferenceTable,
   foldAccents,
   foldText,
   type Label,
@@ -195,15 +196,35 @@ export async function withReferenced(ex: Executor, userId: string, foods: Food[]
   }
 }
 
-/** Shared, catalogued foods whose name, variant or brand contains the query, accents ignored. */
-export async function searchShared(ex: Executor, userId: string, query: string, limit = 30): Promise<Food[]> {
-  const text = sql`translate(lower(${foodsTable.name} || ' ' || coalesce(${foodsTable.variant}, '') || ' ' || coalesce(${foodsTable.brand}, '')), ${foldAccents.accented}, ${foldAccents.unaccented})`;
-  const pattern = `%${foldText(query.trim()).replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+/**
+ * Shared, catalogued foods whose name, variant or brand contains the query, accents ignored.
+ * Reference rows only come from the person's table. Exact names come first, then names that
+ * start with the query, then the rest; published foods before reference rows, shorter names first.
+ */
+export async function searchShared(ex: Executor, userId: string, query: string, table: ReferenceTable, limit = 30): Promise<Food[]> {
+  const fold = (column: SQL) => sql`translate(lower(${column}), ${foldAccents.accented}, ${foldAccents.unaccented})`;
+  const text = fold(sql`${foodsTable.name} || ' ' || coalesce(${foodsTable.variant}, '') || ' ' || coalesce(${foodsTable.brand}, '')`);
+  const name = fold(sql`${foodsTable.name}`);
+  const q = foldText(query.trim());
+  const escaped = q.replace(/[\\%_]/g, (c) => `\\${c}`);
   const ids = await ex
     .select({ id: foodsTable.id })
     .from(foodsTable)
-    .where(and(isNull(foodsTable.userId), eq(foodsTable.catalogued, true), isNull(foodsTable.deletedAt), sql`${text} like ${pattern}`))
-    .orderBy(asc(foodsTable.name))
+    .where(
+      and(
+        isNull(foodsTable.userId),
+        eq(foodsTable.catalogued, true),
+        isNull(foodsTable.deletedAt),
+        or(isNull(foodsTable.source), eq(foodsTable.source, table)),
+        sql`${text} like ${`%${escaped}%`}`,
+      ),
+    )
+    .orderBy(
+      sql`case when ${name} = ${q} then 0 when ${name} like ${`${escaped}%`} then 1 else 2 end`,
+      sql`${foodsTable.source} is not null`,
+      sql`length(${foodsTable.name})`,
+      asc(foodsTable.name),
+    )
     .limit(limit);
   if (!ids.length) return [];
   return withReferenced(ex, userId, await loadFoods(ex, inArray(foodsTable.id, ids.map((r) => r.id)), userId));

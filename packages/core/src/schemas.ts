@@ -36,6 +36,9 @@ export const nutrientsSchema = z.partialRecord(nutrientKeySchema, amountNumber);
 
 /** g and ml come from a per-100 label or a weighed serving; piece from a serving with no size. */
 export const foodUnitSchema = z.enum(["g", "ml", "piece"]);
+/** National food composition tables; a person searches one, since their values differ by region. */
+export const referenceTableSchema = z.enum(["usda", "ciqual"]);
+
 /** What filled a label in. Absent means typed straight off the package. */
 export const labelOriginSchema = z.enum(["open-food-facts", "usda", "ciqual", "online", "estimate"]);
 /**
@@ -299,6 +302,8 @@ export const profileInputSchema = z.object({
   autoRecap: z.boolean().default(true),
   /** IANA name from the device, so the server knows when the person's day is over. */
   timeZone: z.string().max(64).refine(isTimeZone, "Not a time zone").optional(),
+  /** Which reference table generic foods come from; absent means picked from the time zone. */
+  genericSource: referenceTableSchema.optional(),
 });
 export const profileSchema = profileInputSchema.extend({ revision: z.number().int().min(1) });
 
@@ -503,6 +508,7 @@ export type NutrientKey = z.infer<typeof nutrientKeySchema>;
 export type Nutrients = z.infer<typeof nutrientsSchema>;
 export type FoodUnit = z.infer<typeof foodUnitSchema>;
 export type LabelOrigin = z.infer<typeof labelOriginSchema>;
+export type ReferenceTable = z.infer<typeof referenceTableSchema>;
 export type Label = z.infer<typeof labelSchema>;
 export type Serving = z.infer<typeof servingSchema>;
 export type Amount = z.infer<typeof amountSchema>;

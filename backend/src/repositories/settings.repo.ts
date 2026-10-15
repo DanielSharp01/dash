@@ -16,6 +16,7 @@ const toProfile = (row: ProfileRow): Profile => ({
   clock: row.clock,
   autoRecap: row.autoRecap,
   ...opt("timeZone", row.timeZone),
+  ...opt("genericSource", row.genericSource),
   revision: row.revision,
 });
 
@@ -79,6 +80,7 @@ export async function updateProfile(ex: Executor, userId: string, input: Profile
       clock: input.clock,
       autoRecap: input.autoRecap,
       timeZone: input.timeZone ?? null,
+      genericSource: input.genericSource ?? null,
       revision,
     })
     .where(eq(profilesTable.userId, userId))
