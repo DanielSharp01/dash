@@ -76,7 +76,13 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const next = labelFrom(draft);
   // A finished item needs a label: saving without one would keep the old label, or none, silently.
   const emptiedLabel = !item.unsure && !next;
-  const noLabel = emptiedLabel ? [latest ? "The label is empty" : "No label yet"] : [];
+  // Named by what the source claims, since "read off the pack" with nothing on it contradicts itself.
+  const missingValues = draft.provenance.verified
+    ? "Marked as read off the pack, but no values are filled in"
+    : draft.provenance.origin === "estimate"
+      ? "Marked as an estimate, but no values are filled in"
+      : "No values are filled in";
+  const noLabel = emptiedLabel ? [missingValues] : [];
   /** Without a label every save is refused, in red with the reason; otherwise a plain button. */
   const saveButton = (label: string, onClick: () => void, primary: boolean) =>
     noLabel.length ? (
