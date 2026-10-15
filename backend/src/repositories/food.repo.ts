@@ -175,13 +175,17 @@ export async function loadYourFoods(ex: Executor, userId: string): Promise<Food[
   return withReferenced(ex, userId, await loadFoods(ex, or(eq(foodsTable.userId, userId), and(isNull(foodsTable.userId), shared)), userId));
 }
 
-/** Adds the foods that combos and batches point at, until nothing is missing, so totals always add up. */
+/**
+ * Adds the foods that combos and batches point at, so totals always add up, and the shared
+ * original of an own version, so it can say what it's a version of.
+ */
 export async function withReferenced(ex: Executor, userId: string, foods: Food[]): Promise<Food[]> {
   const byId = new Map(foods.map((f) => [f.id, f]));
   for (;;) {
     const missing = new Set<string>();
     for (const f of byId.values()) {
-      const refs = f.kind === "combo" ? f.parts.map((p) => p.foodId) : f.kind === "recipe" ? f.batches.flatMap((b) => b.ingredients.map((i) => i.foodId)) : [];
+      const parts = f.kind === "combo" ? f.parts.map((p) => p.foodId) : f.kind === "recipe" ? f.batches.flatMap((b) => b.ingredients.map((i) => i.foodId)) : [];
+      const refs = f.originId ? [...parts, f.originId] : parts;
       for (const id of refs) if (!byId.has(id)) missing.add(id);
     }
     if (!missing.size) return [...byId.values()];

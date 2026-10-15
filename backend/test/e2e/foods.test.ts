@@ -46,6 +46,12 @@ describe("loading", () => {
     expect(await ids()).toContain(onion);
   });
 
+  it("loads the shared original of an own version, so it can say what it's a version of", async () => {
+    const u = await newUser();
+    await u.post(`/foods/${onion}/copy`);
+    expect((await u.get("/foods")).body.foods.map((f: any) => f.id)).toContain(onion);
+  });
+
   it("loads what a used combo points at, so its total adds up", async () => {
     const u = await newUser();
     const salad = combo([{ foodId: onion, amount: { value: 50, unit: "g" } }]);
