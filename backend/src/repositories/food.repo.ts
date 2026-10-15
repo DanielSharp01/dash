@@ -320,7 +320,7 @@ async function writeChildren(ex: Executor, input: FoodInput) {
   }
 }
 
-function labelValues(foodId: string, l: Label) {
+export function labelValues(foodId: string, l: Label) {
   const nutrients = Object.fromEntries(nutrientKeys.map((k) => [k, l.values[k] ?? null])) as Record<(typeof nutrientKeys)[number], number | null>;
   return {
     foodId,

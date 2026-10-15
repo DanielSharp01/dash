@@ -10,7 +10,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.cli.ts",
     "invite": "tsx src/db/invite.cli.ts",
-    "publish-items": "tsx src/db/publish-items.cli.ts"
+    "publish-items": "tsx src/db/publish-items.cli.ts",
+    "import:usda": "tsx src/db/import-usda.cli.ts"
   },
   "dependencies": {
     "@danielsharp/auth": "^0.1.1",
