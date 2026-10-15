@@ -80,7 +80,11 @@ function choose(current: Provenance, origin?: LabelOrigin): Provenance {
  * them by hand would claim a lookup or import that never happened. Values looked up by hand are
  * "found online".
  */
-export function ProvenanceField({ value, onChange }: { value: Provenance; onChange: (p: Provenance) => void }) {
+/**
+ * "Read off the package" needs what every package shows: kcal, protein, carbs and fat. Until then
+ * the package can't be the source and a prefill can't be marked as matching it.
+ */
+export function ProvenanceField({ value, onChange, complete }: { value: Provenance; onChange: (p: Provenance) => void; complete: boolean }) {
   const [open, setOpen] = useState(false);
   const filledIn: (LabelOrigin | undefined)[] = ["open-food-facts", "usda", "ciqual"];
   const shown = choices.filter((c) => !filledIn.includes(c.origin) || value.origin === c.origin);
@@ -92,7 +96,7 @@ export function ProvenanceField({ value, onChange }: { value: Provenance; onChan
       </button>
       {checkable && (
         <label className="check-line">
-          <input type="checkbox" checked={value.verified} onChange={(e) => onChange({ ...value, verified: e.target.checked })} />
+          <input type="checkbox" checked={value.verified} disabled={!complete && !value.verified} onChange={(e) => onChange({ ...value, verified: e.target.checked })} />
           Matches the package
         </label>
       )}
@@ -108,22 +112,26 @@ export function ProvenanceField({ value, onChange }: { value: Provenance; onChan
       )}
       {open && (
         <Sheet title="Where are these values from?" onClose={() => setOpen(false)}>
-          {shown.map((c) => (
-            <button
-              key={c.origin ?? "package"}
-              className={`row ${value.origin === c.origin ? "row-selected" : ""}`}
-              onClick={() => {
-                onChange(choose(value, c.origin));
-                setOpen(false);
-              }}
-            >
-              <span className="row-main">
-                <span className="row-title">{c.title}</span>
-                <span className="row-sub">{c.hint}</span>
-              </span>
-              {value.origin === c.origin && <span className="row-check">✓</span>}
-            </button>
-          ))}
+          {shown.map((c) => {
+            const needsLabel = c.origin === undefined && !complete && value.origin !== undefined;
+            return (
+              <button
+                key={c.origin ?? "package"}
+                className={`row ${value.origin === c.origin ? "row-selected" : ""}`}
+                disabled={needsLabel}
+                onClick={() => {
+                  onChange(choose(value, c.origin));
+                  setOpen(false);
+                }}
+              >
+                <span className="row-main">
+                  <span className="row-title">{c.title}</span>
+                  <span className="row-sub">{needsLabel ? "Fill in kcal, protein, carbs and fat first" : c.hint}</span>
+                </span>
+                {value.origin === c.origin && <span className="row-check">✓</span>}
+              </button>
+            );
+          })}
         </Sheet>
       )}
     </>

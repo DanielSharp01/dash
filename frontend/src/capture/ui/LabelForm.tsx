@@ -132,7 +132,7 @@ export function LabelForm({ draft, onChange, autoFocus }: { draft: LabelDraft; o
       )}
 
       <div className="label-meta">
-        <ProvenanceField value={draft.provenance} onChange={(provenance) => set({ provenance })} />
+        <ProvenanceField value={draft.provenance} onChange={(provenance) => set({ provenance })} complete={(["kcal", "protein", "carbs", "fat"] as const).every((k) => draft.values[k] !== undefined)} />
         <span className="hint">Empty rows stay unknown, not zero.</span>
       </div>
     </div>
