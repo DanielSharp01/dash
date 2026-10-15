@@ -23,8 +23,10 @@ export function foodSummary(f: Food, foods: FoodLookup): string {
 /** With `open` set, tapping toggles the row and `open` holds what shows under it. */
 export function FoodRow({ food, onPick, sub, open }: { food: Food; onPick: (f: Food) => void; sub?: string; open?: ReactNode }) {
   const foods = useFoodLookup();
-  // The current label's source: an edit that types the label off the pack takes the badge away.
-  const origin = food.kind === "item" ? labelAt(food)?.origin : undefined;
+  // The current label decides: checked against the pack, and where it came from; editing it away
+  // from a source takes that badge away.
+  const label = food.kind === "item" ? labelAt(food) : undefined;
+  const origin = label?.origin;
   const source = origin === "usda" || origin === "ciqual" || origin === "open-food-facts" ? origin : undefined;
   return (
     <li>
@@ -34,7 +36,8 @@ export function FoodRow({ food, onPick, sub, open }: { food: Food; onPick: (f: F
           <span className="row-title">
             {food.name} {food.kind === "item" && food.variant && <span className="badge badge-variant">{food.variant}</span>}
             {food.kind === "item" && food.brand && <span className="badge badge-brand">{food.brand}</span>}
-            {food.public ? <span className="badge badge-shared">Shared</span> : <span className="badge badge-yours">Yours</span>}
+            {!food.public && <span className="badge badge-yours">Yours</span>}
+            {label?.verified && <span className="badge badge-verified">Verified</span>}
             {source && <span className="badge badge-source">{originLabels[source]}</span>}
             {food.kind === "combo" && <span className="badge badge-muted">combo</span>}
             {food.kind === "recipe" && <span className="badge badge-muted">recipe</span>}

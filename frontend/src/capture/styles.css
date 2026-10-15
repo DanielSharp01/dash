@@ -520,7 +520,7 @@ h1 {
   vertical-align: 1px;
 }
 
-.badge-shared {
+.badge-verified {
   background: var(--good-bg);
   color: var(--good);
   font-weight: 600;
