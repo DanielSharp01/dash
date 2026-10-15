@@ -367,7 +367,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
                   Open my version
                 </button>
               ) : (
-                <p className="hint">You already have your own version of this, {displayName(myVersion)}.</p>
+                <p className="hint own-version">You already have your own version of this, {displayName(myVersion)}.</p>
               )
             ) : (
               <>
