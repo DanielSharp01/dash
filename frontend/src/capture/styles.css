@@ -512,6 +512,13 @@ h1 {
   vertical-align: 1px;
 }
 
+.badge-shared {
+  background: var(--good-bg);
+  color: var(--good);
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
 .badge-yours {
   background: var(--info-bg);
   color: var(--info);
