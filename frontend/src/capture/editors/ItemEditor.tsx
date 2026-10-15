@@ -74,6 +74,8 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const myVersion = item.public ? asItem(allFoods.find((f) => !f.public && !f.deleted && f.originId === item.id)) : undefined;
 
   const next = labelFrom(draft);
+  // Clearing every value would silently keep the old label, so saving waits for one.
+  const emptiedLabel = !!latest && !item.unsure && !next;
   const blockers = publishBlockers({ labels: next ? [next] : item.labels, barcode: barcode.trim() || undefined, brand: brand.trim() || undefined });
   const unit = next ? unitOf(draft) : item.unit;
   const changed = !!latest && !!next && (!sameValues(latest.values, next.values) || !sameBasis(latest, next) || unit !== item.unit);
@@ -332,6 +334,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
       )}
 
       <div className="flow-footer">
+        {emptiedLabel && !asCombo && <p className="hint warn-hint">The label is empty. Fill it in to save; the item keeps its current one until then.</p>}
         {asCombo ? (
           <button
             className="btn btn-primary btn-block"
@@ -351,14 +354,14 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           </div>
         ) : !item.public && item.catalogued ? (
           <div className="save-choices">
-            <PublishButton blockers={blockers} refusals={refusals} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
-            <button className={`btn btn-block ${blockers.length || refusals.length ? "btn-primary" : ""}`} disabled={!name.trim()} onClick={() => trySave(false, "mine")}>
+            <PublishButton blockers={blockers} refusals={refusals} label="Save and publish" disabled={!name.trim() || emptiedLabel} onClick={() => trySave(false, "everyone")} />
+            <button className={`btn btn-block ${blockers.length || refusals.length ? "btn-primary" : ""}`} disabled={!name.trim() || emptiedLabel} onClick={() => trySave(false, "mine")}>
               Save privately
             </button>
           </div>
         ) : item.public ? (
           <div className="save-choices">
-            <button className="btn btn-primary btn-block" disabled={!name.trim()} onClick={() => trySave(false, "everyone")}>
+            <button className="btn btn-primary btn-block" disabled={!name.trim() || emptiedLabel} onClick={() => trySave(false, "everyone")}>
               Fix it for everyone
             </button>
             {myVersion ? (
@@ -371,7 +374,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
               )
             ) : (
               <>
-                <button className="btn btn-block" disabled={!name.trim()} onClick={() => trySave(false, "copy")}>
+                <button className="btn btn-block" disabled={!name.trim() || emptiedLabel} onClick={() => trySave(false, "copy")}>
                   Make my own version
                 </button>
                 <p className="hint">Your own version is a private copy: your entries move to it, and fixes to the shared one won't reach it.</p>
@@ -379,7 +382,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
             )}
           </div>
         ) : (
-          <button className="btn btn-primary btn-block" disabled={!name.trim()} onClick={() => trySave(false)}>
+          <button className="btn btn-primary btn-block" disabled={!name.trim() || emptiedLabel} onClick={() => trySave(false)}>
             Save
           </button>
         )}
