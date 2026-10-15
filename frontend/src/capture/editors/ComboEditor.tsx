@@ -101,9 +101,9 @@ export function ComboEditor({
         ) : (
           <div className="save-choices">
             <PublishButton
-              blockers={privateParts.length ? [`Publish ${privateParts.join(", ")} first`] : []}
+              refusals={privateParts.length ? [`Publish ${privateParts.join(", ")} first`] : []}
               label="Save and publish"
-              disabled={!name.trim() || parts.length === 0 || privateParts.length > 0}
+              disabled={!name.trim() || parts.length === 0}
               onClick={() => save(true)}
             />
             <button className={`btn btn-block ${privateParts.length ? "btn-primary" : ""}`} disabled={!name.trim() || parts.length === 0} onClick={() => save(false)}>

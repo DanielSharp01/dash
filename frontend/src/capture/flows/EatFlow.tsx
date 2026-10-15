@@ -548,10 +548,8 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
           ) : newItem ? (
             <NewFoodChoices
               canComplete={!!labelFrom(newItem.draft)?.values.kcal || labelFrom(newItem.draft)?.values.kcal === 0}
-              blockers={[
-                ...publishBlockers({ labels: [labelFrom(newItem.draft)].filter((l) => !!l), barcode: newItem.barcode, brand: newItem.brand.trim() || undefined }),
-                ...(variantsOf(listed, { id: newItem.existing?.id ?? "", name: newItem.name }).some((t) => t.public && sameItem(t, newItem)) ? ["The same item is already shared"] : []),
-              ]}
+              blockers={publishBlockers({ labels: [labelFrom(newItem.draft)].filter((l) => !!l), barcode: newItem.barcode, brand: newItem.brand.trim() || undefined })}
+              refusals={variantsOf(listed, { id: newItem.existing?.id ?? "", name: newItem.name }).some((t) => t.public && sameItem(t, newItem)) ? ["The same item is already shared"] : []}
               onSave={saveNew}
             />
           ) : (
@@ -694,11 +692,21 @@ function NewFoodHead({ value, onChange, twins, onUse }: { value: NewFood; onChan
   );
 }
 
-function NewFoodChoices({ canComplete, blockers, onSave }: { canComplete: boolean; blockers: string[]; onSave: (as: "completed" | "unsure" | "entry", publish?: boolean) => void }) {
-  const suggestPublish = blockers.length === 0;
+function NewFoodChoices({
+  canComplete,
+  blockers,
+  refusals,
+  onSave,
+}: {
+  canComplete: boolean;
+  blockers: string[];
+  refusals: string[];
+  onSave: (as: "completed" | "unsure" | "entry", publish?: boolean) => void;
+}) {
+  const suggestPublish = blockers.length === 0 && refusals.length === 0;
   return (
     <div className="save-choices">
-      <PublishButton blockers={canComplete ? blockers : []} label="Add and publish" disabled={!canComplete} onClick={() => onSave("completed", true)} />
+      <PublishButton blockers={canComplete ? blockers : []} refusals={canComplete ? refusals : []} label="Add and publish" disabled={!canComplete} onClick={() => onSave("completed", true)} />
       <button className={`btn btn-block ${suggestPublish ? "" : "btn-primary"}`} disabled={!canComplete} onClick={() => onSave("completed")}>
         Add privately
       </button>

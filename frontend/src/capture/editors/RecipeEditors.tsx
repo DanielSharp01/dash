@@ -290,9 +290,9 @@ export function RecipeEditor({
               </button>
             ))}
           <PublishButton
-            blockers={privateIngredients.length ? [`Publish ${privateIngredients.join(", ")} first`] : []}
+            refusals={privateIngredients.length ? [`Publish ${privateIngredients.join(", ")} first`] : []}
             label="Publish recipe"
-            disabled={!chosen || privateIngredients.length > 0}
+            disabled={!chosen}
             onClick={() => {
               setPublishing(false);
               void publishFood(current.id, reference);

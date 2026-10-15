@@ -1,8 +1,30 @@
 /**
- * The publish button with why it isn't the suggestion inside it, so the reasons read as part of
- * the choice. Publishing still works below the bar.
+ * The publish button with its reasons inside it, so they read as part of the choice. Blockers
+ * are advice and publishing still works; refusals are what the server would turn down anyway,
+ * so the button is disabled.
  */
-export function PublishButton({ blockers, label, disabled, onClick }: { blockers: string[]; label: string; disabled?: boolean; onClick: () => void }) {
+export function PublishButton({
+  blockers = [],
+  refusals = [],
+  label,
+  disabled,
+  onClick,
+}: {
+  blockers?: string[];
+  refusals?: string[];
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  if (refusals.length)
+    return (
+      <button className="btn btn-block publish-refused" disabled>
+        <span>{label}</span>
+        {refusals.map((r) => (
+          <small key={r}>✕ {r}</small>
+        ))}
+      </button>
+    );
   if (!blockers.length)
     return (
       <button className="btn btn-primary btn-block" disabled={disabled} onClick={onClick}>

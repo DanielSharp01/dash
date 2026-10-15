@@ -78,7 +78,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const changed = !!latest && !!next && (!sameValues(latest.values, next.values) || !sameBasis(latest, next) || unit !== item.unit);
   const siblings = variantsOf(listed, { id: item.id, name });
   const twin = siblings.find((s) => sameItem(s, { name, variant, brand }));
-  const publishReasons = twin?.public ? [...blockers, "The same item is already shared"] : blockers;
+  const refusals = twin?.public ? ["The same item is already shared"] : [];
   const canComplete = next?.values.kcal !== undefined;
 
   const build = (labels: Label[], unsure: boolean): FoodItemInput => ({
@@ -360,8 +360,8 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           </div>
         ) : !item.public && item.catalogued ? (
           <div className="save-choices">
-            <PublishButton blockers={publishReasons} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
-            <button className={`btn btn-block ${publishReasons.length ? "btn-primary" : ""}`} disabled={!name.trim()} onClick={() => trySave(false, "mine")}>
+            <PublishButton blockers={blockers} refusals={refusals} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
+            <button className={`btn btn-block ${blockers.length || refusals.length ? "btn-primary" : ""}`} disabled={!name.trim()} onClick={() => trySave(false, "mine")}>
               Save privately
             </button>
           </div>
