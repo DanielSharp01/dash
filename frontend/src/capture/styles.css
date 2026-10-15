@@ -2899,6 +2899,12 @@ input[type="checkbox"]:focus-visible {
   margin: 0;
 }
 
+/* Beside the source chip, a checkbox line centres on it instead of sitting below a field. */
+.label-meta .check-line {
+  margin-top: 0;
+  min-height: 0;
+}
+
 .warn-hint .link-btn {
   padding: 0;
   color: inherit;
