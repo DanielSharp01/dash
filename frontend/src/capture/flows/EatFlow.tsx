@@ -15,6 +15,7 @@ import {
   displayName,
   estimated,
   publishBlockers,
+  sameItem,
   type Food,
   type FoodData,
   type FoodEntry,
@@ -547,7 +548,10 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
           ) : newItem ? (
             <NewFoodChoices
               canComplete={!!labelFrom(newItem.draft)?.values.kcal || labelFrom(newItem.draft)?.values.kcal === 0}
-              blockers={publishBlockers({ labels: [labelFrom(newItem.draft)].filter((l) => !!l), barcode: newItem.barcode, brand: newItem.brand.trim() || undefined })}
+              blockers={[
+                ...publishBlockers({ labels: [labelFrom(newItem.draft)].filter((l) => !!l), barcode: newItem.barcode, brand: newItem.brand.trim() || undefined }),
+                ...(variantsOf(listed, { id: newItem.existing?.id ?? "", name: newItem.name }).some((t) => t.public && sameItem(t, newItem)) ? ["The same item is already shared"] : []),
+              ]}
               onSave={saveNew}
             />
           ) : (
@@ -658,6 +662,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
 }
 
 function NewFoodHead({ value, onChange, twins }: { value: NewFood; onChange: (n: NewFood) => void; twins: FoodItem[] }) {
+  const twin = twins.find((t) => sameItem(t, value));
   return (
     <>
       <div className="name-row">
@@ -672,8 +677,15 @@ function NewFoodHead({ value, onChange, twins }: { value: NewFood; onChange: (n:
         <span className="field-label">Brand (optional)</span>
         <input className="text-input" placeholder="Who makes or sells it" value={value.brand} onChange={(e) => onChange({ ...value, brand: e.target.value })} />
       </label>
-      {twins.length > 0 && !value.variant.trim() && !value.brand.trim() && (
-        <p className="hint">You already have {twins.map(displayName).join(", ")}. Give this one a variant or brand to tell them apart.</p>
+      {twin ? (
+        <p className="hint warn-hint">
+          There's already {displayName(twin)}
+          {twin.public ? " in the shared catalogue" : ""}. Give this one a different variant or brand, or use that one.
+        </p>
+      ) : (
+        twins.length > 0 &&
+        !value.variant.trim() &&
+        !value.brand.trim() && <p className="hint">You already have {twins.map(displayName).join(", ")}. Give this one a variant or brand to tell them apart.</p>
       )}
     </>
   );

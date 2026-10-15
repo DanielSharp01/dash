@@ -101,6 +101,23 @@ export async function publishFood(userId: string, id: string, referenceBatchId?:
     const row = writable(await lockFood(tx, id), userId);
     if (!row.catalogued || row.unsure || row.deletedAt) throw unprocessable("Only a filled-in food in the catalogue can be published");
     if (row.kind === "recipe") await publishReferenceBatch(tx, id, referenceBatchId);
+    if (row.kind === "item") {
+      // One shared record per product: the same name, variant and brand twice would be a duplicate.
+      const [twin] = await tx
+        .select({ id: foodsTable.id })
+        .from(foodsTable)
+        .where(
+          and(
+            isNull(foodsTable.userId),
+            eq(foodsTable.kind, "item"),
+            isNull(foodsTable.deletedAt),
+            sql`lower(trim(${foodsTable.name})) = lower(trim(${row.name}))`,
+            sql`lower(trim(coalesce(${foodsTable.variant}, ''))) = lower(trim(${row.variant ?? ""}))`,
+            sql`lower(trim(coalesce(${foodsTable.brand}, ''))) = lower(trim(${row.brand ?? ""}))`,
+          ),
+        );
+      if (twin) throw unprocessable("The same item is already shared", { duplicateId: twin.id });
+    }
     if (row.kind === "combo") {
       // Everyone must be able to see every part, so a private part has to be published first.
       const parts = await tx

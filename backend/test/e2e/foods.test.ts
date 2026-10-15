@@ -232,7 +232,7 @@ describe("publishing", () => {
   it("lets anyone retire a public item for everyone, softly", async () => {
     const u = await newUser();
     const other = await newUser();
-    const own = item();
+    const own = item({ name: "Retired milk" });
     await u.post("/foods", own);
     await u.post(`/foods/${own.id}/publish`);
 
@@ -243,20 +243,32 @@ describe("publishing", () => {
 
   it("publishes a combo once all its parts are public", async () => {
     const u = await newUser();
-    const milk = item();
+    const milk = item({ name: "Combo milk" });
     const breakfast = combo([{ foodId: milk.id, amount: { value: 1, unit: "glass" } }]);
     await u.post("/foods", milk);
     await u.post("/foods", breakfast);
 
     const refused = await u.post(`/foods/${breakfast.id}/publish`);
     expect(refused.status).toBe(422);
-    expect(refused.body.private).toEqual(["Oat milk"]);
+    expect(refused.body.private).toEqual(["Combo milk"]);
 
     await u.post(`/foods/${milk.id}/publish`);
     const res = await u.post(`/foods/${breakfast.id}/publish`);
     expect(res.status).toBe(200);
     expect(res.body.food).toMatchObject({ kind: "combo", public: true });
     expect((await (await newUser()).get("/foods/search?q=breakfast")).body.foods.some((f: any) => f.id === breakfast.id)).toBe(true);
+  });
+
+  it("refuses to publish an item the shared catalogue already has", async () => {
+    const u = await newUser();
+    const first = item({ name: "Bell pepper", variant: "Red" });
+    const twin = item({ name: "bell pepper", variant: "red" });
+    await u.post("/foods", first);
+    await u.post("/foods", twin);
+    await u.post(`/foods/${first.id}/publish`);
+    const res = await u.post(`/foods/${twin.id}/publish`);
+    expect(res.status).toBe(422);
+    expect(res.body.duplicateId).toBe(first.id);
   });
 
   it("refuses an unsure item and someone else's", async () => {

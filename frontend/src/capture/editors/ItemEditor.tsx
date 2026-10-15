@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { asItem, autoFoodIcon, basisLabel, displayName, BEGINNING, type Combo, energyMismatch, publishBlockers, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
+import { asItem, autoFoodIcon, basisLabel, displayName, sameItem, BEGINNING, type Combo, energyMismatch, publishBlockers, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
 import { completeAsCombo, mergeFood } from "../../queries/commands.queries";
 import { copyFood, deleteFood, publishFood, saveFood, useFoodUsage, useFoods } from "../../queries/foods.queries";
 import { productForBarcode } from "../../queries/lookups.queries";
@@ -77,6 +77,8 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const unit = next ? unitOf(draft) : item.unit;
   const changed = !!latest && !!next && (!sameValues(latest.values, next.values) || !sameBasis(latest, next) || unit !== item.unit);
   const siblings = variantsOf(listed, { id: item.id, name });
+  const twin = siblings.find((s) => sameItem(s, { name, variant, brand }));
+  const publishReasons = twin?.public ? [...blockers, "The same item is already shared"] : blockers;
   const canComplete = next?.values.kcal !== undefined;
 
   const build = (labels: Label[], unsure: boolean): FoodItemInput => ({
@@ -224,6 +226,12 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
             <span className="field-label">Brand</span>
             <input className="text-input" placeholder="Who makes or sells it" value={brand} onChange={(e) => setBrand(e.target.value)} />
           </label>
+          {twin && (
+            <p className="hint warn-hint">
+              There's already {displayName(twin)}
+              {twin.public ? " in the shared catalogue" : ""}. Give this one a different variant or brand, or use that one.
+            </p>
+          )}
           {siblings.length > 0 && (
             <div className="field compact">
               <span className="field-label">Other variants of “{name}”</span>
@@ -347,8 +355,8 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           </div>
         ) : !item.public && item.catalogued ? (
           <div className="save-choices">
-            <PublishButton blockers={blockers} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
-            <button className={`btn btn-block ${blockers.length ? "btn-primary" : ""}`} disabled={!name.trim()} onClick={() => trySave(false, "mine")}>
+            <PublishButton blockers={publishReasons} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
+            <button className={`btn btn-block ${publishReasons.length ? "btn-primary" : ""}`} disabled={!name.trim()} onClick={() => trySave(false, "mine")}>
               Save privately
             </button>
           </div>

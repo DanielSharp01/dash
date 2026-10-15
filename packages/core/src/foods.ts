@@ -37,6 +37,12 @@ export const loggable = (f: Food) => f.kind !== "recipe" || !!latestBatch(f);
 /** Items with the same name are variations of one thing. Case doesn't matter; accents do, since Eger and Éger are different words. */
 export const groupKey = (name: string) => name.trim().toLocaleLowerCase();
 
+const looseKey = (text?: string) => (text ?? "").trim().toLocaleLowerCase();
+
+/** The same item twice: name, variant and brand all match, case aside. */
+export const sameItem = (a: Pick<FoodItem, "name" | "variant" | "brand">, b: Pick<FoodItem, "name" | "variant" | "brand">) =>
+  groupKey(a.name) === groupKey(b.name) && looseKey(a.variant) === looseKey(b.variant) && looseKey(a.brand) === looseKey(b.brand);
+
 export function displayName(f: Food) {
   return f.kind === "item" ? [f.name, f.variant, f.brand].filter(Boolean).join(" · ") : f.name;
 }
