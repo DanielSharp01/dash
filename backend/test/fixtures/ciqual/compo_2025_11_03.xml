@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<TABLE>
+   <COMPO>
+      <alim_code> 1 </alim_code>
+      <const_code> 328 </const_code>
+      <teneur> 597 </teneur>
+      <min missing=" " />
+   </COMPO>
+   <COMPO>
+      <alim_code> 1 </alim_code>
+      <const_code> 25000 </const_code>
+      <teneur> 21,5 </teneur>
+      <min missing=" " />
+   </COMPO>
+   <COMPO>
+      <alim_code> 1 </alim_code>
+      <const_code> 40000 </const_code>
+      <teneur> 48,2 </teneur>
+      <min missing=" " />
+   </COMPO>
+   <COMPO>
+      <alim_code> 1 </alim_code>
+      <const_code> 31000 </const_code>
+      <teneur> 19,3 </teneur>
+      <min missing=" " />
+   </COMPO>
+   <COMPO>
+      <alim_code> 1 </alim_code>
+      <const_code> 32000 </const_code>
+      <teneur> traces </teneur>
+      <min missing=" " />
+   </COMPO>
+   <COMPO>
+      <alim_code> 1 </alim_code>
+      <const_code> 10004 </const_code>
+      <teneur> &lt; 0,01 </teneur>
+      <min missing=" " />
+   </COMPO>
+   <COMPO>
+      <alim_code> 1 </alim_code>
+      <const_code> 40302 </const_code>
+      <teneur> 8,4 </teneur>
+      <min missing=" " />
+   </COMPO>
+   <COMPO>
+      <alim_code> 2 </alim_code>
+      <const_code> 333 </const_code>
+      <teneur> 345 </teneur>
+      <min missing=" " />
+   </COMPO>
+   <COMPO>
+      <alim_code> 2 </alim_code>
+      <const_code> 25000 </const_code>
+      <teneur> 22 </teneur>
+      <min missing=" " />
+   </COMPO>
+   <COMPO>
+      <alim_code> 2 </alim_code>
+      <const_code> 40000 </const_code>
+      <teneur> 28 </teneur>
+      <min missing=" " />
+   </COMPO>
+   <COMPO>
+      <alim_code> 2 </alim_code>
+      <const_code> 31000 </const_code>
+      <teneur> - </teneur>
+      <min missing=" " />
+   </COMPO>
+   <COMPO>
+      <alim_code> 2 </alim_code>
+      <const_code> 10110 </const_code>
+      <teneur> &lt; 20 </teneur>
+      <min missing=" " />
+   </COMPO>
+   <COMPO>
+      <alim_code> 3 </alim_code>
+      <const_code> 25000 </const_code>
+      <teneur> 5 </teneur>
+      <min missing=" " />
+   </COMPO>
+</TABLE>

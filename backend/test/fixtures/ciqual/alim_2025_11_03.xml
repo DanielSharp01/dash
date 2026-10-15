@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<TABLE>
+   <ALIM>
+      <alim_code> 1 </alim_code>
+      <alim_nom_fr> Noix de cajou </alim_nom_fr>
+      <alim_nom_eng> cashew nut, dry-grilled, no added salt </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+   </ALIM>
+   <ALIM>
+      <alim_code> 2 </alim_code>
+      <alim_nom_eng> Raclette cheese, from cow&apos;s milk </alim_nom_eng>
+   </ALIM>
+   <ALIM>
+      <alim_code> 3 </alim_code>
+      <alim_nom_eng> Mystery, no energy </alim_nom_eng>
+   </ALIM>
+</TABLE>
