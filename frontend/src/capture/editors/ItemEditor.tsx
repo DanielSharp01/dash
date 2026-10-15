@@ -83,6 +83,8 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
       ? "Marked as an estimate, but no values are filled in"
       : "No values are filled in";
   const noLabel = emptiedLabel ? [missingValues] : [];
+  // An item that never had a label is what "unsure" means: it can be saved as one and filled in later.
+  const canWaitUnsure = emptiedLabel && !latest && !item.public;
   /** Without a label every save is refused, in red with the reason; otherwise a plain button. */
   const saveButton = (label: string, onClick: () => void, primary: boolean) =>
     noLabel.length ? (
@@ -370,7 +372,16 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
         ) : !item.public && item.catalogued ? (
           <div className="save-choices">
             <PublishButton blockers={blockers} refusals={[...noLabel, ...refusals]} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
-            {saveButton("Save privately", () => trySave(false, "mine"), blockers.length > 0 || refusals.length > 0)}
+            {canWaitUnsure ? (
+              <div className="save-choice-hinted">
+                <button className="btn btn-primary btn-block" disabled={!name.trim()} onClick={() => trySave(true, "mine")}>
+                  Save as unsure
+                </button>
+                <p className="hint">No values yet; it waits in To follow up until you fill them in.</p>
+              </div>
+            ) : (
+              saveButton("Save privately", () => trySave(false, "mine"), blockers.length > 0 || refusals.length > 0)
+            )}
           </div>
         ) : item.public ? (
           <div className="save-choices">
