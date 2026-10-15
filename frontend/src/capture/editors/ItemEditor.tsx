@@ -76,6 +76,16 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const next = labelFrom(draft);
   // A finished item needs a label: saving without one would keep the old label, or none, silently.
   const emptiedLabel = !item.unsure && !next;
+  const noLabel = emptiedLabel ? [latest ? "The label is empty" : "No label yet"] : [];
+  /** Without a label every save is refused, in red with the reason; otherwise a plain button. */
+  const saveButton = (label: string, onClick: () => void, primary: boolean) =>
+    noLabel.length ? (
+      <PublishButton refusals={noLabel} label={label} onClick={onClick} />
+    ) : (
+      <button className={`btn btn-block ${primary ? "btn-primary" : ""}`} disabled={!name.trim()} onClick={onClick}>
+        {label}
+      </button>
+    );
   const blockers = publishBlockers({ labels: next ? [next] : item.labels, barcode: barcode.trim() || undefined, brand: brand.trim() || undefined });
   const unit = next ? unitOf(draft) : item.unit;
   const changed = !!latest && !!next && (!sameValues(latest.values, next.values) || !sameBasis(latest, next) || unit !== item.unit);
@@ -334,9 +344,6 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
       )}
 
       <div className="flow-footer">
-        {emptiedLabel && !asCombo && (
-          <p className="hint warn-hint">{latest ? "The label is empty. Fill it in to save; the item keeps its current one until then." : "Fill in the label to save this item."}</p>
-        )}
         {asCombo ? (
           <button
             className="btn btn-primary btn-block"
@@ -356,16 +363,12 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           </div>
         ) : !item.public && item.catalogued ? (
           <div className="save-choices">
-            <PublishButton blockers={blockers} refusals={refusals} label="Save and publish" disabled={!name.trim() || emptiedLabel} onClick={() => trySave(false, "everyone")} />
-            <button className={`btn btn-block ${blockers.length || refusals.length ? "btn-primary" : ""}`} disabled={!name.trim() || emptiedLabel} onClick={() => trySave(false, "mine")}>
-              Save privately
-            </button>
+            <PublishButton blockers={blockers} refusals={[...noLabel, ...refusals]} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
+            {saveButton("Save privately", () => trySave(false, "mine"), blockers.length > 0 || refusals.length > 0)}
           </div>
         ) : item.public ? (
           <div className="save-choices">
-            <button className="btn btn-primary btn-block" disabled={!name.trim() || emptiedLabel} onClick={() => trySave(false, "everyone")}>
-              Fix it for everyone
-            </button>
+            {saveButton("Fix it for everyone", () => trySave(false, "everyone"), true)}
             {myVersion ? (
               onOpenItem ? (
                 <button className="btn btn-block" onClick={() => onOpenItem(myVersion)}>
@@ -376,17 +379,13 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
               )
             ) : (
               <>
-                <button className="btn btn-block" disabled={!name.trim() || emptiedLabel} onClick={() => trySave(false, "copy")}>
-                  Make my own version
-                </button>
+                {saveButton("Make my own version", () => trySave(false, "copy"), false)}
                 <p className="hint">Your own version is a private copy: your entries move to it, and fixes to the shared one won't reach it.</p>
               </>
             )}
           </div>
         ) : (
-          <button className="btn btn-primary btn-block" disabled={!name.trim() || emptiedLabel} onClick={() => trySave(false)}>
-            Save
-          </button>
+          saveButton("Save", () => trySave(false), true)
         )}
       </div>
 
