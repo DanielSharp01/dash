@@ -7,7 +7,7 @@ import { undoBy } from "../errors";
 import { useListedFoods, usesOf, variantsOf } from "../foods";
 import { todayKey } from "../time";
 import { PortionList } from "./PortionList";
-import { FoodRow, FoodSearch } from "../ui/FoodSearch";
+import { FoodSearch } from "../ui/FoodSearch";
 import { DateChip, tapCard } from "../ui/DateChip";
 import { draftFrom, hasValues, LabelForm, labelFrom, unitOf } from "../ui/LabelForm";
 import { NumberInput } from "../ui/NumberInput";
@@ -236,16 +236,6 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
                 </button>
               )}
             </p>
-          )}
-          {siblings.length > 0 && (
-            <div className="field compact">
-              <span className="field-label">Other variants of “{name}”</span>
-              <ul className="list">
-                {siblings.map((s) => (
-                  <FoodRow key={s.id} food={s} onPick={() => onOpenItem?.(s)} sub={s.variant || s.brand ? undefined : "no variant or brand"} />
-                ))}
-              </ul>
-            </div>
           )}
           <div className="field compact">
             <span className="field-label">Barcode</span>
