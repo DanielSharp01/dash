@@ -63,8 +63,8 @@ type Choice = { origin?: LabelOrigin; title: string; hint: string };
 const choices: Choice[] = [
   { title: "The package", hint: "Read off the package in your hand" },
   { origin: "open-food-facts", title: originLabels["open-food-facts"], hint: "Filled in from a barcode scan" },
-  { origin: "usda", title: originLabels.usda, hint: "A food composition table, for things without a package" },
-  { origin: "ciqual", title: originLabels.ciqual, hint: "A food composition table, for things without a package" },
+  { origin: "usda", title: originLabels.usda, hint: "Imported from USDA's food composition table" },
+  { origin: "ciqual", title: originLabels.ciqual, hint: "Imported from the Ciqual food composition table" },
   { origin: "online", title: originLabels.online, hint: "A menu or the maker's site" },
   { origin: "estimate", title: "Your estimate", hint: "Your own numbers, worked out or guessed" },
 ];
@@ -76,12 +76,14 @@ function choose(current: Provenance, origin?: LabelOrigin): Provenance {
 }
 
 /**
- * Open Food Facts is only offered while it's what filled the label in; picking it by hand would
- * claim a lookup that never happened.
+ * Open Food Facts, USDA and Ciqual are only offered while one of them filled the label in; picking
+ * them by hand would claim a lookup or import that never happened. Values looked up by hand are
+ * "found online".
  */
 export function ProvenanceField({ value, onChange }: { value: Provenance; onChange: (p: Provenance) => void }) {
   const [open, setOpen] = useState(false);
-  const shown = choices.filter((c) => c.origin !== "open-food-facts" || value.origin === "open-food-facts");
+  const filledIn: (LabelOrigin | undefined)[] = ["open-food-facts", "usda", "ciqual"];
+  const shown = choices.filter((c) => !filledIn.includes(c.origin) || value.origin === c.origin);
   const checkable = checkableOrigins.includes(value.origin) && value.origin !== undefined;
   return (
     <>
