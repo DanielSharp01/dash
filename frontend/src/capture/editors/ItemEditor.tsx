@@ -74,8 +74,8 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const myVersion = item.public ? asItem(allFoods.find((f) => !f.public && !f.deleted && f.originId === item.id)) : undefined;
 
   const next = labelFrom(draft);
-  // Clearing every value would silently keep the old label, so saving waits for one.
-  const emptiedLabel = !!latest && !item.unsure && !next;
+  // A finished item needs a label: saving without one would keep the old label, or none, silently.
+  const emptiedLabel = !item.unsure && !next;
   const blockers = publishBlockers({ labels: next ? [next] : item.labels, barcode: barcode.trim() || undefined, brand: brand.trim() || undefined });
   const unit = next ? unitOf(draft) : item.unit;
   const changed = !!latest && !!next && (!sameValues(latest.values, next.values) || !sameBasis(latest, next) || unit !== item.unit);
@@ -334,7 +334,9 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
       )}
 
       <div className="flow-footer">
-        {emptiedLabel && !asCombo && <p className="hint warn-hint">The label is empty. Fill it in to save; the item keeps its current one until then.</p>}
+        {emptiedLabel && !asCombo && (
+          <p className="hint warn-hint">{latest ? "The label is empty. Fill it in to save; the item keeps its current one until then." : "Fill in the label to save this item."}</p>
+        )}
         {asCombo ? (
           <button
             className="btn btn-primary btn-block"
