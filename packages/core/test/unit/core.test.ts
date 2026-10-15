@@ -10,6 +10,7 @@ import {
   defaultPlan,
   entryNeedsFollowUp,
   displayName,
+  energyImpossible,
   energyMismatch,
   foldText,
   matchesQuery,
@@ -213,6 +214,12 @@ describe("schemas", () => {
     expect(ok({ verified: false, origin: "usda", originRev: 3 })).toBe(false);
     expect(ok({ verified: false, origin: "estimate", url: "https://example.com" })).toBe(false);
     expect(ok({ verified: false, origin: "online", url: "javascript:alert(1)" })).toBe(false);
+  });
+
+  it("calls macros that need far more energy than stated impossible, but not extra energy from alcohol", () => {
+    expect(energyImpossible({ kcal: 20, protein: 30, carbs: 1, fat: 0 })).toBe(true);
+    expect(energyImpossible({ kcal: 230, protein: 0, carbs: 0, fat: 0 })).toBe(false);
+    expect(energyImpossible({ kcal: 100, protein: 5, carbs: 20, fat: 1 })).toBe(false);
   });
 
   it("flags a label whose macros don't add up to its kcal", () => {

@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { asItem, genericSourceOf, type Batch, type Food, type FoodInput, type FoodItemInput, isFinished, type Recipe, type StoredBatch } from "@dash/core";
+import { asItem, energyImpossible, genericSourceOf, labelAt, type Batch, type Food, type FoodInput, type FoodItemInput, isFinished, type Recipe, type StoredBatch } from "@dash/core";
 import { batchesTable, batchIngredientsTable, comboPartsTable, entriesTable, entryLinesTable, foodsTable, profilesTable } from "../db/schema";
 import { db, type Executor, type Tx } from "../providers/db";
 import {
@@ -119,6 +119,8 @@ export async function publishFood(userId: string, id: string, referenceBatchId?:
           ),
         );
       if (twin) throw unprocessable("The same item is already shared", { duplicateId: twin.id });
+      const label = labelAt(asItem((await loadFood(tx, id))!)!);
+      if (label && energyImpossible(label.values)) throw unprocessable("The macros need more kcal than the label says");
     }
     if (row.kind === "combo") {
       // Everyone must be able to see every part, so a private part has to be published first.

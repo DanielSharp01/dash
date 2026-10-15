@@ -16,6 +16,7 @@ import {
   estimated,
   publishBlockers,
   sameItem,
+  energyImpossible,
   type Food,
   type FoodData,
   type FoodEntry,
@@ -549,7 +550,10 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
             <NewFoodChoices
               canComplete={!!labelFrom(newItem.draft)?.values.kcal || labelFrom(newItem.draft)?.values.kcal === 0}
               blockers={publishBlockers({ labels: [labelFrom(newItem.draft)].filter((l) => !!l), barcode: newItem.barcode, brand: newItem.brand.trim() || undefined })}
-              refusals={variantsOf(listed, { id: newItem.existing?.id ?? "", name: newItem.name }).some((t) => t.public && sameItem(t, newItem)) ? ["The same item is already shared"] : []}
+              refusals={[
+                ...(variantsOf(listed, { id: newItem.existing?.id ?? "", name: newItem.name }).some((t) => t.public && sameItem(t, newItem)) ? ["The same item is already shared"] : []),
+                ...(energyImpossible(labelFrom(newItem.draft)?.values ?? {}) ? ["The macros need more kcal than the label says"] : []),
+              ]}
               onSave={saveNew}
             />
           ) : (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { basisLabel, BEGINNING, energyMismatch, type FoodUnit, type Label, mainNutrients, nutrientKeys, nutrientMeta, type Nutrients, estimated, offThePackage, type Provenance, provenanceOf } from "@dash/core";
+import { basisLabel, BEGINNING, energyImpossible, energyMismatch, type FoodUnit, type Label, mainNutrients, nutrientKeys, nutrientMeta, type Nutrients, estimated, offThePackage, type Provenance, provenanceOf } from "@dash/core";
 import { NumberInput } from "./NumberInput";
 import { ProvenanceField } from "./Pickers";
 
@@ -140,7 +140,9 @@ export function LabelForm({ draft, onChange, autoFocus }: { draft: LabelDraft; o
 
       {mismatch !== undefined && (
         <p className="hint warn-hint">
-          The macros add up to about {mismatch} kcal, but it says {draft.values.kcal}. A typo? Alcohol or lots of fibre can explain a gap.
+          {energyImpossible(draft.values)
+            ? `The macros alone are about ${mismatch} kcal, more than the ${draft.values.kcal} it says. A typo?`
+            : `The macros add up to about ${mismatch} kcal, but it says ${draft.values.kcal}. A typo? Alcohol or lots of fibre can explain a gap.`}
         </p>
       )}
 

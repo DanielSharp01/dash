@@ -151,6 +151,17 @@ export const sameValues = (a: Nutrients, b: Nutrients) => nutrientKeys.every((k)
  * from the stated kcal, which usually means a typo. Fibre, rounding and alcohol cause small or
  * known gaps, so only a big one counts. Undefined while the label agrees or isn't filled in.
  */
+/**
+ * Macros that need far more energy than the label states can't be explained: alcohol and fibre
+ * only ever add energy the macros don't count. The margin leaves room for labels that count fibre
+ * in carbs.
+ */
+export function energyImpossible(values: Nutrients): boolean {
+  const { kcal, protein, carbs, fat } = values;
+  if (kcal === undefined || protein === undefined || carbs === undefined || fat === undefined) return false;
+  return 4 * protein + 4 * carbs + 9 * fat > kcal * 1.5 + 20;
+}
+
 export function energyMismatch(values: Nutrients): number | undefined {
   const { kcal, protein, carbs, fat } = values;
   if (kcal === undefined || protein === undefined || carbs === undefined || fat === undefined) return undefined;
@@ -168,7 +179,7 @@ export function publishBlockers(item: Pick<FoodItemInput, "labels" | "barcode" |
   const { kcal, protein, carbs, fat } = label.values;
   const reasons: string[] = [];
   if ([kcal, protein, carbs, fat].some((v) => v === undefined)) reasons.push("Kcal and all three macros aren't filled in");
-  else if (energyMismatch(label.values) !== undefined) reasons.push("The macros don't add up to the kcal");
+  else if (!energyImpossible(label.values) && energyMismatch(label.values) !== undefined) reasons.push("The macros don't add up to the kcal");
   if (label.origin === "estimate") reasons.push("It's an estimate");
   else if (label.origin === "online") reasons.push("It was found online, not read off the package");
   else if (label.origin === "open-food-facts" && !label.verified) reasons.push("Open Food Facts' values weren't checked against the package");

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { asItem, autoFoodIcon, basisLabel, displayName, sameItem, BEGINNING, type Combo, energyMismatch, publishBlockers, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
+import { asItem, autoFoodIcon, basisLabel, displayName, sameItem, BEGINNING, type Combo, energyImpossible, energyMismatch, publishBlockers, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
 import { completeAsCombo, mergeFood } from "../../queries/commands.queries";
 import { copyFood, deleteFood, publishFood, saveFood, useFoodUsage, useFoods } from "../../queries/foods.queries";
 import { productForBarcode } from "../../queries/lookups.queries";
@@ -79,10 +79,12 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const noLabel = emptiedLabel ? [latest ? "The label is empty" : "No label yet"] : [];
   // An item that never had a label is what "unsure" means, so saving it privately makes it one.
   const savesAsUnsure = emptiedLabel && !latest;
-  /** Without a label every save is refused, in red with the reason; otherwise a plain button. */
-  const saveButton = (label: string, onClick: () => void, primary: boolean) =>
-    noLabel.length ? (
-      <PublishButton refusals={noLabel} label={label} onClick={onClick} />
+  // Macros that need more energy than stated can't be right, so they never reach everyone.
+  const impossible = next && energyImpossible(next.values) ? ["The macros need more kcal than the label says"] : [];
+  /** Refused saves are red with the reason; otherwise a plain button. */
+  const saveButton = (label: string, onClick: () => void, primary: boolean, extra: string[] = []) =>
+    noLabel.length || extra.length ? (
+      <PublishButton refusals={[...noLabel, ...extra]} label={label} onClick={onClick} />
     ) : (
       <button className={`btn btn-block ${primary ? "btn-primary" : ""}`} disabled={!name.trim()} onClick={onClick}>
         {label}
@@ -365,7 +367,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           </div>
         ) : !item.public && item.catalogued ? (
           <div className="save-choices">
-            <PublishButton blockers={blockers} refusals={[...noLabel, ...refusals]} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
+            <PublishButton blockers={blockers} refusals={[...noLabel, ...impossible, ...refusals]} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
             {savesAsUnsure ? (
               <PublishButton blockers={["No label yet, so it's saved as unsure and waits in To follow up"]} label="Save privately" disabled={!name.trim()} onClick={() => trySave(true, "mine")} />
             ) : (
@@ -374,7 +376,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           </div>
         ) : item.public ? (
           <div className="save-choices">
-            {saveButton("Fix it for everyone", () => trySave(false, "everyone"), true)}
+            {saveButton("Fix it for everyone", () => trySave(false, "everyone"), true, impossible)}
             {myVersion ? (
               onOpenItem ? (
                 <button className="btn btn-block" onClick={() => onOpenItem(myVersion)}>

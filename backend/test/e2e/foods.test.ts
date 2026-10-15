@@ -267,6 +267,13 @@ describe("publishing", () => {
     expect((await (await newUser()).get("/foods/search?q=breakfast")).body.foods.some((f: any) => f.id === breakfast.id)).toBe(true);
   });
 
+  it("refuses to publish a label whose macros need far more energy than it states", async () => {
+    const u = await newUser();
+    const typo = item({ name: "Protein typo", labels: [{ from: BEGINNING, per: "100", values: { kcal: 20, protein: 30, carbs: 1, fat: 0 }, verified: true }] });
+    await u.post("/foods", typo);
+    expect((await u.post(`/foods/${typo.id}/publish`)).status).toBe(422);
+  });
+
   it("refuses to publish an item the shared catalogue already has", async () => {
     const u = await newUser();
     const first = item({ name: "Bell pepper", variant: "Red" });
