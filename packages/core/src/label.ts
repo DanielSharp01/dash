@@ -126,7 +126,7 @@ export function basisLabel(label: Pick<Label, "per" | "servingSize" | "servingNa
 export const originLabels: Record<LabelOrigin, string> = {
   "open-food-facts": "Open Food Facts",
   usda: "USDA",
-  ciqual: "Ciqual",
+  ciqual: "Ciqual (EU)",
   online: "Found online",
   estimate: "Estimate",
 };
