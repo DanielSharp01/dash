@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { basisLabel, BEGINNING, energyMismatch, type FoodUnit, type Label, mainNutrients, nutrientKeys, nutrientMeta, type Nutrients, offThePackage, type Provenance, provenanceOf } from "@dash/core";
+import { basisLabel, BEGINNING, energyMismatch, type FoodUnit, type Label, mainNutrients, nutrientKeys, nutrientMeta, type Nutrients, estimated, offThePackage, type Provenance, provenanceOf } from "@dash/core";
 import { NumberInput } from "./NumberInput";
 import { ProvenanceField } from "./Pickers";
 
@@ -39,13 +39,26 @@ export function unitOf(d: LabelDraft): FoodUnit {
 
 export const hasValues = (d: LabelDraft) => Object.values(d.values).some((v) => v !== undefined);
 
+/** What every package shows; a label without all of it can't have been read off one. */
+export const basicsFilled = (d: LabelDraft) => (["kcal", "protein", "carbs", "fat"] as const).every((k) => d.values[k] !== undefined);
+
+/**
+ * The source as saved: "checked against the pack" only counts once the basics are filled in;
+ * before that it's an estimate, or the unchecked prefill it came from.
+ */
+export function effectiveProvenance(d: LabelDraft): Provenance {
+  if (!d.provenance.verified || basicsFilled(d)) return d.provenance;
+  return d.provenance.origin ? { ...d.provenance, verified: false } : estimated;
+}
+
 /** Undefined while nothing is filled in, so a skipped label stays absent instead of all zeros. */
 export function labelFrom(d: LabelDraft, from: string = BEGINNING): Label | undefined {
   if (!hasValues(d)) return undefined;
   const values = Object.fromEntries(Object.entries(d.values).filter(([, v]) => v !== undefined)) as Nutrients;
-  if (d.basis !== "serving") return { from, per: "100", values, ...d.provenance };
+  const provenance = effectiveProvenance(d);
+  if (d.basis !== "serving") return { from, per: "100", values, ...provenance };
   const servingPieces = d.pieceCount && d.pieceCount > 0 && d.pieceName.trim() ? { count: d.pieceCount, name: d.pieceName.trim() } : undefined;
-  return { from, per: "serving", servingSize: d.servingSize || undefined, servingName: d.servingName.trim() || undefined, servingPieces, values, ...d.provenance };
+  return { from, per: "serving", servingSize: d.servingSize || undefined, servingName: d.servingName.trim() || undefined, servingPieces, values, ...provenance };
 }
 
 export function LabelForm({ draft, onChange, autoFocus }: { draft: LabelDraft; onChange: (d: LabelDraft) => void; autoFocus?: boolean }) {
@@ -132,7 +145,7 @@ export function LabelForm({ draft, onChange, autoFocus }: { draft: LabelDraft; o
       )}
 
       <div className="label-meta">
-        <ProvenanceField value={draft.provenance} onChange={(provenance) => set({ provenance })} complete={(["kcal", "protein", "carbs", "fat"] as const).every((k) => draft.values[k] !== undefined)} />
+        <ProvenanceField value={effectiveProvenance(draft)} onChange={(provenance) => set({ provenance })} complete={basicsFilled(draft)} />
         <span className="hint">Empty rows stay unknown, not zero.</span>
       </div>
     </div>

@@ -76,7 +76,9 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const next = labelFrom(draft);
   // A finished item needs a label: saving without one would keep the old label, or none, silently.
   const emptiedLabel = !item.unsure && !next;
-  const noLabel = emptiedLabel ? ["No label yet"] : [];
+  const noLabel = emptiedLabel ? [latest ? "The label is empty" : "No label yet"] : [];
+  // An item that never had a label is what "unsure" means, so saving it privately makes it one.
+  const savesAsUnsure = emptiedLabel && !latest;
   /** Without a label every save is refused, in red with the reason; otherwise a plain button. */
   const saveButton = (label: string, onClick: () => void, primary: boolean) =>
     noLabel.length ? (
@@ -364,7 +366,11 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
         ) : !item.public && item.catalogued ? (
           <div className="save-choices">
             <PublishButton blockers={blockers} refusals={[...noLabel, ...refusals]} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
-            {saveButton("Save privately", () => trySave(false, "mine"), blockers.length > 0 || refusals.length > 0)}
+            {savesAsUnsure ? (
+              <PublishButton blockers={["No label yet, so it's saved as unsure and waits in To follow up"]} label="Save privately" disabled={!name.trim()} onClick={() => trySave(true, "mine")} />
+            ) : (
+              saveButton("Save privately", () => trySave(false, "mine"), blockers.length > 0 || refusals.length > 0)
+            )}
           </div>
         ) : item.public ? (
           <div className="save-choices">
