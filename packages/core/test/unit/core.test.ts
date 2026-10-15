@@ -235,7 +235,7 @@ describe("schemas", () => {
     expect(publishBlockers({ labels: [label], brand: "Sága" })).toEqual([]);
     expect(publishBlockers({ labels: [{ ...label, verified: false, origin: "usda" }] })).toEqual([]);
     expect(publishBlockers({ labels: [label] })).toEqual(["A packaged product needs a barcode or a brand"]);
-    expect(publishBlockers({ labels: [{ ...label, values: { kcal: 30, protein: 10, carbs: 10, fat: 10 } }], barcode: "5995663969519" })).toEqual(["The macros don't add up to the kcal"]);
+    expect(publishBlockers({ labels: [{ ...label, values: { kcal: 300, protein: 1, carbs: 1, fat: 1 } }], barcode: "5995663969519" })).toEqual(["The macros don't add up to the kcal"]);
     expect(publishBlockers({ labels: [{ ...label, verified: false, origin: "estimate" }], brand: "Mama" })).toEqual(["It's an estimate"]);
     expect(publishBlockers({ labels: [] })).toEqual(["No label yet"]);
   });
