@@ -261,6 +261,7 @@ export function ItemRoute() {
 
 export function ComboRoute() {
   const navigate = useNavigate();
+  const open = useOpen();
   const { close } = useSteps("edit", undefined, "/combos");
   const foods = useFoodLookup();
   const combo = useResolved<Combo>((id, { name }) => {
@@ -282,6 +283,7 @@ export function ComboRoute() {
       <ComboEditor
         key={combo.id}
         combo={stored ?? combo}
+        onOpen={(c) => open(`/combos/${c.id}`)}
         onSaved={(c, done) => {
           done.then((r) => notify(`Saved ${c.name}`, undoBy(r.undoToken)), () => {});
           close();

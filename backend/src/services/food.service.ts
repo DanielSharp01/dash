@@ -162,6 +162,12 @@ export async function copyFood(userId: string, id: string) {
   return db.transaction(async (tx) => {
     const row = visible(await lockFood(tx, id), userId);
     if (row.userId !== null || row.kind === "recipe") throw unprocessable("Only a shared item or combo can be copied; recipes keep your own batches instead");
+    // One own version per shared food: asking again opens the one already there.
+    const [existing] = await tx
+      .select({ id: foodsTable.id })
+      .from(foodsTable)
+      .where(and(eq(foodsTable.userId, userId), eq(foodsTable.originId, id), isNull(foodsTable.deletedAt)));
+    if (existing) return { food: (await loadFood(tx, existing.id, userId))! };
     const shared = (await loadFood(tx, id))!;
     const { revision: _r, deleted: _d, public: _p, starter: _s, ...input } = shared as Exclude<Food, Recipe>;
     const copyId = randomUUID();

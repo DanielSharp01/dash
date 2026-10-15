@@ -71,6 +71,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   // No public version exists yet, so the label question is about the person's own past days.
   const firstPublish = !item.public && scope === "everyone";
   const sharedOrigin = !item.public && item.originId ? asItem(allFoods.find((f) => f.id === item.originId)) : undefined;
+  const myVersion = item.public ? asItem(allFoods.find((f) => !f.public && !f.deleted && f.originId === item.id)) : undefined;
 
   const next = labelFrom(draft);
   const blockers = publishBlockers({ labels: next ? [next] : item.labels, barcode: barcode.trim() || undefined, brand: brand.trim() || undefined });
@@ -360,10 +361,22 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
             <button className="btn btn-primary btn-block" disabled={!name.trim()} onClick={() => trySave(false, "everyone")}>
               Fix it for everyone
             </button>
-            <button className="btn btn-block" disabled={!name.trim()} onClick={() => trySave(false, "copy")}>
-              Make my own version
-            </button>
-            <p className="hint">Your own version is a private copy: your entries move to it, and fixes to the shared one won't reach it.</p>
+            {myVersion ? (
+              onOpenItem ? (
+                <button className="btn btn-block" onClick={() => onOpenItem(myVersion)}>
+                  Open my version
+                </button>
+              ) : (
+                <p className="hint">You already have your own version of this, {displayName(myVersion)}.</p>
+              )
+            ) : (
+              <>
+                <button className="btn btn-block" disabled={!name.trim()} onClick={() => trySave(false, "copy")}>
+                  Make my own version
+                </button>
+                <p className="hint">Your own version is a private copy: your entries move to it, and fixes to the shared one won't reach it.</p>
+              </>
+            )}
           </div>
         ) : (
           <button className="btn btn-primary btn-block" disabled={!name.trim()} onClick={() => trySave(false)}>

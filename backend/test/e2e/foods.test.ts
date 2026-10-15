@@ -206,6 +206,14 @@ describe("own versions", () => {
     expect((await u.get("/foods")).body.foods.filter((f: any) => f.name === "Water" && !f.deleted)).toHaveLength(2);
   });
 
+  it("gives back the existing own version instead of making a second one", async () => {
+    const u = await newUser();
+    const first = await u.post(`/foods/${water}/copy`);
+    const again = await u.post(`/foods/${water}/copy`);
+    expect(again.body.food.id).toBe(first.body.food.id);
+    expect((await u.get("/foods")).body.foods.filter((f: any) => f.originId === water && !f.deleted)).toHaveLength(1);
+  });
+
   it("refuses to copy one's own item or a recipe", async () => {
     const u = await newUser();
     const own = item();

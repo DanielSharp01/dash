@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { asItem, autoFoodIcon, displayName, type Batch, type Combo, type ComboInput, type FoodLookup, portionContents, type RecipeInput, withBase } from "@dash/core";
-import { copyFood, publishFood, saveFood, useFoodLookup } from "../../queries/foods.queries";
+import { copyFood, publishFood, saveFood, useFoodLookup, useFoods } from "../../queries/foods.queries";
 import { NutritionPreview } from "../flows/EatFlow";
 import { todayKey } from "../time";
 import { IconField } from "../ui/Pickers";
@@ -23,10 +23,12 @@ export function ComboEditor({
   combo,
   onSaved,
   onToRecipe,
+  onOpen,
 }: {
   combo: Combo;
   onSaved: (c: Combo, saved: Promise<{ undoToken?: string }>) => void;
   onToRecipe?: (c: ComboInput) => void;
+  onOpen?: (c: Combo) => void;
 }) {
   const foods = useFoodLookup();
   const [name, setName] = useState(combo.name);
@@ -63,6 +65,9 @@ export function ComboEditor({
   // The copy starts as the shared combo, with the edits made here on top.
   const makeOwn = () => onSaved({ ...combo, ...draft }, copyFood(combo.id).then(({ food }) => saveFood({ ...draft, id: food.id, originId: combo.id })));
   const sharedOrigin = !combo.public && combo.originId ? foods(combo.originId) : undefined;
+  const allFoods = useFoods();
+  const mine = allFoods.find((f) => !f.public && !f.deleted && f.originId === combo.id);
+  const myVersion = mine?.kind === "combo" ? mine : undefined;
 
   return (
     <div className="item-editor">
@@ -90,7 +95,11 @@ export function ComboEditor({
       </div>
 
       <div className="flow-footer">
-        {combo.public ? (
+        {combo.public && myVersion && onOpen ? (
+          <button className="btn btn-primary btn-block" onClick={() => onOpen(myVersion)}>
+            Open my version
+          </button>
+        ) : combo.public ? (
           <button className="btn btn-primary btn-block" disabled={!name.trim() || parts.length === 0} onClick={makeOwn}>
             Make my own version
           </button>
