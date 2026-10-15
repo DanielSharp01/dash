@@ -229,7 +229,12 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           {twin && (
             <p className="hint warn-hint">
               There's already {displayName(twin)}
-              {twin.public ? " in the shared catalogue" : ""}. Give this one a different variant or brand, or use that one.
+              {twin.public ? " in the shared catalogue" : ""}. Give this one a different variant or brand.{" "}
+              {onOpenItem && (
+                <button className="link-btn" onClick={() => onOpenItem(twin)}>
+                  Open it
+                </button>
+              )}
             </p>
           )}
           {siblings.length > 0 && (

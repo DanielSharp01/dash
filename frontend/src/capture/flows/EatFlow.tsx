@@ -494,7 +494,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
             Combo of things
           </button>
         </div>
-        <NewFoodHead value={newFood} onChange={setNewFood} twins={newFood.kind === "item" ? twins : []} />
+        <NewFoodHead value={newFood} onChange={setNewFood} twins={newFood.kind === "item" ? twins : []} onUse={pickFood} />
         {newFood.kind === "combo" ? (
           <div className="field">
             <span className="field-label">What's in it</span>
@@ -661,7 +661,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
   );
 }
 
-function NewFoodHead({ value, onChange, twins }: { value: NewFood; onChange: (n: NewFood) => void; twins: FoodItem[] }) {
+function NewFoodHead({ value, onChange, twins, onUse }: { value: NewFood; onChange: (n: NewFood) => void; twins: FoodItem[]; onUse: (f: FoodItem) => void }) {
   const twin = twins.find((t) => sameItem(t, value));
   return (
     <>
@@ -680,7 +680,10 @@ function NewFoodHead({ value, onChange, twins }: { value: NewFood; onChange: (n:
       {twin ? (
         <p className="hint warn-hint">
           There's already {displayName(twin)}
-          {twin.public ? " in the shared catalogue" : ""}. Give this one a different variant or brand, or use that one.
+          {twin.public ? " in the shared catalogue" : ""}. Give this one a different variant or brand.{" "}
+          <button className="link-btn" onClick={() => onUse(twin)}>
+            Log that one instead
+          </button>
         </p>
       ) : (
         twins.length > 0 &&
