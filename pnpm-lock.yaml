@@ -123,9 +123,6 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.1.1
         version: 6.1.2(vite@8.3.4(@types/node@26.6.4)(esbuild@0.28.2)(tsx@4.23.15))
-      agentation:
-        specifier: ^3.1.2
-        version: 3.1.2(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -1151,17 +1148,6 @@ packages:
   agent-base@7.1.4:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
-
-  agentation@3.1.2:
-    resolution: {integrity: sha512-ZZr6PRgX3ussGbvC9NVh5vFfKKFkQyHL6KuxOfBAAM/mJS3bM2XyhZ7wLPakDwU3pqkzq7u6vEfLikFsCOu5+Q==}
-    peerDependencies:
-      react: '>=18.0.0'
-      react-dom: '>=18.0.0'
-    peerDependenciesMeta:
-      react:
-        optional: true
-      react-dom:
-        optional: true
 
   ansis@4.4.0:
     resolution: {integrity: sha512-9k3v7xcHwgdO/DruxGIg4HtjvlAZlcnsX/mzqUb1t3NkYnl9kK2UJ+Gq0io+vQf7iT//BD/HB/NBkUR1LWxoeA==}
@@ -2479,11 +2465,6 @@ snapshots:
   '@yuku-toolchain/types@0.8.7': {}
 
   agent-base@7.1.4: {}
-
-  agentation@3.1.2(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
-    optionalDependencies:
-      react: 19.3.0
-      react-dom: 19.3.0(react@19.3.0)
 
   ansis@4.4.0: {}
 
