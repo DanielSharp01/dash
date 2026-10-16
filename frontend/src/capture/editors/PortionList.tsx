@@ -19,12 +19,13 @@ export function PortionList({ portions, kinds, addLabel, onChange }: { portions:
           const food = foods(p.foodId);
           const isOpen = open === i;
           return (
-            <li key={`${p.foodId}-${i}`} className={`combo-line ${isOpen ? "open" : ""}`}>
+            <li key={`${p.foodId}-${i}`} className={`combo-line ${isOpen ? "open" : ""} ${food?.deleted ? "deleted" : ""}`}>
               <button className="row" onClick={() => setOpen(isOpen ? undefined : i)} aria-expanded={isOpen}>
                 <span className="row-icon">{food?.icon ?? "?"}</span>
                 <span className="row-main">
                   <span className="row-title">
-                    {food ? displayName(food) : "Removed item"} {food?.kind === "item" && food.unsure && <span className="badge badge-warn">Unsure</span>}
+                    {food ? displayName(food) : "Removed item"} {food?.deleted && <span className="badge badge-warn">Deleted</span>}{" "}
+                    {food?.kind === "item" && food.unsure && <span className="badge badge-warn">Unsure</span>}
                   </span>
                   <span className="row-sub">{formatAmount(p.amount)}</span>
                 </span>

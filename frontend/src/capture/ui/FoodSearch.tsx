@@ -5,8 +5,10 @@ import { batchLabel, useListedFoods } from "../foods";
 import { canScan } from "./Scanner";
 import { useDebounced } from "./useDebounced";
 
+const partName = (f: Food | undefined) => (!f ? "?" : f.deleted ? `${f.name} (deleted)` : f.name);
+
 export function foodSummary(f: Food, foods: FoodLookup): string {
-  if (f.kind === "combo") return f.parts.map((p) => foods(p.foodId)?.name ?? "?").join(" + ") || "empty combo";
+  if (f.kind === "combo") return f.parts.map((p) => partName(foods(p.foodId))).join(" + ") || "empty combo";
   if (f.kind === "recipe") {
     const b = latestBatch(f);
     const sized = b && batchPerUnit(b, foods);

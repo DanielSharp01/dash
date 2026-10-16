@@ -32,6 +32,12 @@ export const batchLabel = (b: Pick<Batch, "madeOn">) => new Date(`${b.madeOn}T12
 export const variantsOf = (list: Food[], item: Pick<FoodItem, "id" | "name">) =>
   list.filter((f): f is FoodItem => f.kind === "item" && f.id !== item.id && !f.unsure && groupKey(f.name) === groupKey(item.name));
 
+/** New entries can't refer to a deleted food, so a combo holding one can't be logged until it's restored or left out. */
+export function deletedFoods(ids: (string | undefined)[], foods: FoodLookup): Food[] {
+  const found = ids.map((id) => foods(id)).filter((f): f is Food => !!f?.deleted);
+  return [...new Map(found.map((f) => [f.id, f])).values()];
+}
+
 const isFluidItem = (f: Food | undefined) => f?.kind === "item" && f.unit === "ml" && !f.notFluid;
 
 export function isDrink(f: Food, foods: FoodLookup) {

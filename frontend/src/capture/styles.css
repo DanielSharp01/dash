@@ -3059,6 +3059,15 @@ input[type="checkbox"]:focus-visible {
   background: var(--surface);
 }
 
+.combo-line.deleted .row-icon,
+.combo-line.deleted .row-sub {
+  opacity: 0.45;
+}
+
+.combo-line.deleted .row-title {
+  color: var(--muted);
+}
+
 .combo-line.open .row {
   border-radius: var(--radius) var(--radius) 0 0;
 }

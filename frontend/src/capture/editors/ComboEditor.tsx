@@ -2,6 +2,8 @@ import { useState } from "react";
 import { asItem, autoFoodIcon, displayName, type Batch, type Combo, type ComboInput, type FoodLookup, portionContents, type RecipeInput, withBase } from "@dash/core";
 import { copyFood, publishFood, saveFood, useFoodLookup, useFoods } from "../../queries/foods.queries";
 import { NutritionPreview } from "../flows/EatFlow";
+import { deletedFoods } from "../foods";
+import { DeletedHint } from "../ui/DeletedHint";
 import { todayKey } from "../time";
 import { IconField } from "../ui/Pickers";
 import { PublishButton } from "../ui/PublishButton";
@@ -64,6 +66,7 @@ export function ComboEditor({
   };
   // The copy starts as the shared combo, with the edits made here on top.
   const makeOwn = () => onSaved({ ...combo, ...draft }, copyFood(combo.id).then(({ food }) => saveFood({ ...draft, id: food.id, originId: combo.id })));
+  const gone = deletedFoods(parts.map((p) => p.foodId), foods);
   const sharedOrigin = !combo.public && combo.originId ? foods(combo.originId) : undefined;
   const allFoods = useFoods();
   const mine = allFoods.find((f) => !f.public && !f.deleted && f.originId === combo.id);
@@ -81,6 +84,7 @@ export function ComboEditor({
 
       <div className="field">
         <span className="field-label">What's in it</span>
+        <DeletedHint gone={gone} advice="The combo can't be logged until it's restored or removed." />
         <PortionList portions={parts} kinds={["item", "recipe"]} addLabel="Add an item" onChange={setParts} />
       </div>
 

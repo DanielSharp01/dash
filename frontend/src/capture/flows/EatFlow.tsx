@@ -49,10 +49,11 @@ import { lookupBarcode } from "../../queries/lookups.queries";
 import { useProfile } from "../../queries/me.queries";
 import { PortionList } from "../editors/PortionList";
 import { ItemEditor } from "../editors/ItemEditor";
-import { batchLabel, finishedBatches, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, useListedFoods, usualAmount, variantsOf } from "../foods";
+import { batchLabel, deletedFoods, finishedBatches, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, useListedFoods, usualAmount, variantsOf } from "../foods";
 import { initialWhen, nowWhen } from "../time";
 import { AmountInput } from "../ui/AmountInput";
 import { Breakdown, ingredientRows } from "../ui/Breakdown";
+import { DeletedHint } from "../ui/DeletedHint";
 import { FlowShell } from "../ui/FlowShell";
 import { PublishButton } from "../ui/PublishButton";
 import { Sheet } from "../ui/Sheet";
@@ -516,6 +517,8 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     const item = asItem(foods(line?.foodId));
     const recipe = asRecipe(foods(line?.foodId));
     const combo = foods(comboId);
+    const alreadyLogged = new Set(mode.kind === "edit" ? mode.entry.lines.map((l) => l.foodId) : []);
+    const gone = deletedFoods(lines.filter((l) => !alreadyLogged.has(l.foodId)).map((l) => l.foodId), foods);
     const preview = newItem ? previewNew(newItem, line.amount, when.date) : lines.reduce<Contents>((sum, l) => mergeContents(sum, lineContents(l, when.date, foods)), {});
     const changeable = mode.kind !== "edit" || single;
 
@@ -557,12 +560,13 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
               onSave={saveNew}
             />
           ) : (
-            <button className="btn btn-primary btn-block" onClick={() => commit(lines)}>
+            <button className="btn btn-primary btn-block" disabled={gone.length > 0} onClick={() => commit(lines)}>
               Save
             </button>
           )
         }
       >
+        <DeletedHint gone={gone} advice={single ? "It can't be logged unless it's restored." : "Restore or leave it out to save."} />
         {single || newItem ? (
           <>
             <div className="selected-links">
@@ -790,12 +794,13 @@ function ComboLines({ lines, openId, onOpen, onChange }: { lines: Line[]; openId
         const food = foods(l.foodId);
         const open = openId === l.id;
         return (
-          <li key={l.id} className={`combo-line ${open ? "open" : ""}`}>
+          <li key={l.id} className={`combo-line ${open ? "open" : ""} ${food?.deleted ? "deleted" : ""}`}>
             <button className="row" onClick={() => onOpen(open ? undefined : l.id)} aria-expanded={open}>
               <span className="row-icon">{food?.icon ?? "✎"}</span>
               <span className="row-main">
                 <span className="row-title">
-                  {food ? displayName(food) : (l.rawName ?? "Something")} {food?.kind === "item" && food.unsure && <span className="badge badge-warn">Unsure</span>}
+                  {food ? displayName(food) : (l.rawName ?? "Something")} {food?.deleted && <span className="badge badge-warn">Deleted</span>}{" "}
+                  {food?.kind === "item" && food.unsure && <span className="badge badge-warn">Unsure</span>}
                 </span>
                 <span className="row-sub">{formatAmount(l.amount)}</span>
               </span>
