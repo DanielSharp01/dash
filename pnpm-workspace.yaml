@@ -7,4 +7,8 @@ allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
   - '@danielsharp/typeline@0.1.2'
-  - '@danielsharp/drizzle@0.2.0'
+  - '@danielsharp/drizzle@0.2.1'
+  - '@danielsharp/zod@0.2.0'
+  - '@danielsharp/typeline-http@0.2.0'
+  - '@danielsharp/auth@0.2.0'
+  - '@danielsharp/http-auth@0.2.0'

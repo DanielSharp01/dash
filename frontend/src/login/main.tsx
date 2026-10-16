@@ -11,6 +11,7 @@ const error = params.get("error");
 const errorMessages: Record<string, string> = {
   not_invited: "Dash is invite-only for now. If someone sent you an invite link, open that link to sign in.",
   invite_expired: "This invite link has expired or was already used. Ask for a new one.",
+  oauth_denied: "Google sign-in was cancelled. Try again when you're ready.",
 };
 
 function errorMessage(error: string) {

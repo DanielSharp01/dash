@@ -1,34 +1,40 @@
 import { randomUUID } from "node:crypto";
-import {
-  resRedirect,
-  validateCookies,
-  validateParams,
-  validateQuery,
-} from "@danielsharp/typeline-http";
+import { flashCookie, resRedirect, validateParams, validateQuery } from "@danielsharp/typeline-http";
 import { stop, selectInput, tapInput } from "@danielsharp/typeline";
+import { oauthCallback } from "@danielsharp/http-auth";
+import { zodJsonString } from "@danielsharp/zod";
 import { rootRouter } from "../routers";
 import z from "zod";
 import { authCookie, google, session } from "../providers/auth";
 import { db } from "../providers/db";
 import { UserRepository } from "../repositories/user.repo";
 import { ensureProfile } from "../repositories/settings.repo";
-import { issuePkce, OAuthError } from "@danielsharp/auth";
+import { issuePkce } from "@danielsharp/auth";
 import { env } from "../config/env";
 
 const users = new UserRepository(db);
 // Built from configuration, not the request, so a proxy in front can't change where Google sends the code.
 const googleCallback = `${env.API_HOST}/auth/google/callback`;
 
-const INVITE_COOKIE = "__Host-auth-invite";
+const flashOptions = { httpOnly: true, secure: true, sameSite: "lax", path: "/" } as const;
+// A stale or tampered invite cookie just means signing in without one.
+const inviteCookie = flashCookie("__Host-auth-invite", z.string().max(100).optional().catch(undefined), {
+  ...flashOptions,
+  maxAge: 15 * 60 * 1000,
+});
+const googleCookie = flashCookie("__Host-auth-google", zodJsonString(z.object({ codeVerifier: z.string(), nonce: z.string() })), {
+  ...flashOptions,
+  maxAge: 5 * 60 * 1000,
+});
 
 export function authController() {
   // Checked before Google so a dead link says so up front; the callback checks it again when it's claimed.
   rootRouter.get("/auth/invite/:token", (line) =>
     line
       .pipe(validateParams(z.object({ token: z.string().min(1).max(100) })))
-      .pipe(async ({ params }, { res }) => {
+      .pipe(async ({ params }, ctx) => {
         if (!(await users.isInviteLive(params.token))) return "/login?error=invite_expired";
-        res.cookie(INVITE_COOKIE, params.token, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 15 * 60 * 1000 });
+        inviteCookie.set(params.token, ctx);
         return "/auth/google/authorize?returnTo=/capture/";
       })
       .pipe(resRedirect(302)),
@@ -37,103 +43,32 @@ export function authController() {
   rootRouter.get("/auth/google/authorize", (line) =>
     line
       .pipe(validateQuery(z.object({ returnTo: z.string().default("/") })))
-      .pipe(({ query }, { res }) => {
+      .pipe(({ query }, ctx) => {
         const { codeVerifier, codeChallenge } = issuePkce();
         const nonce = randomUUID();
-        res.cookie(
-          "__Host-auth-google",
-          JSON.stringify({
-            codeVerifier,
-            nonce,
-          }),
-          {
-            httpOnly: true,
-            secure: true,
-            sameSite: "lax",
-            path: "/",
-            maxAge: 5 * 60 * 1000,
-          },
-        );
-        res.redirect(
-          google.getAuthorizationUrl({
-            redirectUri: googleCallback,
-            state: query.returnTo,
-            codeChallenge,
-            nonce,
-          }),
-        );
-      }),
+        googleCookie.set(JSON.stringify({ codeVerifier, nonce }), ctx);
+        return google.getAuthorizationUrl({ redirectUri: googleCallback, state: query.returnTo, codeChallenge, nonce });
+      })
+      .pipe(resRedirect(302)),
   );
 
   rootRouter.get("/auth/google/callback", (line) =>
     line
-      .pipe(
-        validateCookies(
-          z.object({
-            "__Host-auth-google": z
-              .string()
-              .transform((val) => JSON.parse(val))
-              .pipe(
-                z.object({
-                  codeVerifier: z.string(),
-                  nonce: z.string(),
-                }),
-              ),
-            [INVITE_COOKIE]: z.string().optional(),
-          }),
-        ),
-      )
-      .pipe(
-        validateQuery(
-          z.union([
-            z.object({
-              code: z.string(),
-              state: z.string(),
-            }),
-            z.object({ error: z.string(), error_description: z.string() }),
-          ]),
-        ),
-      )
-      .pipe(
-        async (
-          { cookies: { "__Host-auth-google": authGoogle, [INVITE_COOKIE]: inviteToken }, query },
-          { res },
-        ) => {
-          res.clearCookie("__Host-auth-google", { path: "/", secure: true });
-          res.clearCookie(INVITE_COOKIE, { path: "/", secure: true });
-          if ("error" in query) {
-            res.redirect(
-              "/login?error=" + encodeURIComponent(query.error_description),
-            );
-            return stop();
-          }
-          const { codeVerifier, nonce } = authGoogle;
-          try {
-            const identity = await google.getIdentity({
-              code: query.code,
-              codeVerifier,
-              redirectUri: googleCallback,
-              nonce,
-            });
-            const user = await users.signInWithGoogle(identity, inviteToken);
-            if (!user) {
-              res.redirect("/login?error=not_invited");
-              return stop();
-            }
-            await ensureProfile(db, user.id);
-            return { session: await session.issue({ userId: user.id, google: identity }), returnTo: query.state };
-          } catch (error) {
-            if (OAuthError.is(error)) {
-              res.redirect("/login?error=oauth_error");
-              return stop();
-            }
-            res.redirect("/login?error=unknown_error");
-            return stop();
-          }
-        },
-      )
+      // Taken before the Google cookie so it's spent even when the callback fails.
+      .pipe(inviteCookie.take("invite"))
+      .pipe(googleCookie.take("pkce"))
+      .pipe(oauthCallback({ provider: google, redirectUri: googleCallback, onError: { redirect: "/login" } }))
+      .pipe(async ({ identity, state, invite }, { res }) => {
+        const user = await users.signInWithGoogle(identity, invite);
+        if (!user) {
+          res.redirect("/login?error=not_invited");
+          return stop();
+        }
+        await ensureProfile(db, user.id);
+        return { session: await session.issue({ userId: user.id, google: identity }), returnTo: state };
+      })
       .pipe(tapInput(selectInput((x) => x.session, authCookie.set)))
-      .pipe(selectInput((x) => x.returnTo, resRedirect(302))),
+      .pipe(selectInput((x) => x.returnTo, resRedirect(302, { sameOrigin: true }))),
   );
 
   rootRouter.get("/auth/logout", (line) =>

@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { hashToken, issueExpiringToken } from "@danielsharp/auth";
 import type { GoogleIdentity } from "@danielsharp/auth/google";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { usersTable } from "../db/schema";
@@ -6,11 +6,9 @@ import type { Db, Executor } from "../providers/db";
 
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
-
 function newInvite() {
-  const token = randomBytes(32).toString("base64url");
-  return { token, inviteTokenHash: hashToken(token), inviteExpiresAt: new Date(Date.now() + INVITE_TTL_MS) };
+  const { token, idHash, expiresAt } = issueExpiringToken(INVITE_TTL_MS);
+  return { token, inviteTokenHash: idHash, inviteExpiresAt: expiresAt };
 }
 
 const unusedInvite = (token: string) =>

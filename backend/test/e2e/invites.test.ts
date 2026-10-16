@@ -57,6 +57,18 @@ describe("invite link", () => {
     expect(res.headers.get("set-cookie")).toContain(`__Host-auth-invite=${token}`);
   });
 
+  it("sends a cancelled Google sign-in to the login page and spends both cookies", async () => {
+    const google = encodeURIComponent(JSON.stringify({ codeVerifier: "verifier", nonce: "nonce" }));
+    const res = await anonymous("/auth/google/callback?error=access_denied", {
+      cookie: `__Host-auth-google=${google}; __Host-auth-invite=token`,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/login?error=oauth_denied");
+    const cleared = res.headers.getSetCookie();
+    expect(cleared.some((c) => c.startsWith("__Host-auth-google=;") && c.includes("Max-Age=0"))).toBe(true);
+    expect(cleared.some((c) => c.startsWith("__Host-auth-invite=;") && c.includes("Max-Age=0"))).toBe(true);
+  });
+
   it("sends a dead link to the login page", async () => {
     const res = await anonymous(`/auth/invite/${randomUUID()}`);
     expect(res.status).toBe(302);
