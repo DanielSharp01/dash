@@ -376,14 +376,41 @@ describe("batches", () => {
     expect((await u.post(`/foods/${chili.id}/publish`)).status).toBe(422);
   });
 
-  it("only takes items as ingredients", async () => {
+  it("takes items, and recipes from one of their batches, as ingredients", async () => {
     const u = await newUser();
-    const chili = recipe();
-    const other = recipe({ name: "Rice" });
-    await u.post("/foods", chili);
-    await u.post("/foods", other);
-    const res = await u.put(`/foods/${chili.id}/batches/${uuid()}`, { id: uuid(), madeOn: "2026-09-09", ingredients: [{ foodId: other.id, amount: {} }], gone: false, revision: 0 });
-    expect(res.status).toBe(400);
+    const other = await newUser();
+    const flour = item({ name: "Flour", unit: "g" });
+    const coating = recipe({ name: "Coating" });
+    const chicken = recipe({ name: "Chicken" });
+    await u.post("/foods", flour);
+    await u.post("/foods", coating);
+    await u.post("/foods", chicken);
+    const mixed = { id: uuid(), madeOn: "2026-09-09", ingredients: [{ foodId: flour.id, amount: { value: 200, unit: "g" }, base: 200 }], yield: { grams: 200 }, gone: false };
+    await u.put(`/foods/${coating.id}/batches/${mixed.id}`, { ...mixed, revision: 0 });
+    const save = (as: typeof u, recipeId: string, ingredients: object[], id = uuid()) =>
+      as.put(`/foods/${recipeId}/batches/${id}`, { id, madeOn: "2026-09-09", ingredients, yield: { grams: 500 }, gone: false, revision: 0 });
+
+    const fried = await save(u, chicken.id, [{ foodId: coating.id, batchId: mixed.id, amount: { value: 80, unit: "g" } }]);
+    expect(fried.status).toBe(200);
+    expect(fried.body.batch.ingredients).toEqual([{ foodId: coating.id, batchId: mixed.id, amount: { value: 80, unit: "g" } }]);
+
+    const breakfast = combo([{ foodId: flour.id, amount: { value: 1, unit: "g" } }]);
+    await u.post("/foods", breakfast);
+    expect((await save(u, chicken.id, [{ foodId: breakfast.id, amount: {} }])).status).toBe(422);
+    expect((await save(u, chicken.id, [{ foodId: coating.id, amount: { value: 80, unit: "g" } }])).status).toBe(422);
+    expect((await save(u, chicken.id, [{ foodId: flour.id, batchId: mixed.id, amount: { value: 80, unit: "g" } }])).status).toBe(422);
+    expect((await save(u, chicken.id, [{ foodId: chicken.id, batchId: mixed.id, amount: { value: 80, unit: "g" } }])).status).toBe(422);
+
+    const loop = await save(u, coating.id, [{ foodId: chicken.id, batchId: fried.body.batch.id, amount: { value: 10, unit: "g" } }]);
+    expect(loop.status).toBe(422);
+    expect(loop.body.reason).toMatch(/itself/);
+
+    await u.post(`/foods/${flour.id}/publish`);
+    await u.post(`/foods/${coating.id}/publish`);
+    expect((await u.post(`/foods/${chicken.id}/publish`)).status).toBe(422);
+    const theirs = recipe({ name: "Their chicken" });
+    await other.post("/foods", theirs);
+    expect((await save(other, theirs.id, [{ foodId: coating.id, batchId: mixed.id, amount: { value: 80, unit: "g" } }])).status).toBe(422);
   });
 });
 

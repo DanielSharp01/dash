@@ -59,8 +59,8 @@ function toLabel(row: LabelRow): Label {
   };
 }
 
-function toPortion(row: { foodId: string; amountValue: number | null; amountUnit: string | null; base?: number | null }): Portion {
-  return { foodId: row.foodId, amount: toAmount(row.amountValue, row.amountUnit), ...opt("base", row.base) };
+function toPortion(row: { foodId: string; amountValue: number | null; amountUnit: string | null; base?: number | null; fromBatchId?: string | null }): Portion {
+  return { foodId: row.foodId, amount: toAmount(row.amountValue, row.amountUnit), ...opt("base", row.base), ...opt("batchId", row.fromBatchId) };
 }
 
 export function toBatch(row: BatchRow, ingredients: IngredientRow[]): StoredBatch {
@@ -374,7 +374,7 @@ export async function loadBatch(ex: Executor, id: string, opts: { lock?: boolean
 export function batchRefRows(ex: Executor, ids: string[]) {
   if (!ids.length) return Promise.resolve([]);
   return ex
-    .select({ id: batchesTable.id, recipeId: batchesTable.recipeId, deletedAt: batchesTable.deletedAt })
+    .select({ id: batchesTable.id, recipeId: batchesTable.recipeId, userId: batchesTable.userId, deletedAt: batchesTable.deletedAt })
     .from(batchesTable)
     .where(inArray(batchesTable.id, ids));
 }
@@ -417,6 +417,8 @@ async function writeIngredients(ex: Executor, batch: Batch) {
     batch.ingredients.map((p, position) => ({
       batchId: batch.id,
       foodId: p.foodId,
+      foodKind: p.batchId ? ("recipe" as const) : ("item" as const),
+      fromBatchId: p.batchId ?? null,
       amountValue: p.amount.value ?? null,
       amountUnit: p.amount.unit ?? null,
       base: p.base ?? null,

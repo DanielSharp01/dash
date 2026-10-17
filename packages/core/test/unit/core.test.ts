@@ -120,6 +120,20 @@ describe("dayTotals", () => {
     expect(t.kcal.missing).toBe(0);
   });
 
+  it("sizes a recipe inside a recipe from the batch it was taken from", () => {
+    const batch = (id: string, ingredients: Recipe["batches"][number]["ingredients"]) => ({ id, madeOn: "2026-07-01", ingredients, yield: { grams: 200 }, gone: false, revision: 1, deleted: false });
+    const coating: Recipe = { ...porridge, id: uid(), name: "Coating", batches: [batch(uid(), [{ foodId: oats.id, amount: { value: 200, unit: "g" }, base: 200 }]), batch(uid(), [])] };
+    const chicken: Recipe = { ...porridge, id: uid(), name: "Chicken", batches: [batch(uid(), [{ foodId: coating.id, batchId: coating.batches[0]!.id, amount: { value: 100, unit: "g" } }])] };
+    const loop: Recipe = { ...porridge, id: uid(), name: "Loop", batches: [] };
+    loop.batches.push(batch(uid(), [{ foodId: loop.id, batchId: "", amount: { value: 100, unit: "g" } }]));
+    loop.batches[0]!.ingredients[0]!.batchId = loop.batches[0]!.id;
+    const nested = lookupOf([...foods, coating, chicken, loop]);
+    const t = dayTotals([entry("2026-07-02", [{ id: uid(), foodId: chicken.id, batchId: chicken.batches[0]!.id, amount: { value: 200, unit: "g" } }])], nested);
+    // Half the first coating batch, 100 g oats, though a newer coating batch is the one being eaten that day.
+    expect(t.kcal).toEqual({ value: 380, missing: 0 });
+    expect(dayTotals([entry("2026-07-02", [{ id: uid(), foodId: loop.id, batchId: loop.batches[0]!.id, amount: { value: 100, unit: "g" } }])], nested).kcal.missing).toBe(1);
+  });
+
   it("counts a line with no label as missing, never as zero", () => {
     const t = dayTotals([entry("2026-07-02", [{ id: uid(), rawName: "soup", amount: { value: 1, unit: "bowl" } }])], lookup);
     expect(t.kcal).toEqual({ value: 0, missing: 1 });

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { autoFoodIcon, BEGINNING, currentBatch, groupKey, isFinished, type Amount, type Batch, type Food, type FoodInput, type FoodItem, type FoodLookup, type FoodUsage, labelAt, type Recipe } from "@dash/core";
+import { autoFoodIcon, batchPerUnit, BEGINNING, currentBatch, groupKey, isFinished, type Amount, type Batch, type Food, type FoodInput, type FoodItem, type FoodLookup, type FoodUsage, labelAt, type Recipe } from "@dash/core";
 import { asNewFood, useFoods } from "../queries/foods.queries";
 
 /** What lists, search and cards offer: live, catalogued foods. One's own version and the shared one are both offered. */
@@ -107,4 +107,11 @@ export function foodInput(f: Food): FoodInput {
   if (rest.kind !== "recipe") return rest;
   const { batches: _____, ...recipe } = rest;
   return recipe;
+}
+
+export function recipeUnits(r: Recipe, batchId: string | undefined, system: "metric" | "imperial", foods: FoodLookup) {
+  const batch = r.batches.find((b) => b.id === batchId) ?? currentBatch(r);
+  const sized = batch && batchPerUnit(batch, foods);
+  if (!sized) return ["g"];
+  return sized.unit === "portion" ? ["portion"] : system === "imperial" ? ["oz", "g"] : ["g"];
 }

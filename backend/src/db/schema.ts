@@ -259,7 +259,7 @@ export const batchesTable = pgTable(
   ],
 );
 
-/** No recipes inside recipes in the MVP: an ingredient is always an item. */
+/** An item, or a recipe taken from one of its batches; never a combo. */
 export const batchIngredientsTable = pgTable(
   "batch_ingredients",
   {
@@ -269,6 +269,8 @@ export const batchIngredientsTable = pgTable(
       .references(() => batchesTable.id, { onDelete: "cascade" }),
     foodId: uuid().notNull(),
     foodKind: foodKindEnum().notNull().default("item"),
+    /** Only with a recipe; the composite key keeps it a batch of that recipe. */
+    fromBatchId: uuid(),
     amountValue: doublePrecision(),
     amountUnit: text(),
     base: doublePrecision(),
@@ -276,9 +278,11 @@ export const batchIngredientsTable = pgTable(
   },
   (t) => [
     foreignKey({ columns: [t.foodId, t.foodKind], foreignColumns: [foodsTable.id, foodsTable.kind] }).onDelete("no action"),
+    foreignKey({ columns: [t.fromBatchId, t.foodId], foreignColumns: [batchesTable.id, batchesTable.recipeId] }).onDelete("no action"),
     index().on(t.batchId),
     index().on(t.foodId),
-    check("batch_ingredients_item", sql`${t.foodKind} = 'item'`),
+    index().on(t.fromBatchId),
+    check("batch_ingredients_kind", sql`(${t.foodKind} = 'item' and ${t.fromBatchId} is null) or (${t.foodKind} = 'recipe' and ${t.fromBatchId} is not null)`),
   ],
 );
 

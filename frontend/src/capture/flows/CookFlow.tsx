@@ -23,7 +23,7 @@ export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (log
   const draft = recipe && unfinishedBatch(recipe);
 
   const cook = (r: Recipe) => {
-    if (!unfinishedBatch(r)) void saveBatch(r.id, startBatch(r));
+    if (!unfinishedBatch(r)) void saveBatch(r.id, startBatch(r, foods));
     setCurrent(r.id);
     go("batch");
   };

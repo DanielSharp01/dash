@@ -25,7 +25,7 @@ async function checkRefs(tx: Tx, userId: string, input: EntryInput, before?: Ent
   if (input.kind === "exercise") return checkActivityRef(tx, userId, input.activityId, already.has(input.activityId));
   for (const l of input.lines) if (l.batchId && !l.foodId) throw unprocessable("A line with a batch needs its recipe", { id: l.id });
   await checkFoodRefs(tx, userId, entryFoodRefs(input), already);
-  await checkBatchRefs(tx, entryBatchRefs(input), already);
+  await checkBatchRefs(tx, userId, entryBatchRefs(input), already);
 }
 
 async function createNew(tx: Tx, userId: string, req: WithNew) {

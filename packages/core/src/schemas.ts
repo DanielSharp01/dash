@@ -89,6 +89,8 @@ export const portionSchema = z.object({
   amount: amountSchema,
   /** See Line.base; set on recipe ingredients, left out on combo parts, which are templates. */
   base: amountNumber.optional(),
+  /** A recipe as an ingredient comes from one cooking of it, e.g. the coating mixed for this chicken. */
+  batchId: idSchema.optional(),
 });
 
 const foodCommon = {
@@ -132,7 +134,7 @@ export const recipeInputSchema = z.object({ ...foodCommon, kind: z.literal("reci
 export const comboInputSchema = z.object({
   ...foodCommon,
   kind: z.literal("combo"),
-  parts: z.array(portionSchema.omit({ base: true })).max(100),
+  parts: z.array(portionSchema.omit({ base: true, batchId: true })).max(100),
 });
 
 export const foodInputSchema = z.discriminatedUnion("kind", [foodItemInputSchema, recipeInputSchema, comboInputSchema]);

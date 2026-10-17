@@ -306,7 +306,8 @@ export function RecipeRoute() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { close } = useSteps("edit", undefined, "/recipes");
-  const recipe = asRecipe(liveOwn(useFoodLookup()(id)));
+  const foods = useFoodLookup();
+  const recipe = asRecipe(liveOwn(foods(id)));
   if (!recipe) return <Navigate to="/recipes" replace />;
 
   return (
@@ -321,7 +322,7 @@ export function RecipeRoute() {
         onDelete={recipe.public ? undefined : () => (removeFood(recipe), close())}
         onOpenBatch={(b) => open(`/recipes/${recipe.id}/${b.id}`)}
         onCookAgain={() => {
-          if (!unfinishedBatch(recipe)) void saveBatch(recipe.id, startBatch(recipe));
+          if (!unfinishedBatch(recipe)) void saveBatch(recipe.id, startBatch(recipe, foods));
           open(`/cook/${recipe.id}`);
         }}
         onToCombo={(c) => {

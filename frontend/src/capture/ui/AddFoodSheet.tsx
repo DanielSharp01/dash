@@ -6,7 +6,19 @@ import { FoodSearch } from "./FoodSearch";
 import { Sheet } from "./Sheet";
 
 /** Picks a part or ingredient; one that isn't in the catalogue yet is created right here, unsure until its label is in. */
-export function AddFoodSheet({ title, kinds, onPick, onClose }: { title: string; kinds: Food["kind"][]; onPick: (f: Food) => void; onClose: () => void }) {
+export function AddFoodSheet({
+  title,
+  kinds,
+  excludeId,
+  onPick,
+  onClose,
+}: {
+  title: string;
+  kinds: Food["kind"][];
+  excludeId?: string;
+  onPick: (f: Food) => void;
+  onClose: () => void;
+}) {
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState<FoodItem>();
 
@@ -19,8 +31,9 @@ export function AddFoodSheet({ title, kinds, onPick, onClose }: { title: string;
           query={query}
           onQuery={setQuery}
           kinds={kinds}
+          excludeId={excludeId}
           recentIds={[]}
-          placeholder="Search your items"
+          placeholder={kinds.includes("recipe") ? "Search your items and recipes" : "Search your items"}
           onPick={onPick}
           onNew={(name) => setCreating(blankItem(name, { unsure: true }))}
         />

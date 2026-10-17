@@ -1,0 +1,5 @@
+ALTER TABLE "batch_ingredients" DROP CONSTRAINT "batch_ingredients_item";--> statement-breakpoint
+ALTER TABLE "batch_ingredients" ADD COLUMN "from_batch_id" uuid;--> statement-breakpoint
+ALTER TABLE "batch_ingredients" ADD CONSTRAINT "batch_ingredients_from_batch_id_food_id_batches_id_recipe_id_fk" FOREIGN KEY ("from_batch_id","food_id") REFERENCES "public"."batches"("id","recipe_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "batch_ingredients_from_batch_id_index" ON "batch_ingredients" USING btree ("from_batch_id");--> statement-breakpoint
+ALTER TABLE "batch_ingredients" ADD CONSTRAINT "batch_ingredients_kind" CHECK (("batch_ingredients"."food_kind" = 'item' and "batch_ingredients"."from_batch_id" is null) or ("batch_ingredients"."food_kind" = 'recipe' and "batch_ingredients"."from_batch_id" is not null));

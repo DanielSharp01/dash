@@ -53,9 +53,10 @@ export function batchPerUnit(batch: Batch, foods: FoodLookup): { unit: "g" | "po
   return { unit: "grams" in y ? "g" : "portion", per };
 }
 
-export function batchTotal(batch: Pick<Batch, "ingredients" | "madeOn">, foods: FoodLookup): Contents {
+/** `within` holds the recipes already being summed, so a recipe that ends up inside itself counts as unknown instead of looping. */
+export function batchTotal(batch: Pick<Batch, "ingredients" | "madeOn">, foods: FoodLookup, within: readonly string[] = []): Contents {
   if (!batch.ingredients.length) return {};
-  return batch.ingredients.reduce<Contents>((sum, p) => add(sum, portionContents(p, batch.madeOn, foods)), {});
+  return batch.ingredients.reduce<Contents>((sum, p) => add(sum, portionContents(p, batch.madeOn, foods, within)), {});
 }
 
 export const scaleContents = (c: Contents, by: number): Contents =>
@@ -70,16 +71,18 @@ export function batchShare(batch: Pick<Batch, "yield">, amount: Amount): number 
   return qty === undefined ? undefined : qty / ("grams" in y ? y.grams : y.portions);
 }
 
-function recipeContents(recipe: Recipe, batchId: string | undefined, amount: Amount, foods: FoodLookup): Contents | undefined {
+function recipeContents(recipe: Recipe, batchId: string | undefined, amount: Amount, foods: FoodLookup, within: readonly string[] = []): Contents | undefined {
+  if (within.includes(recipe.id)) return undefined;
   const batch = recipe.batches.find((b) => b.id === batchId);
   const share = batch && batchShare(batch, amount);
-  return share === undefined ? undefined : scaleContents(batchTotal(batch!, foods), share);
+  return share === undefined ? undefined : scaleContents(batchTotal(batch!, foods, [...within, recipe.id]), share);
 }
 
-export function portionContents(p: Portion, date: string, foods: FoodLookup): Contents | undefined {
+/** A recipe ingredient without a batch of its own falls back to the one being eaten that day. */
+export function portionContents(p: Portion, date: string, foods: FoodLookup, within: readonly string[] = []): Contents | undefined {
   const food = foods(p.foodId);
   if (food?.kind === "item") return known(contents(food, p.amount, date, p.base));
-  if (food?.kind === "recipe") return recipeContents(food, batchOn(food, date)?.id, p.amount, foods);
+  if (food?.kind === "recipe") return recipeContents(food, p.batchId ?? batchOn(food, date)?.id, p.amount, foods, within);
   return undefined;
 }
 

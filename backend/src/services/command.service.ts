@@ -84,7 +84,7 @@ async function mergeItem(tx: Tx, userId: string, undo: UndoRecorder, source: Foo
     const ingredients = ref.batch.ingredients.flatMap((p): Portion[] => {
       if (p.foodId !== source.id) return [p];
       if (target.kind === "item") return [withBase({ ...p, foodId: target.id }, target)];
-      if (target.kind === "recipe") throw unprocessable("A recipe can't be an ingredient, and the item is one");
+      if (target.kind === "recipe") throw unprocessable("The item is an ingredient, which can't turn into a whole recipe");
       return target.parts.map((part) => {
         const item = find(part.foodId);
         if (item?.kind !== "item") throw unprocessable("The combo has a recipe in it, and the item is an ingredient");

@@ -22,7 +22,7 @@ import {
 } from "../repositories/food.repo";
 import { weakEtag } from "../http/respond";
 import { claimId, editableFood, expectRevision, notFound, readOnly, sameId, unprocessable, visible, writable } from "./common";
-import { batchInputRefs, checkFoodRefs, foodDocRefIds, foodInputRefs } from "./refs";
+import { batchIngredientBatchRefs, batchInputRefs, batchRefIds, checkBatchRefs, checkFoodRefs, foodDocRefIds, foodInputRefs } from "./refs";
 import { runWrite, type UndoRecorder } from "./write";
 
 const kindOrder = { item: 0, recipe: 1, combo: 2 } as const;
@@ -147,6 +147,8 @@ async function publishReferenceBatch(tx: Tx, recipeId: string, batchId?: string)
   const finished = recipe.batches.filter((b) => !b.deleted && isFinished(b));
   const chosen = batchId ? finished.find((b) => b.id === batchId) : finished.at(-1);
   if (!chosen) throw unprocessable(batchId ? "Pick a finished batch of this recipe" : "Cook it once before publishing, so others have a batch to start from");
+  // The batch inside is the publisher's own cooking, which nobody else can see.
+  if (chosen.ingredients.some((i) => i.batchId)) throw unprocessable("A recipe with another recipe in it can't be published yet");
   const ingredients = await tx
     .select({ name: foodsTable.name, userId: foodsTable.userId })
     .from(foodsTable)
@@ -237,17 +239,30 @@ export async function saveBatch(
     if (found && found.recipeId !== recipeId) throw notFound();
     const existing = ownBatch(found, recipeId, userId);
     const batch: Batch = { id: req.id, madeOn: req.madeOn, ingredients: req.ingredients, gone: req.gone, ...(req.yield ? { yield: req.yield } : {}) };
-    if (!existing) {
-      if (req.revision !== 0) throw notFound();
-      await checkFoodRefs(tx, userId, batchInputRefs(batch));
-      await insertBatch(tx, recipeId, batch, userId);
-    } else {
-      await expectRevision(existing.batch.revision, req.revision, async () => existing.batch);
-      await checkFoodRefs(tx, userId, batchInputRefs(batch), new Set(existing.batch.ingredients.map((i) => i.foodId)));
-      await updateBatch(tx, recipeId, batch, { revision: existing.batch.revision + 1, deleted: existing.batch.deleted });
-    }
+    if (!existing && req.revision !== 0) throw notFound();
+    if (existing) await expectRevision(existing.batch.revision, req.revision, async () => existing.batch);
+    const already = batchRefIds(existing?.batch);
+    await checkFoodRefs(tx, userId, batchInputRefs(batch), already);
+    await checkBatchRefs(tx, userId, batchIngredientBatchRefs(batch), already);
+    await checkNotInsideItself(tx, recipeId, batch);
+    if (!existing) await insertBatch(tx, recipeId, batch, userId);
+    else await updateBatch(tx, recipeId, batch, { revision: existing.batch.revision + 1, deleted: existing.batch.deleted });
     return { batch: (await loadBatch(tx, batchId))!.batch, newFoods, newActivities: [] };
   });
+}
+
+/** Follows the batches a batch is made from, all the way down, so a recipe never ends up inside itself. */
+async function checkNotInsideItself(tx: Tx, recipeId: string, batch: Batch) {
+  const pending = batch.ingredients.flatMap((p) => (p.batchId ? [p.batchId] : []));
+  const seen = new Set<string>();
+  for (let id = pending.pop(); id !== undefined; id = pending.pop()) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const ref = await loadBatch(tx, id);
+    if (!ref) continue;
+    if (ref.recipeId === recipeId) throw unprocessable("A recipe can't go into itself", { id });
+    pending.push(...ref.batch.ingredients.flatMap((p) => (p.batchId ? [p.batchId] : [])));
+  }
 }
 
 export async function setBatchDeleted(userId: string, recipeId: string, batchId: string, deleted: boolean): Promise<StoredBatch> {

@@ -4,7 +4,6 @@ import {
   asItem,
   asRecipe,
   autoFoodIcon,
-  batchPerUnit,
   BEGINNING,
   type ComboInput,
   comboAsLines,
@@ -49,9 +48,10 @@ import { lookupBarcode } from "../../queries/lookups.queries";
 import { useProfile } from "../../queries/me.queries";
 import { PortionList } from "../editors/PortionList";
 import { ItemEditor } from "../editors/ItemEditor";
-import { batchLabel, deletedFoods, finishedBatches, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, useListedFoods, usualAmount, variantsOf } from "../foods";
+import { batchLabel, deletedFoods, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, recipeUnits, useListedFoods, usualAmount, variantsOf } from "../foods";
 import { initialWhen, nowWhen } from "../time";
 import { AmountInput } from "../ui/AmountInput";
+import { BatchChoice } from "../ui/BatchChoice";
 import { Breakdown, ingredientRows } from "../ui/Breakdown";
 import { DeletedHint } from "../ui/DeletedHint";
 import { FlowShell } from "../ui/FlowShell";
@@ -111,13 +111,6 @@ function lineFor(f: FoodItem | Recipe, amount: Amount): Line {
   if (f.kind === "item") return { id: newId(), foodId: f.id, amount };
   const batchId = currentBatch(f)?.id;
   return { id: newId(), foodId: f.id, ...(batchId ? { batchId } : {}), amount };
-}
-
-function recipeUnits(r: Recipe, batchId: string | undefined, system: "metric" | "imperial", foods: FoodLookup) {
-  const batch = r.batches.find((b) => b.id === batchId) ?? currentBatch(r);
-  const sized = batch && batchPerUnit(batch, foods);
-  if (!sized) return ["g"];
-  return sized.unit === "portion" ? ["portion"] : system === "imperial" ? ["oz", "g"] : ["g"];
 }
 
 function usualFor(f: FoodItem | Recipe, usage: Map<string, FoodUsage>, system: "metric" | "imperial", foods: FoodLookup): Amount {
@@ -727,20 +720,6 @@ function NewFoodChoices({
         </button>
       </div>
       {!canComplete && <p className="hint">A complete item needs at least its calories. Unsure ones wait in the inbox.</p>}
-    </div>
-  );
-}
-
-function BatchChoice({ recipe, batchId, onChange }: { recipe: Recipe; batchId?: string; onChange: (id: string) => void }) {
-  const batches = finishedBatches(recipe).reverse();
-  if (batches.length < 2) return null;
-  return (
-    <div className="chip-row" role="radiogroup" aria-label="Batch">
-      {batches.slice(0, 4).map((b) => (
-        <button key={b.id} role="radio" aria-checked={b.id === batchId} className="chip" onClick={() => onChange(b.id)}>
-          {b.shared ? "Shared" : batchLabel(b)}
-        </button>
-      ))}
     </div>
   );
 }

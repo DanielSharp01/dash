@@ -71,12 +71,14 @@ interface Props {
   placeholder?: string;
   /** Also lists recipes that have never finished cooking, e.g. when starting to cook one. */
   unfinished?: boolean;
+  /** Left out, e.g. the recipe being cooked, which can't go into itself. */
+  excludeId?: string;
 }
 
-export function FoodSearch({ query, onQuery, kinds, recentIds, onPick, onNew, onScan, barcode, onClearBarcode, foundName, extra, placeholder, unfinished = false }: Props) {
+export function FoodSearch({ query, onQuery, kinds, recentIds, onPick, onNew, onScan, barcode, onClearBarcode, foundName, extra, placeholder, unfinished = false, excludeId }: Props) {
   const lookup = useFoodLookup();
   const listed = useListedFoods();
-  const offered = (f: Food) => kinds.includes(f.kind) && (unfinished || loggable(f));
+  const offered = (f: Food) => kinds.includes(f.kind) && (unfinished || loggable(f)) && f.id !== excludeId;
   const foods = listed.filter(offered);
   const q = foldText(query.trim());
   const matches = q ? foods.filter((f) => matchesQuery(displayName(f), q)) : [];

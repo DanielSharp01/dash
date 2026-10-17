@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { asItem, asRecipe, autoFoodIcon, type Batch, displayName, batchPerUnit, batchTotal, type ComboInput, type FoodLookup, isFinished, type Recipe, type RecipeInput, round, withBase } from "@dash/core";
+import { asItem, asRecipe, autoFoodIcon, type Batch, displayName, batchPerUnit, batchTotal, type ComboInput, currentBatch, type FoodLookup, isFinished, type Portion, type Recipe, type RecipeInput, round, withBase } from "@dash/core";
 import { publishFood, saveBatch, saveFood, useFoodLookup } from "../../queries/foods.queries";
 import { useMe } from "../../queries/me.queries";
 import { batchLabel, finishedBatches } from "../foods";
@@ -15,10 +15,18 @@ import { PortionList } from "./PortionList";
 const storeBatch = (recipeId: string, batch: Batch, foods: FoodLookup) =>
   void saveBatch(recipeId, { ...batch, ingredients: batch.ingredients.map((p) => withBase(p, asItem(foods(p.foodId)))) });
 
-/** The next cooking starts from the last one's ingredients, to adjust for this time. */
-export function startBatch(r: Pick<Recipe, "batches">): Batch {
+/**
+ * The next cooking starts from the last one's ingredients, to adjust for this time. A recipe
+ * inside it comes from its current batch now, e.g. this time's coating.
+ */
+export function startBatch(r: Pick<Recipe, "batches">, foods?: FoodLookup): Batch {
   const last = r.batches.filter((b) => !b.deleted).at(-1);
-  return { id: crypto.randomUUID(), madeOn: todayKey(), ingredients: last ? last.ingredients.map(({ foodId, amount }) => ({ foodId, amount })) : [], gone: false };
+  const ingredients = (last?.ingredients ?? []).map(({ foodId, amount, batchId }): Portion => {
+    const inner = asRecipe(foods?.(foodId));
+    const current = (inner && currentBatch(inner)?.id) ?? batchId;
+    return { foodId, amount, ...(current ? { batchId: current } : {}) };
+  });
+  return { id: crypto.randomUUID(), madeOn: todayKey(), ingredients, gone: false };
 }
 
 /** A new recipe is stored with its first batch, so the cook screen has something to fill in. */
@@ -79,8 +87,14 @@ export function BatchEditor({ recipeId, batchId, onFinished }: { recipeId: strin
 
       <div className="field">
         <span className="field-label">Ingredients, as they go in</span>
-        <p className="hint">Raw weights from the raw labels. Water counts toward the weight and adds nothing else.</p>
-        <PortionList portions={batch.ingredients} kinds={["item"]} addLabel="Add an ingredient" onChange={(ingredients) => storeBatch(recipeId, { ...batch, ingredients }, foods)} />
+        <p className="hint">Raw weights from the raw labels. Water counts toward the weight and adds nothing else. A coating or sauce you made counts as the batch it came from.</p>
+        <PortionList
+          portions={batch.ingredients}
+          kinds={["item", "recipe"]}
+          addLabel="Add an ingredient"
+          within={recipeId}
+          onChange={(ingredients) => storeBatch(recipeId, { ...batch, ingredients }, foods)}
+        />
       </div>
 
       {batch.ingredients.length > 0 && (
@@ -290,7 +304,10 @@ export function RecipeEditor({
               </button>
             ))}
           <PublishButton
-            refusals={privateIngredients.length ? [`Publish ${privateIngredients.join(", ")} first`] : []}
+            refusals={[
+              ...(privateIngredients.length ? [`Publish ${privateIngredients.join(", ")} first`] : []),
+              ...(chosen?.ingredients.some((i) => i.batchId) ? ["A recipe with another recipe in it can't be published yet"] : []),
+            ]}
             label="Publish recipe"
             disabled={!chosen}
             onClick={() => {

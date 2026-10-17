@@ -29,13 +29,19 @@ export async function checkActivityRef(ex: Executor, userId: string, id: string,
   if (row.deletedAt && !alreadyReferenced) throw unprocessable("Refers to a deleted activity", { field: "activityId", id });
 }
 
-/** A line's batch must be a batch of the line's recipe. */
-export async function checkBatchRefs(ex: Executor, refs: { batchId: string; recipeId: string | undefined; field: string }[], alreadyReferenced: ReadonlySet<string>) {
+/** A line's or ingredient's batch must be a batch of its recipe, cooked by the person or the shared one. */
+export async function checkBatchRefs(
+  ex: Executor,
+  userId: string,
+  refs: { batchId: string; recipeId: string | undefined; field: string }[],
+  alreadyReferenced: ReadonlySet<string>,
+) {
   if (!refs.length) return;
   const rows = new Map((await batchRefRows(ex, refs.map((r) => r.batchId))).map((r) => [r.id, r]));
   for (const ref of refs) {
     const row = rows.get(ref.batchId);
-    if (!row || row.recipeId !== ref.recipeId) throw unprocessable("Refers to a batch of another recipe, or none", { field: ref.field, id: ref.batchId });
+    if (!row || row.recipeId !== ref.recipeId || (row.userId !== null && row.userId !== userId))
+      throw unprocessable("Refers to a batch of another recipe, or none", { field: ref.field, id: ref.batchId });
     if (row.deletedAt && !alreadyReferenced.has(ref.batchId)) throw unprocessable("Refers to a deleted batch", { field: ref.field, id: ref.batchId });
   }
 }
@@ -50,8 +56,15 @@ export function foodDocRefIds(food: FoodInput | undefined): Set<string> {
   return new Set(food ? foodInputRefs(food).map((r) => r.id) : []);
 }
 
+/** An ingredient with a batch is a recipe taken from that batch; without one, an item. */
 export const batchInputRefs = (batch: Pick<StoredBatch, "ingredients">): FoodRef[] =>
-  batch.ingredients.map((p, i) => ({ id: p.foodId, kinds: ["item"], field: `ingredients.${i}.foodId` }));
+  batch.ingredients.map((p, i) => ({ id: p.foodId, kinds: p.batchId ? ["recipe"] : ["item"], field: `ingredients.${i}.foodId` }));
+
+export const batchIngredientBatchRefs = (batch: Pick<StoredBatch, "ingredients">) =>
+  batch.ingredients.flatMap((p, i) => (p.batchId ? [{ batchId: p.batchId, recipeId: p.foodId, field: `ingredients.${i}.batchId` }] : []));
+
+export const batchRefIds = (batch: Pick<StoredBatch, "ingredients"> | undefined) =>
+  new Set(batch?.ingredients.flatMap((p) => [p.foodId, ...(p.batchId ? [p.batchId] : [])]));
 
 export function entryFoodRefs(input: EntryInput): FoodRef[] {
   if (input.kind !== "food") return [];
