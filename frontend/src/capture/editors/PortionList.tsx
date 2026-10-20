@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { currentBatch, defaultAmount, displayName, type Food, formatAmount, type Portion, unitsFor } from "@dash/core";
+import { asItem, currentBatch, defaultAmount, displayName, type Food, formatAmount, type Portion, unitsFor, withBase } from "@dash/core";
 import { useFoodLookup } from "../../queries/foods.queries";
 import { useProfile } from "../../queries/me.queries";
 import { batchLabel, recipeUnits } from "../foods";
@@ -76,7 +76,7 @@ export function PortionList({
                           : ["portion", "g"]
                     }
                     allowOther={food?.kind === "item" && food.unsure}
-                    onChange={(amount) => change(i, { amount })}
+                    onChange={(amount) => onChange(portions.map((x, j) => (j === i ? withBase({ ...x, amount }, asItem(food)) : x)))}
                   />
                   <button
                     className="link-btn danger"

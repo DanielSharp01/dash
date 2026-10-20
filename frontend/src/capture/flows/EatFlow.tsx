@@ -596,7 +596,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
               amount={line.amount}
               units={newItem ? newItemUnits(newItem, line.amount, units) : recipe ? recipeUnits(recipe, line.batchId, units, foods) : unitsFor(item, units)}
               allowOther={!!newItem || !!item?.unsure}
-              onChange={(amount) => setLines([{ ...line, amount }])}
+              onChange={(amount) => setLines([withBase({ ...line, amount }, item)])}
             />
           </>
         ) : (
@@ -797,7 +797,7 @@ function ComboLines({ lines, openId, onOpen, onChange }: { lines: Line[]; openId
                         : unitsFor(asItem(food), units)
                   }
                   allowOther={food?.kind === "item" && food.unsure}
-                  onChange={(amount) => onChange(lines.map((x) => (x.id === l.id ? { ...x, amount } : x)))}
+                  onChange={(amount) => onChange(lines.map((x) => (x.id === l.id ? withBase({ ...x, amount }, asItem(food)) : x)))}
                 />
                 <button className="link-btn danger" onClick={() => onChange(lines.filter((x) => x.id !== l.id))}>
                   Leave this out
