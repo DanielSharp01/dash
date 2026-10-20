@@ -1,4 +1,4 @@
-import { BEGINNING, type Nutrients, type OpenFoodFactsResult, type Serving } from "@dash/core";
+import { BEGINNING, type Nutrients, type OpenFoodFactsResult, round, type Serving } from "@dash/core";
 import { env } from "../config/env";
 
 const fields: [keyof Nutrients, string][] = [
@@ -38,9 +38,10 @@ async function lookup(code: string): Promise<OpenFoodFactsResult | undefined> {
 
   const unit = /\d\s*(ml|cl|dl|l)\b/i.test(p.quantity ?? "") ? "ml" : "g";
   const values: Nutrients = {};
+  // It works salt out from sodium and converts US labels, so values come unrounded, e.g. 1.6725 g salt.
   for (const [key, field] of fields) {
     const n = Number(p.nutriments?.[field]);
-    if (p.nutriments?.[field] !== undefined && Number.isFinite(n) && n >= 0) values[key] = n;
+    if (p.nutriments?.[field] !== undefined && Number.isFinite(n) && n >= 0) values[key] = round(n, key === "salt" ? 2 : 1);
   }
   // Some packs only print kJ; Open Food Facts' bare "energy_100g" is in kJ too.
   const kj = Number(p.nutriments?.["energy-kj_100g"] ?? p.nutriments?.["energy_100g"]);
