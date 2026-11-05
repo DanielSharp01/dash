@@ -113,11 +113,13 @@ function lineFor(f: FoodItem | Recipe, amount: Amount): Line {
   return { id: newId(), foodId: f.id, ...(batchId ? { batchId } : {}), amount };
 }
 
-function usualFor(f: FoodItem | Recipe, usage: Map<string, FoodUsage>, system: "metric" | "imperial", foods: FoodLookup): Amount {
+/** A batch yields either grams or portions, so an amount remembered from another batch is only kept when it can size this one. */
+function usualFor(f: FoodItem | Recipe, usage: Map<string, FoodUsage>, system: "metric" | "imperial", foods: FoodLookup, batchId?: string): Amount {
   const usual = usualAmount(usage, f.id);
-  if (usual) return usual;
-  if (f.kind === "item") return defaultAmount(f, system);
-  return recipeUnits(f, undefined, system, foods)[0] === "portion" ? { value: 1, unit: "portion" } : { value: 300, unit: "g" };
+  if (f.kind === "item") return usual ?? defaultAmount(f, system);
+  const fitting = recipeUnits(f, batchId, system, foods);
+  if (usual && fitting.includes(usual.unit ?? "")) return usual;
+  return fitting[0] === "portion" ? { value: 1, unit: "portion" } : { value: 300, unit: "g" };
 }
 
 /** An entry-only line is edited the same way it was made: as a new food that isn't saved yet. */
@@ -150,7 +152,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
   const first: Step = source || starting ? "amount" : "cards";
   const { step, depth, go, back, replace, close } = useSteps<Step>(first, exit);
   const { units } = useProfile();
-  const usual = (f: FoodItem | Recipe) => usualFor(f, usage, units, foods);
+  const usual = (f: FoodItem | Recipe, batchId?: string) => usualFor(f, usage, units, foods, batchId);
 
   const [entryId] = useState(() => (mode.kind === "edit" ? mode.entry.id : newId()));
   const [when, setWhen] = useState<When>(() => (mode.kind === "edit" ? mode.entry.when : mode.kind === "duplicate" ? nowWhen() : initialWhen(date)));
@@ -579,7 +581,9 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
                 </button>
               )}
             </div>
-            {recipe && <BatchChoice recipe={recipe} batchId={line.batchId} onChange={(batchId) => setLines([{ ...line, batchId }])} />}
+            {recipe && <BatchChoice recipe={recipe} batchId={line.batchId} onChange={(batchId) =>
+                  setLines([{ ...line, batchId, amount: recipeUnits(recipe, batchId, units, foods).includes(line.amount.unit ?? "") ? line.amount : usual(recipe, batchId) }])
+                } />}
             {item && changeable && (
               <VariationChoice
                 item={item}
