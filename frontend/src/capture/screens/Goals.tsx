@@ -288,7 +288,11 @@ export function GoalFields({ draft, update, body, heightCm, adult }: GoalFieldsP
       <div className="field">
         <div className="slider-head">
           <h2 className="list-heading">Pace</h2>
-          <b>{losing ? `−${formatWeight(goal.kgPerWeek)} a week` : "Hold"}</b>
+          <label className="slider-value">
+            {losing && "−"}
+            <NumberInput aria-label="Pace in kg a week" value={goal.kgPerWeek} onChange={(n) => n !== undefined && n >= 0 && update({ goal: { ...goal, kgPerWeek: n } })} />
+            kg a week
+          </label>
         </div>
         <input className="slider" type="range" aria-label="Pace per week" min={0} max={scale.max} step={scale.step} value={Math.min(goal.kgPerWeek, scale.max)} onChange={(e) => setPace(Number(e.target.value))} />
         <div className="slider-ticks">
