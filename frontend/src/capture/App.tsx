@@ -8,6 +8,7 @@ import { CookFlow } from "./flows/CookFlow";
 import { EatFlow } from "./flows/EatFlow";
 import { ExerciseFlow } from "./flows/ExerciseFlow";
 import { ActivityRoute, BatchRoute, CatalogueScreen, type CatalogueTab, ComboRoute, ItemRoute, RecipeRoute } from "./screens/Catalogue";
+import { ContainersScreen } from "./screens/Containers";
 import { GoalChartRoute } from "./screens/GoalChart";
 import { GoalAreaRoute, GoalsScreen } from "./screens/Goals";
 import { SettingsScreen } from "./screens/Profile";
@@ -30,12 +31,13 @@ function useDay(): [string, (d: string) => void] {
   return [day, setDay];
 }
 
-type NavTarget = "today" | "inbox" | "catalogue" | "goal" | "settings";
+type NavTarget = "today" | "inbox" | "catalogue" | "containers" | "goal" | "settings";
 
 const sections: { target: NavTarget; path: string; match: string[]; icon: string; label: string }[] = [
   { target: "today", path: "/", match: ["/"], icon: "📅", label: "Today" },
   { target: "inbox", path: "/follow-up", match: ["/follow-up"], icon: "📥", label: "To follow up" },
   { target: "catalogue", path: "/items", match: ["/items", "/combos", "/recipes", "/activities"], icon: "🗂️", label: "Catalogue" },
+  { target: "containers", path: "/containers", match: ["/containers"], icon: "🫙", label: "Containers" },
   { target: "goal", path: "/goal", match: ["/goal"], icon: "🎯", label: "Goal" },
   { target: "settings", path: "/settings", match: ["/settings"], icon: "⚙️", label: "Settings" },
 ];
@@ -118,6 +120,7 @@ export function App() {
         <Route path="/goal/chart/:area" element={<GoalChartRoute />} />
         <Route path="/goal/setup" element={<SetupRoute />} />
         <Route path="/goal/:area" element={<GoalAreaRoute />} />
+        <Route path="/containers" element={<ContainersScreen onMenu={openMenu} />} />
         <Route path="/settings" element={<SettingsScreen onMenu={openMenu} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

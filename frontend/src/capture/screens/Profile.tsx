@@ -1,12 +1,8 @@
-import { useState } from "react";
-import { genericSourceOf, type Pot, type UnitSystem } from "@dash/core";
+import { genericSourceOf, type UnitSystem } from "@dash/core";
 import { saveProfile, useMe } from "../../queries/me.queries";
-import { addPot, removePot } from "../../queries/pots.queries";
 import { formatHour, uses12h } from "../time";
 import { BirthdayInput, HeightInput } from "../ui/BodyInputs";
 import { FlowShell } from "../ui/FlowShell";
-import { NumberInput } from "../ui/NumberInput";
-import { TrashIcon } from "../ui/TrashIcon";
 import { useSteps } from "../ui/useSteps";
 
 function UnitTiles({ value, onChange }: { value: UnitSystem; onChange: (u: UnitSystem) => void }) {
@@ -29,7 +25,7 @@ function UnitTiles({ value, onChange }: { value: UnitSystem; onChange: (u: UnitS
 
 export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
   const { close } = useSteps<"list">("list");
-  const { user, profile, pots } = useMe();
+  const { user, profile } = useMe();
   const updateProfile = (patch: Parameters<typeof saveProfile>[0]) => void saveProfile(patch);
   return (
     <FlowShell title="Settings" canGoBack={false} onBack={close} onClose={close} onMenu={onMenu}>
@@ -105,11 +101,6 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
       </section>
 
       <section className="settings-group">
-        <h2 className="list-heading">Cooking</h2>
-        <Pots pots={pots} />
-      </section>
-
-      <section className="settings-group">
         <h2 className="list-heading">Account</h2>
         <p className="hint">Signed in as {user.email ?? user.name ?? "you"}.</p>
         <div className="settings-links">
@@ -119,44 +110,6 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
         </div>
       </section>
     </FlowShell>
-  );
-}
-
-/** Weighed once while empty, so a finished dish can be weighed without tipping it out. */
-function Pots({ pots }: { pots: Pot[] }) {
-  const [name, setName] = useState("");
-  const [grams, setGrams] = useState<number>();
-  return (
-    <div className="field">
-      <span className="field-label">Pots and pans</span>
-      <p className="hint">Their empty weight comes off when you weigh a finished dish in them.</p>
-      <ul className="list">
-        {pots.map((p) => (
-          <li key={p.id} className="weigh-row">
-            <span className="weigh-date">{p.name}</span>
-            <b>{p.grams.toLocaleString()} g</b>
-            <button className="icon-btn small trash-btn" aria-label={`Remove ${p.name}`} onClick={() => void removePot(p)}>
-              <TrashIcon />
-            </button>
-          </li>
-        ))}
-      </ul>
-      <div className="serving-row">
-        <input className="text-input" placeholder="e.g. Big pot" value={name} onChange={(e) => setName(e.target.value)} />
-        <NumberInput integer className="text-input serving-size" placeholder="g" value={grams} onChange={setGrams} />
-        <button
-          className="btn btn-small"
-          disabled={!name.trim() || !grams}
-          onClick={() => {
-            void addPot({ id: crypto.randomUUID(), name: name.trim(), grams: grams! });
-            setName("");
-            setGrams(undefined);
-          }}
-        >
-          Add
-        </button>
-      </div>
-    </div>
   );
 }
 
