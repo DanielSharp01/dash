@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { ageOn, fromDisplayWeight, fromFeet, toDisplayWeight, toFeet, type UnitSystem, weightUnit } from "@dash/core";
 import { ADULT_AGE, birthdayFrom } from "../body";
+import type { Choice } from "./Question";
+
+export const sexChoices: Choice<"female" | "male" | undefined>[] = [
+  { value: "female", label: "Female", tone: "protein" },
+  { value: "male", label: "Male", tone: "fat" },
+  { value: undefined, label: "Prefer not to say" },
+];
+export const sexHint = ["Only used for the resting-burn formula.", "Without it Dash uses the average."];
 
 const parse = (v: string) => {
   const n = Number(v.replace(",", "."));

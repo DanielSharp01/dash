@@ -11,7 +11,7 @@ import { ActivityRoute, BatchRoute, CatalogueScreen, type CatalogueTab, ComboRou
 import { ContainersScreen } from "./screens/Containers";
 import { GoalChartRoute } from "./screens/GoalChart";
 import { GoalAreaRoute, GoalsScreen } from "./screens/Goals";
-import { SettingsScreen } from "./screens/Profile";
+import { SettingRoute, SettingsScreen } from "./screens/Profile";
 import { SetupRoute } from "./screens/Setup";
 import { WeighInHistoryRoute, WeighInRoute } from "./screens/Weight";
 import { type EntryActions, InboxScreen, Today } from "./screens/Today";
@@ -122,6 +122,7 @@ export function App() {
         <Route path="/goal/:area" element={<GoalAreaRoute />} />
         <Route path="/containers" element={<ContainersScreen onMenu={openMenu} />} />
         <Route path="/settings" element={<SettingsScreen onMenu={openMenu} />} />
+        <Route path="/settings/:setting" element={<SettingRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

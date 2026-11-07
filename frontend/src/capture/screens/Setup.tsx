@@ -4,8 +4,9 @@ import { markSetupOffered, saveProfile, savePlan, useMe } from "../../queries/me
 import { addWeighIn, useWeighIns } from "../../queries/weighIns.queries";
 import { ADULT_AGE } from "../body";
 import { todayKey } from "../time";
-import { BirthdayInput, HeightInput, WeightInput } from "../ui/BodyInputs";
+import { BirthdayInput, HeightInput, sexChoices, sexHint, WeightInput } from "../ui/BodyInputs";
 import { FlowShell } from "../ui/FlowShell";
+import { Choices, Question } from "../ui/Question";
 import { useSteps } from "../ui/useSteps";
 import { Budget, FluidFields, GoalFields, MacroFields } from "./Goals";
 import { type SetupStep as Step, setupSteps as steps, useSetupProgress } from "./setupProgress";
@@ -81,29 +82,6 @@ function SetupShell({ shell, next, children }: { shell: ShellProps; next: { disa
   );
 }
 
-/** A question a page, centred, so the first minutes feel like being asked rather than filling in a form. */
-function Question({ title, children, lead, hint }: { title: string; children: ReactNode; lead?: string[]; hint?: string[] }) {
-  return (
-    <section className="setup-question">
-      <h2>{title}</h2>
-      {lead && <Sentences lines={lead} />}
-      {children}
-      {hint && <Sentences lines={hint} />}
-    </section>
-  );
-}
-
-/** A sentence a line reads easier than one wrapped paragraph on a phone. */
-function Sentences({ lines }: { lines: string[] }) {
-  return (
-    <div className="setup-hint">
-      {lines.map((line) => (
-        <p key={line}>{line}</p>
-      ))}
-    </div>
-  );
-}
-
 function AgeStep({ shell, onNext }: { shell: ShellProps; onNext: () => void }) {
   const { profile } = useMe();
   return (
@@ -115,33 +93,21 @@ function AgeStep({ shell, onNext }: { shell: ShellProps; onNext: () => void }) {
   );
 }
 
-const sexes = [
-  ["female", "Female"],
-  ["male", "Male"],
-  [undefined, "Prefer not to say"],
-] as const;
-
 /** Picking an answer is the whole step, so it moves on by itself. */
 function SexStep({ shell, onNext }: { shell: ShellProps; onNext: () => void }) {
   const { profile } = useMe();
+  const answered = !!profile.heightCm || !!profile.sex;
   return (
     <SetupShell shell={shell} next={{ onClick: onNext }}>
-      <Question title="What's your sex?" hint={["Only used for the resting-burn formula.", "Without it Dash uses the average."]}>
-        <div className="setup-choices">
-          {sexes.map(([value, label]) => (
-            <button
-              key={label}
-              className={`setup-choice sex-${value ?? "none"}`}
-              aria-pressed={!!profile.heightCm || !!profile.sex ? profile.sex === value : false}
-              onClick={() => {
-                void saveProfile({ sex: value });
-                onNext();
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      <Question title="What's your sex?" hint={sexHint}>
+        <Choices
+          options={sexChoices}
+          selected={answered ? profile.sex : null}
+          onPick={(sex) => {
+            void saveProfile({ sex });
+            onNext();
+          }}
+        />
       </Question>
     </SetupShell>
   );
@@ -231,19 +197,11 @@ function DayFields({ draft, update }: { draft: Plan; update: (patch: Partial<Pla
       lead={["Not counting workouts.", "Log those as exercise and they add to your budget."]}
       hint={["You can fine-tune it on Goals later.", "For example, from what you know you maintain on."]}
     >
-      <div className="setup-choices">
-        {metabolismPresets.map((m) => (
-          <button
-            key={m.value}
-            className="setup-choice"
-            aria-pressed={draft.metabolismMultiplier === m.value}
-            onClick={() => update({ metabolismMultiplier: m.value, calibratedFrom: undefined })}
-          >
-            {m.label}
-            <small>× {m.value}</small>
-          </button>
-        ))}
-      </div>
+      <Choices
+        options={metabolismPresets.map((m) => ({ value: m.value, label: m.label, detail: `× ${m.value}` }))}
+        selected={draft.metabolismMultiplier}
+        onPick={(metabolismMultiplier) => update({ metabolismMultiplier, calibratedFrom: undefined })}
+      />
     </Question>
   );
 }
