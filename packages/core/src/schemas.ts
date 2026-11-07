@@ -260,7 +260,7 @@ export const foodEntrySchema = foodEntryInputSchema.extend(entryStored);
 export const exerciseEntrySchema = exerciseEntryInputSchema.extend(entryStored);
 export const entrySchema = z.discriminatedUnion("kind", [foodEntrySchema, exerciseEntrySchema]);
 
-export const macroPresetSchema = z.enum(["balanced", "high-protein", "low-carb", "keto", "low-fat"]);
+export const macroPresetSchema = z.enum(["balanced", "high-protein", "low-carb", "keto", "low-fat", "custom"]);
 const share = z.number().min(0).max(1);
 
 /** Protein is per kg; one of fat or carbs is a share of calories and the other takes the rest. */

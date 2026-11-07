@@ -11,13 +11,24 @@ const FALLBACK = { kcal: 1800, protein: 110, carbs: 200, fat: 60 };
 const AVERAGE_CM = 170;
 const AVERAGE_AGE = 40;
 
-export const macroPresets: Record<MacroPreset, { label: string; plan: MacroPlan }> = {
+/** Starting points; moving the sliders off one makes the plan "custom". */
+export const macroPresets: Record<Exclude<MacroPreset, "custom">, { label: string; plan: MacroPlan }> = {
   balanced: { label: "Balanced", plan: { preset: "balanced", proteinPerKg: 1.6, fatPct: 0.3 } },
   "high-protein": { label: "High protein", plan: { preset: "high-protein", proteinPerKg: 2, fatPct: 0.25 } },
   "low-carb": { label: "Low carb", plan: { preset: "low-carb", proteinPerKg: 1.6, carbPct: 0.2 } },
   keto: { label: "Keto", plan: { preset: "keto", proteinPerKg: 1.6, carbPct: 0.05 } },
   "low-fat": { label: "Low fat", plan: { preset: "low-fat", proteinPerKg: 1.6, fatPct: 0.2 } },
 };
+
+export const macroPresetLabel = (preset: MacroPreset) => (preset === "custom" ? "Custom" : macroPresets[preset].label);
+
+/**
+ * The plan for grams set by hand, kept relative so they follow the budget and the protein weight as
+ * they change: protein per kg of that weight, fat as a share of the budget, carbs whatever is left.
+ */
+export function customMacroPlan(proteinG: number, fatG: number, calc: { proteinKg: number; budgetKcal: number }): MacroPlan {
+  return { preset: "custom", proteinPerKg: Math.round((proteinG / calc.proteinKg) * 1000) / 1000, fatPct: Math.round(((fatG * 9) / calc.budgetKcal) * 10000) / 10000 };
+}
 
 /** Starting points for the metabolism multiplier, described by what a normal day looks like. */
 export const metabolismPresets = [
@@ -42,7 +53,7 @@ export interface DailyTargets {
   carbs: number;
   fat: number;
   /** Absent when weight, height or age is missing and the fallback is used. */
-  calc?: { bmr: number; maintenance: number; deficit: number; clamped: boolean; bodyKg: number };
+  calc?: { bmr: number; maintenance: number; deficit: number; clamped: boolean; bodyKg: number; budgetKcal: number; proteinKg: number };
   /** Without calc, maintenance guessed from an average adult; too rough for anything but telling a big day. */
   estimatedMaintenance?: number;
   fluidMl: number;
@@ -166,7 +177,7 @@ export function dailyTargets(profile: ProfileInput, history: PlanAreas, weighIns
     protein: Math.round(protein),
     carbs: Math.round(carbs),
     fat: Math.round(fat),
-    calc: { bmr, maintenance, deficit, clamped: maintenance - deficit < MIN_KCAL, bodyKg: body.kg },
+    calc: { bmr, maintenance, deficit, clamped: maintenance - deficit < MIN_KCAL, bodyKg: body.kg, budgetKcal: kcal, proteinKg },
     fluidMl: plan.fluidGoalMl,
     plan,
     missing,

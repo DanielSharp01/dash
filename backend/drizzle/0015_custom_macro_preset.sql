@@ -1,0 +1,1 @@
+ALTER TYPE "public"."macro_preset" ADD VALUE 'custom';

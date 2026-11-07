@@ -2390,8 +2390,10 @@ h1 {
 }
 
 .goal-math dd {
+  flex: none;
   margin: 0;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .goal-math .math-burn dd {
@@ -2412,6 +2414,42 @@ h1 {
 
 .goal-math .math-floor dd {
   color: var(--warn);
+}
+
+.goal-math .math-protein dt::before {
+  background: var(--protein);
+}
+
+.goal-math .math-protein dd {
+  color: var(--protein);
+}
+
+.goal-math .math-fat dt::before {
+  background: var(--fat);
+}
+
+.goal-math .math-fat dd {
+  color: var(--fat);
+}
+
+.goal-math .math-carbs dt::before {
+  background: var(--carbs);
+}
+
+.goal-math .math-carbs dd {
+  color: var(--carbs);
+}
+
+.macro-slider-protein .slider {
+  accent-color: var(--protein);
+}
+
+.macro-slider-fat .slider {
+  accent-color: var(--fat);
+}
+
+.macro-slider .slider-ends span:nth-child(2) {
+  color: var(--text);
 }
 
 .goal-math .math-total {

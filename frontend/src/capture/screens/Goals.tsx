@@ -5,6 +5,7 @@ import {
   BEGINNING,
   bodyKgAt,
   changeStartsFrom,
+  customMacroPlan,
   dailyTargets,
   type DailyTargets,
   type Entry,
@@ -13,8 +14,8 @@ import {
   formatWeight,
   fromDisplayFluid,
   fromDisplayWeight,
+  macroPresetLabel,
   macroPresets,
-  type MacroPreset,
   metabolismPresets,
   MIN_KCAL,
   type Plan,
@@ -425,22 +426,112 @@ function KnownMaintenance({ bmr, onUse }: { bmr: number | undefined; onUse: (mul
   );
 }
 
+type Preset = keyof typeof macroPresets;
+
+/**
+ * Presets set the sliders; protein and fat are yours to move, and carbs take what's left of the
+ * budget, so the three always add up to it. Protein runs over common guidance, 0.8 to 2.5 g per kg;
+ * fat from 15% of calories to where carbs would run out.
+ */
 function MacroFields({ draft, update, t }: FieldsProps & { t: DailyTargets }) {
-  return (
-    <div className="field">
-      <span className="field-label">Daily macros</span>
-      <div className="chip-row" role="radiogroup" aria-label="Macro split">
-        {(Object.keys(macroPresets) as MacroPreset[]).map((key) => (
-          <button key={key} role="radio" aria-checked={draft.macroPlan.preset === key} className="chip" onClick={() => update({ macroPlan: macroPresets[key].plan })}>
-            {macroPresets[key].label}
-          </button>
-        ))}
+  const preset = draft.macroPlan.preset;
+  const chips = (
+    <div className="chip-row" role="radiogroup" aria-label="Macro split">
+      {(Object.keys(macroPresets) as Preset[]).map((key) => (
+        <button key={key} role="radio" aria-checked={preset === key} className="chip" onClick={() => update({ macroPlan: macroPresets[key].plan })}>
+          {macroPresets[key].label}
+        </button>
+      ))}
+      {preset === "custom" && (
+        <button role="radio" aria-checked className="chip">
+          Custom
+        </button>
+      )}
+    </div>
+  );
+  if (!t.calc) {
+    return (
+      <div className="field">
+        {chips}
+        <MissingDetails missing={t.missing} lead="Grams follow your budget, so they need your" />
       </div>
-      <p className="goal-macros">
-        <span className="macro-protein">Protein {t.protein} g</span> · <span className="macro-carbs">Carbs {t.carbs} g</span> ·{" "}
-        <span className="macro-fat">Fat {t.fat} g</span>
-      </p>
-      <p className="hint">{describeMacros(draft.macroPlan)}</p>
+    );
+  }
+  const calc = t.calc;
+  const set = (proteinG: number, fatG: number) => update({ macroPlan: customMacroPlan(proteinG, fatG, calc) });
+  const fatMin = Math.round((0.15 * calc.budgetKcal) / 9);
+  const { proteinPerKg, fatPct: planFatPct } = draft.macroPlan;
+  // Low carb and Keto set a carb share and fat takes the rest, so their fat share comes from the grams.
+  const fatPct = Math.round((planFatPct ?? (t.fat * 9) / calc.budgetKcal) * 100);
+  const perKg = Math.round(proteinPerKg * 100) / 100;
+
+  return (
+    <>
+      {chips}
+      <MacroSlider
+        name="Protein"
+        tone="protein"
+        grams={t.protein}
+        min={Math.round(0.8 * calc.proteinKg)}
+        max={Math.round(2.5 * calc.proteinKg)}
+        onChange={(g) => set(g, t.fat)}
+        note={`${perKg} g per kg`}
+      />
+      <MacroSlider
+        name="Fat"
+        tone="fat"
+        grams={t.fat}
+        min={fatMin}
+        max={Math.max(fatMin, Math.floor((calc.budgetKcal - t.protein * 4) / 9))}
+        onChange={(g) => set(t.protein, g)}
+        note={`${fatPct}% of calories`}
+      />
+      <h2 className="list-heading budget-heading">How your macros are worked out</h2>
+      <dl className="goal-math">
+        <div className="math-protein">
+          <dt>
+            Protein: {perKg} g × {Math.round(calc.proteinKg)} kg
+            <small>Your target or current weight, capped at a healthy BMI</small>
+          </dt>
+          <dd>{t.protein} g</dd>
+        </div>
+        <div className="math-fat">
+          <dt>
+            Fat: {fatPct}% of {fmt(calc.budgetKcal)} kcal
+          </dt>
+          <dd>{t.fat} g</dd>
+        </div>
+        <div className="math-carbs">
+          <dt>
+            Carbs: {fmt(calc.budgetKcal)} − {fmt(t.protein * 4)} − {fmt(t.fat * 9)} kcal
+            <small>What's left once protein (4 kcal a gram) and fat (9) are in, at 4 kcal a gram</small>
+          </dt>
+          <dd>{t.carbs} g</dd>
+        </div>
+        <div className="math-total">
+          <dt>Your daily budget</dt>
+          <dd>{fmt(t.kcal)} kcal</dd>
+        </div>
+      </dl>
+    </>
+  );
+}
+
+function MacroSlider({ name, tone, grams, min, max, onChange, note }: { name: string; tone: "protein" | "fat"; grams: number; min: number; max: number; onChange: (g: number) => void; note: string }) {
+  return (
+    <div className={`field macro-slider macro-slider-${tone}`}>
+      <div className="slider-head">
+        <h2 className="list-heading">{name}</h2>
+        <label className="slider-value">
+          <NumberInput integer aria-label={`${name} grams`} value={grams} onChange={(n) => n !== undefined && n > 0 && onChange(n)} />g
+        </label>
+      </div>
+      <input className="slider" type="range" aria-label={`${name} grams`} min={min} max={max} step={1} value={Math.min(Math.max(grams, min), max)} onChange={(e) => onChange(Number(e.target.value))} />
+      <div className="slider-ends">
+        <span>{min} g</span>
+        <span>{note}</span>
+        <span>{max} g</span>
+      </div>
     </div>
   );
 }
@@ -469,17 +560,12 @@ function FluidFields({ draft, update, units, onSubmit }: FieldsProps & { units: 
   );
 }
 
-function describeMacros(m: Plan["macroPlan"]) {
-  const split = m.carbPct !== undefined ? `carbs at ${Math.round(m.carbPct * 100)}% of calories, fat the rest` : `fat at ${Math.round((m.fatPct ?? 0.3) * 100)}% of calories, carbs the rest`;
-  return `Protein at ${m.proteinPerKg} g per kg of a healthy-range weight, ${split}.`;
-}
-
 /** Newest first; each start date lists only the areas that changed on it. */
 function planChanges(h: PlanAreas, units: UnitSystem) {
   const byFrom = new Map<string, string[]>();
   const add = (from: string, part: string) => byFrom.set(from, [...(byFrom.get(from) ?? []), part]);
   for (const v of h.goal) add(v.from, v.value.goal.kgPerWeek > 0 ? `−${formatWeight(v.value.goal.kgPerWeek, units)}/week` : "Maintain");
-  for (const v of h.macros) add(v.from, macroPresets[v.value.macroPlan.preset].label);
+  for (const v of h.macros) add(v.from, macroPresetLabel(v.value.macroPlan.preset));
   for (const v of h.metabolism) add(v.from, `× ${v.value.metabolismMultiplier}`);
   for (const v of h.fluid) add(v.from, `💧 ${formatFluid(v.value.fluidGoalMl, units)}`);
   return [...byFrom].sort(([a], [b]) => b.localeCompare(a));

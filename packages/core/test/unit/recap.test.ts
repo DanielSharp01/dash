@@ -28,7 +28,7 @@ const targets: DailyTargets = {
   protein: 115,
   carbs: 200,
   fat: 60,
-  calc: { bmr: 2080, maintenance: 2500, deficit: 550, clamped: false, bodyKg: 80 },
+  calc: { bmr: 2080, maintenance: 2500, deficit: 550, clamped: false, bodyKg: 80, budgetKcal: 1950, proteinKg: 72 },
   fluidMl: 2000,
   plan: defaultPlan,
   missing: [],

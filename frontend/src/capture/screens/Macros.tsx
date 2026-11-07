@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { macroPresets, planAt } from "@dash/core";
+import { macroPresetLabel, planAt } from "@dash/core";
 import { useMe } from "../../queries/me.queries";
 import { useOpen } from "../ui/useSteps";
 import { averageOf, type Bucket, bucketLabels, chartFrame, type ChartSize, type Grouping, stepPath, useLastWeek } from "./goalDays";
@@ -15,7 +15,7 @@ export function MacrosSection() {
   // Today isn't over, so the averages only count finished days with something logged.
   const finished = days.filter((d) => d.date < today && d.totals);
   const average = (key: "protein" | "carbs" | "fat") => (finished.length ? Math.round(averageOf(finished, (d) => d.totals![key].value)) : undefined);
-  const preset = macroPresets[planAt(plan).macroPlan.preset].label;
+  const preset = macroPresetLabel(planAt(plan).macroPlan.preset);
   const openChart = () => open("/goal/chart/macros");
 
   return (

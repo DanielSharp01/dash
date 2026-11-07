@@ -4,6 +4,7 @@ import {
   BEGINNING,
   comboAsLines,
   currentBatch,
+  customMacroPlan,
   dailyTargets,
   restingBurn,
   dayTotals,
@@ -357,6 +358,14 @@ describe("dailyTargets", () => {
     const t = dailyTargets(profile, withPlan({ macroPlan: { preset: "high-protein", proteinPerKg: 4, fatPct: 0.3 } }), weighIns, "2026-06-01");
     expect(t.carbs).toBe(0);
     expect(Math.abs(t.protein * 4 + t.fat * 9 + t.carbs * 4 - t.kcal)).toBeLessThanOrEqual(10);
+  });
+
+  it("gives back the grams set by hand, with carbs taking the rest of the budget", () => {
+    const before = dailyTargets(profile, withPlan({}), weighIns, "2026-06-01");
+    const custom = customMacroPlan(150, 70, before.calc!);
+    const t = dailyTargets(profile, withPlan({ macroPlan: custom }), weighIns, "2026-06-01");
+    expect([t.protein, t.fat]).toEqual([150, 70]);
+    expect(t.carbs).toBe(Math.round((before.calc!.budgetKcal - 150 * 4 - 70 * 9) / 4));
   });
 
   it("estimates maintenance from what's known while a body detail is missing", () => {

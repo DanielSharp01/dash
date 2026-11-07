@@ -30,7 +30,7 @@ const versionStart = () => day().notNull().default(sql`'-infinity'`);
 export const unitSystemEnum = pgEnum("unit_system", ["metric", "imperial"]);
 export const sexEnum = pgEnum("sex", ["male", "female"]);
 export const clockEnum = pgEnum("clock", ["24h", "12h"]);
-export const macroPresetEnum = pgEnum("macro_preset", ["balanced", "high-protein", "low-carb", "keto", "low-fat"]);
+export const macroPresetEnum = pgEnum("macro_preset", ["balanced", "high-protein", "low-carb", "keto", "low-fat", "custom"]);
 export const foodKindEnum = pgEnum("food_kind", ["item", "recipe", "combo"]);
 export const foodUnitEnum = pgEnum("food_unit", ["g", "ml", "piece"]);
 export const labelPerEnum = pgEnum("label_per", ["100", "serving"]);
