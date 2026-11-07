@@ -2,16 +2,19 @@ import { useId } from "react";
 import { formatFluid, toDisplayFluid, type UnitSystem } from "@dash/core";
 import { useProfile } from "../../queries/me.queries";
 import { useOpen } from "../ui/useSteps";
-import { chart, dayTick, type GoalDay, stepPath, useGoalDays } from "./goalDays";
+import { averageOf, type Bucket, bucketLabels, chartFrame, type Grouping, stepPath, useLastWeek } from "./goalDays";
 
 /** Fluid on Goals: the daily target, how the week went, today so far, and a bar per day. */
 export function FluidSection() {
   const open = useOpen();
   const { units } = useProfile();
-  const { days, today, finished } = useGoalDays();
+  const { days, today, buckets } = useLastWeek();
   const now = days.at(-1)!;
-  const average = finished.length ? finished.reduce((sum, d) => sum + d.totals!.fluid.value, 0) / finished.length : undefined;
+  // Today isn't over, so the average only counts finished days with something logged.
+  const finished = days.filter((d) => d.date < today && d.totals);
+  const average = finished.length ? averageOf(finished, (d) => d.totals!.fluid.value) : undefined;
   const sofar = now.totals?.fluid;
+  const openChart = () => open("/goal/chart/fluid");
 
   return (
     <>
@@ -41,27 +44,47 @@ export function FluidSection() {
           <button className="chip" onClick={() => open("/goal/fluid")}>
             Edit fluid
           </button>
+          <button className="chip" onClick={openChart}>
+            Full chart
+          </button>
         </div>
-        <FluidChart days={days} today={today} units={units} />
+        <FluidChart buckets={buckets} by="day" units={units} onOpen={openChart} />
       </section>
     </>
   );
 }
 
-/** A bar a day against the day's target; hatched where some drinks had no volume, so it's at least that much. */
-function FluidChart({ days, today, units }: { days: GoalDay[]; today: string; units: UnitSystem }) {
+/**
+ * A bar a day or week (a week's is its daily average) against the target; hatched where some drinks
+ * had no volume, so it's at least that much.
+ */
+export function FluidChart({ buckets, by, units, tall, onOpen }: { buckets: Bucket[]; by: Grouping; units: UnitSystem; tall?: boolean; onOpen?: () => void }) {
   const hatch = useId();
-  const top = Math.max(...days.map((d) => Math.max(d.totals?.fluid.value ?? 0, d.targets.fluidMl)));
+  const chart = chartFrame(tall);
+  const bars = buckets.map((b) => ({
+    b,
+    ml: averageOf(b.counted, (d) => d.totals!.fluid.value),
+    missing: b.counted.some((d) => d.totals!.fluid.missing > 0),
+    target: averageOf(b.counted.length ? b.counted : b.days, (d) => d.targets.fluidMl),
+  }));
+  const top = Math.max(...bars.map((bar) => Math.max(bar.ml, bar.target)));
   const step = top > 4000 ? 1000 : 500;
   const max = Math.ceil((top * 1.05) / step) * step;
   const ticks = Array.from({ length: max / step + 1 }, (_, i) => i * step);
-  const slot = (chart.right - chart.left) / days.length;
-  const barWidth = slot * 0.62;
+  const slot = (chart.right - chart.left) / buckets.length;
+  const barWidth = Math.max(slot * 0.62, 1);
   const y = (ml: number) => chart.bottom - (ml / max) * (chart.bottom - chart.top);
+  const labels = bucketLabels(buckets, by, slot);
 
   return (
     <>
-      <svg className="weigh-trend" viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label={`Fluid over the last ${days.length} days, against the target`}>
+      <svg
+        className={onOpen ? "weigh-trend chart-tap" : "weigh-trend"}
+        viewBox={`0 0 ${chart.width} ${chart.height}`}
+        role="img"
+        aria-label={`Fluid per ${by}, against the target`}
+        onClick={onOpen}
+      >
         <defs>
           <pattern id={hatch} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="5" style={{ stroke: "var(--surface)" }} strokeWidth="2" />
@@ -75,20 +98,21 @@ function FluidChart({ days, today, units }: { days: GoalDay[]; today: string; un
             </text>
           </g>
         ))}
-        {days.map((d, i) => {
-          const ml = d.totals?.fluid.value ?? 0;
+        {bars.map(({ b, ml, missing }, i) => {
           const x = chart.left + i * slot + (slot - barWidth) / 2;
           return (
-            <g key={d.date} opacity={d.date === today ? 0.5 : 1}>
+            <g key={b.from} opacity={b.hasToday ? 0.5 : 1}>
               {ml > 0 && <rect x={x} y={y(ml)} width={barWidth} height={y(0) - y(ml)} style={{ fill: "var(--fluid)" }} />}
-              {ml > 0 && !!d.totals?.fluid.missing && <rect x={x} y={y(ml)} width={barWidth} height={y(0) - y(ml)} fill={`url(#${hatch})`} />}
-              <text x={chart.left + (i + 0.5) * slot} y={chart.height - 4} textAnchor="middle" className={d.date === today ? "chart-label chart-label-today" : "chart-label"}>
-                {dayTick(d.date)}
-              </text>
+              {ml > 0 && missing && <rect x={x} y={y(ml)} width={barWidth} height={y(0) - y(ml)} fill={`url(#${hatch})`} />}
+              {labels[i] && (
+                <text x={labels[i].x} y={chart.height - 4} textAnchor={labels[i].anchor} className={b.hasToday && by === "day" ? "chart-label chart-label-today" : "chart-label"}>
+                  {labels[i].text}
+                </text>
+              )}
             </g>
           );
         })}
-        <path d={stepPath(days.map((d) => d.targets.fluidMl), slot, y)} fill="none" style={{ stroke: "var(--text)" }} strokeWidth="1.5" opacity={0.7} />
+        <path d={stepPath(bars.map((bar) => bar.target), slot, y)} fill="none" style={{ stroke: "var(--text)" }} strokeWidth="1.5" opacity={0.7} />
       </svg>
       <ul className="chart-legend">
         <li className="legend-fluid">Intake</li>

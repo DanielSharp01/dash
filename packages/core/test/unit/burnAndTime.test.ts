@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateBurn, logicalDateIn, sortKey } from "../../src/index";
+import { estimateBurn, logicalDateIn, sortKey, weeksBetween } from "../../src/index";
 
 describe("estimateBurn", () => {
   it("scales distance by body weight and converts the unit", () => {
@@ -26,6 +26,20 @@ describe("sortKey", () => {
     const unknown = sortKey({ date: "2026-09-01", kind: "day" }, 3);
     expect([unknown, late, evening].sort()).toEqual([evening, late, unknown]);
     expect(sortKey({ date: "2026-09-01", kind: "exact", time: "01:30" }, 0) < evening).toBe(true);
+  });
+});
+
+describe("weeksBetween", () => {
+  it("runs Monday to Sunday and cuts the first and last week to the range", () => {
+    expect(weeksBetween("2026-10-29", "2026-11-10")).toEqual([
+      { from: "2026-10-29", to: "2026-11-01" },
+      { from: "2026-11-02", to: "2026-11-08" },
+      { from: "2026-11-09", to: "2026-11-10" },
+    ]);
+  });
+
+  it("gives a range of one Sunday its own week", () => {
+    expect(weeksBetween("2026-11-01", "2026-11-01")).toEqual([{ from: "2026-11-01", to: "2026-11-01" }]);
   });
 });
 

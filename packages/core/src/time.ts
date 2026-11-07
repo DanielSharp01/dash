@@ -13,6 +13,18 @@ export const shiftDate = (key: string, days: number) => {
 /** Whole days from one date key to another; negative when `to` is earlier. */
 export const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000);
 
+/** The Monday-to-Sunday weeks covering `from` to `to`, the first and last cut to the range. */
+export function weeksBetween(from: string, to: string): { from: string; to: string }[] {
+  const weeks: { from: string; to: string }[] = [];
+  for (let start = from; start <= to; ) {
+    const sinceMonday = (new Date(`${start}T12:00:00Z`).getUTCDay() + 6) % 7;
+    const sunday = shiftDate(start, 6 - sinceMonday);
+    weeks.push({ from: start, to: sunday < to ? sunday : to });
+    start = shiftDate(sunday, 1);
+  }
+  return weeks;
+}
+
 /** Before the rollover hour the clock is still on the previous day. */
 export const logicalDate = (d: Date, dayEndsAt: number) => {
   const shifted = new Date(d);

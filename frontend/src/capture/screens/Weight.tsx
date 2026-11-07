@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ageOn, dayTotals, formatWeighIn, formatWeight, loggedWeight, metabolismPresets, planAt, type PlanAreas, plannedWeight, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weightUnit } from "@dash/core";
+import { ageOn, dayTotals, daysBetween, formatWeighIn, formatWeight, loggedWeight, metabolismPresets, planAt, type PlanAreas, plannedWeight, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weeksBetween, weightUnit } from "@dash/core";
 import { useEntriesBetween } from "../../queries/entries.queries";
 import { useFoodLookup } from "../../queries/foods.queries";
 import { useMe, useProfile } from "../../queries/me.queries";
@@ -11,9 +11,10 @@ import { DateChip } from "../ui/DateChip";
 import { FlowShell } from "../ui/FlowShell";
 import { notify } from "../ui/notify";
 import { useOpen, useSteps } from "../ui/useSteps";
+import { chartFrame, type Grouping } from "./goalDays";
 
 const DAY = 86_400_000;
-/** The overview's window; the full chart will offer others. */
+/** The overview's window; the full chart offers others. */
 const CHART_DAYS = 90;
 
 const shortDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
@@ -30,8 +31,9 @@ export function WeightSection() {
   const bmi = latest && heightCm ? latest.kg / (heightCm / 100) ** 2 : undefined;
   const today = todayKey();
   const plan = planAt(history);
-  const range = chartRange(all, today);
+  const range = chartRange(all, today, CHART_DAYS);
   const logged = useLoggedWeight(all, range.from, today);
+  const openChart = () => open("/goal/chart/weight");
   const { goal } = plan;
   const losing = goal.kgPerWeek > 0;
   const finish = latest && targetDate(latest.kg, goal);
@@ -89,18 +91,21 @@ export function WeightSection() {
           <button className="chip" onClick={() => open("/goal/weigh-ins")}>
             History
           </button>
+          <button className="chip" onClick={openChart}>
+            Full chart
+          </button>
           <button className="chip primary" onClick={() => open("/goal/weigh-in")}>
             Weigh in
           </button>
         </div>
-        <WeightChart weighIns={all} history={history} units={units} today={today} logged={logged} {...range} />
+        <WeightChart weighIns={all} history={history} units={units} today={today} logged={logged} by="day" onOpen={openChart} {...range} />
       </section>
     </>
   );
 }
 
 /** What logged eating says the weight did since the first weigh-in in view, up to this morning. */
-function useLoggedWeight(all: WeighIn[], from: string, today: string) {
+export function useLoggedWeight(all: WeighIn[], from: string, today: string) {
   const { profile, plan } = useMe();
   const foods = useFoodLookup();
   const start = all.find((w) => w.date >= from && w.date <= today);
@@ -148,26 +153,47 @@ function trendChange(all: WeighIn[], units: UnitSystem) {
 }
 
 /**
- * Up to the last 90 days, no wider than the weigh-ins in it need. With less than two weeks of them,
- * the chart starts at the first and runs two weeks on, so the planned line shows where it's heading.
+ * The last `days` (all of them for Infinity), no wider than the weigh-ins in it need. With less than
+ * two weeks of them, the chart starts at the first and runs two weeks on, so the planned line shows
+ * where it's heading.
  */
-function chartRange(all: WeighIn[], today: string) {
-  const longest = shiftDate(today, -CHART_DAYS);
-  const first = all.find((w) => w.date >= longest)?.date ?? longest;
+export function chartRange(all: WeighIn[], today: string, days: number) {
+  const longest = Number.isFinite(days) ? shiftDate(today, -days) : "";
+  const first = all.find((w) => w.date >= longest)?.date ?? (longest || today);
   return first < shiftDate(today, -14) ? { from: first, to: today } : { from: first, to: shiftDate(first, 14) };
 }
 
-const W = 340;
-const H = 170;
-const plot = { left: 34, right: W - 8, top: 8, bottom: H - 20 };
-
 /**
- * Weigh-ins as dots on a line, each settings stretch's planned pace dashed behind them, and the
- * weight logged eating implies.
+ * Weigh-ins as dots on a line (or each week's average), each settings stretch's planned pace dashed
+ * behind them, and the weight logged eating implies.
  */
-function WeightChart({ weighIns, history, units, from, to, today, logged }: { weighIns: WeighIn[]; history: PlanAreas; units: UnitSystem; from: string; to: string; today: string; logged: { date: string; kg: number }[] | undefined }) {
-  const points = weighIns.filter((w) => w.date >= from && w.date <= to);
-  if (!points.length) return <p className="hint weight-empty">No weigh-ins in the last {CHART_DAYS} days.</p>;
+export function WeightChart({
+  weighIns,
+  history,
+  units,
+  from,
+  to,
+  today,
+  logged,
+  by,
+  tall,
+  onOpen,
+}: {
+  weighIns: WeighIn[];
+  history: PlanAreas;
+  units: UnitSystem;
+  from: string;
+  to: string;
+  today: string;
+  logged: { date: string; kg: number }[] | undefined;
+  by: Grouping;
+  tall?: boolean;
+  onOpen?: () => void;
+}) {
+  const plot = chartFrame(tall);
+  const inView = weighIns.filter((w) => w.date >= from && w.date <= to);
+  if (!inView.length) return <p className="hint weight-empty">No weigh-ins in the last {daysBetween(from, to)} days.</p>;
+  const points = by === "day" ? inView : weeklyAverages(inView, from, to);
   const planned = plannedWeight(history, weighIns, from, to);
   const shown = [...points, ...planned.flat(), ...(logged ?? [])].map((p) => toDisplayWeight(p.kg, units));
   const lo = Math.floor(Math.min(...shown) - 0.3);
@@ -184,7 +210,13 @@ function WeightChart({ weighIns, history, units, from, to, today, logged }: { we
 
   return (
     <>
-      <svg className="weigh-trend" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Weight over the last ${CHART_DAYS} days, with the planned pace dashed and the weight logged eating implies`}>
+      <svg
+        className={onOpen ? "weigh-trend chart-tap" : "weigh-trend"}
+        viewBox={`0 0 ${plot.width} ${plot.height}`}
+        role="img"
+        aria-label={`Weight${by === "week" ? " by weekly average" : ""} from ${shortDate(from)}, with the planned pace dashed and the weight logged eating implies`}
+        onClick={onOpen}
+      >
         {yTicks.map((v) => {
           const ty = plot.bottom - ((v - lo) / (hi - lo)) * (plot.bottom - plot.top);
           return (
@@ -197,7 +229,7 @@ function WeightChart({ weighIns, history, units, from, to, today, logged }: { we
           );
         })}
         {dateTicks.map((d) => (
-          <text key={d} x={x(d)} y={H - 4} textAnchor={d === to ? "end" : "middle"} className="chart-label">
+          <text key={d} x={x(d)} y={plot.height - 4} textAnchor={d === to ? "end" : "middle"} className="chart-label">
             {new Date(`${d}T12:00:00`).toLocaleDateString(undefined, span / DAY <= 45 ? { day: "numeric", month: "short" } : { month: "short" })}
           </text>
         ))}
@@ -226,7 +258,7 @@ function WeightChart({ weighIns, history, units, from, to, today, logged }: { we
         ))}
       </svg>
       <ul className="chart-legend">
-        <li className="legend-weigh-ins">Weigh-ins</li>
+        <li className="legend-weigh-ins">{by === "week" ? "Weekly average" : "Weigh-ins"}</li>
         <li className="legend-line legend-planned-line">Planned</li>
         {logged && <li className="legend-line legend-logged-line">From logged</li>}
       </ul>
@@ -241,14 +273,26 @@ function weekTicks(from: string, to: string) {
   return ticks;
 }
 
-/** The first of each month after `from`, up to `to`. */
+/** The first of each month after `from`, up to `to`; every few months over a long stretch. */
 function monthStarts(from: string, to: string) {
   const starts: string[] = [];
   for (let d = new Date(`${from.slice(0, 7)}-01T12:00:00`); ; d.setMonth(d.getMonth() + 1)) {
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-    if (key > to) return starts;
+    if (key > to) break;
     if (key > from) starts.push(key);
   }
+  const every = Math.ceil(starts.length / 6);
+  return starts.filter((_, i) => (starts.length - 1 - i) % every === 0);
+}
+
+/** Each week's weigh-ins as one point: their average weight, at their average day. */
+function weeklyAverages(weighIns: WeighIn[], from: string, to: string): WeighIn[] {
+  return weeksBetween(from, to).flatMap((week) => {
+    const inWeek = weighIns.filter((w) => w.date >= week.from && w.date <= week.to);
+    if (!inWeek.length) return [];
+    const offset = Math.round(inWeek.reduce((sum, w) => sum + daysBetween(week.from, w.date), 0) / inWeek.length);
+    return [{ id: week.from, date: shiftDate(week.from, offset), kg: inWeek.reduce((sum, w) => sum + w.kg, 0) / inWeek.length }];
+  });
 }
 
 /** Weighing in is quick: the weight, today unless you pick another day. */
