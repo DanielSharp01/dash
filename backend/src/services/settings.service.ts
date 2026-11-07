@@ -1,4 +1,4 @@
-import { applyPlanChange, type Container, type Plan, type PlanArea, type ProfileInput, type WeighIn } from "@dash/core";
+import { applyPlanChange, type Container, type Plan, type PlanArea, type ProfileInput, replaceAreaVersions, type SaveAreaVersionsRequest, type WeighIn } from "@dash/core";
 import { db } from "../providers/db";
 import {
   deleteContainerRow,
@@ -63,6 +63,24 @@ export async function savePlan(userId: string, req: { plan: Plan; change: "fix" 
     await expectRevision(row.planRevision, req.revision, async () => current);
     const next = applyPlanChange(areas, req.plan, req.change);
     const chosen = [...new Set([...row.chosenPlanAreas, ...req.choose])];
+    if (!next && chosen.length === row.chosenPlanAreas.length) return current;
+    const revision = row.planRevision + 1;
+    if (next) await replacePlanAreas(tx, userId, next, revision);
+    await setChosenPlanAreas(tx, userId, chosen, revision);
+    return { ...(next ? await getPlanAreas(tx, userId) : areas), revision, chosen };
+  });
+}
+
+/** Editing an area on its History page sets it, as choosing it does. */
+export async function saveAreaVersions(userId: string, req: SaveAreaVersionsRequest) {
+  return db.transaction(async (tx) => {
+    await ensureProfile(tx, userId);
+    const row = (await getProfileRow(tx, userId, { lock: true }))!;
+    const areas = await getPlanAreas(tx, userId);
+    const current = { ...areas, revision: row.planRevision, chosen: row.chosenPlanAreas };
+    await expectRevision(row.planRevision, req.revision, async () => current);
+    const next = replaceAreaVersions(areas, req.area, req.versions);
+    const chosen = [...new Set([...row.chosenPlanAreas, req.area])];
     if (!next && chosen.length === row.chosenPlanAreas.length) return current;
     const revision = row.planRevision + 1;
     if (next) await replacePlanAreas(tx, userId, next, revision);

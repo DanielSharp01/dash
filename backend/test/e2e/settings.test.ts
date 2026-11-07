@@ -94,6 +94,41 @@ describe("plan", () => {
     const res = await u.post("/plan", { plan: { ...defaultPlan, macroPlan: { preset: "balanced", proteinPerKg: 1.6, fatPct: 0.3, carbPct: 0.4 } }, change: "fix", revision: 1, choose: ["macros"] });
     expect(res.status).toBe(400);
   });
+
+  it("saves an area's versions as its History page left them, and sets the area", async () => {
+    const u = await newUser();
+    await u.get("/me");
+    const versions = [
+      { from: BEGINNING, value: { goal: defaultPlan.goal } },
+      { from: "2026-09-01", value: { goal: { kgPerWeek: 0.75 } } },
+      { from: "2026-10-01", value: { goal: { kgPerWeek: 0.25 } } },
+    ];
+    const saved = await u.put("/plan/versions", { area: "goal", versions, revision: 1 });
+    expect(saved.body).toMatchObject({ goal: versions, revision: 2, chosen: ["goal"] });
+
+    // An older version fixed, one moved and one deleted; equal neighbours merge into the earlier one.
+    const edited = [
+      { from: BEGINNING, value: { goal: { kgPerWeek: 0.5 } } },
+      { from: "2026-09-15", value: { goal: { kgPerWeek: 0.5 } } },
+    ];
+    const merged = await u.put("/plan/versions", { area: "goal", versions: edited, revision: 2 });
+    expect(merged.body.goal).toEqual([{ from: BEGINNING, value: { goal: { kgPerWeek: 0.5 } } }]);
+    expect(merged.body.fluid).toEqual(saved.body.fluid);
+    expect((await u.put("/plan/versions", { area: "goal", versions, revision: 2 })).status).toBe(409);
+  });
+
+  it("refuses versions without a start, out of order, two on a day, or of another area", async () => {
+    const u = await newUser();
+    const v = (from: string, kgPerWeek = 0.5) => ({ from, value: { goal: { kgPerWeek } } });
+    const bodies = [
+      { area: "goal", versions: [] },
+      { area: "goal", versions: [v("2026-09-01")] },
+      { area: "goal", versions: [v(BEGINNING), v("2026-10-01"), v("2026-09-01", 1)] },
+      { area: "goal", versions: [v(BEGINNING), v("2026-09-01"), v("2026-09-01", 1)] },
+      { area: "fluid", versions: [v(BEGINNING)] },
+    ];
+    for (const body of bodies) expect((await u.put("/plan/versions", { ...body, revision: 1 })).status).toBe(400);
+  });
 });
 
 describe("weigh-ins", () => {

@@ -284,15 +284,21 @@ export const planSchema = z.object({
 });
 
 const datedVersions = <T extends z.ZodType>(value: T) => z.array(z.object({ from: versionStartSchema, value }));
+const areaValueSchemas = {
+  goal: planSchema.pick({ goal: true }),
+  metabolism: planSchema.pick({ metabolismMultiplier: true, calibratedFrom: true }),
+  fluid: planSchema.pick({ fluidGoalMl: true }),
+  macros: planSchema.pick({ macroPlan: true }),
+};
 /**
  * Each area of the plan keeps its own versions, oldest first, so changing one never adds a version
  * to the others. A day's plan takes each area's version in effect on it.
  */
 export const planAreasSchema = z.object({
-  goal: datedVersions(planSchema.pick({ goal: true })),
-  metabolism: datedVersions(planSchema.pick({ metabolismMultiplier: true, calibratedFrom: true })),
-  fluid: datedVersions(planSchema.pick({ fluidGoalMl: true })),
-  macros: datedVersions(planSchema.pick({ macroPlan: true })),
+  goal: datedVersions(areaValueSchemas.goal),
+  metabolism: datedVersions(areaValueSchemas.metabolism),
+  fluid: datedVersions(areaValueSchemas.fluid),
+  macros: datedVersions(areaValueSchemas.macros),
 });
 export const planAreaSchema = z.enum(["goal", "metabolism", "fluid", "macros"]);
 export const planHistorySchema = planAreasSchema.extend({
@@ -375,6 +381,18 @@ export const savePlanRequestSchema = z.object({
   /** Areas this save sets, even when their values stay the same, as when a new account accepts a default. */
   choose: z.array(planAreaSchema),
 });
+
+/** The first starts at the beginning, so every day has a value, and no two start on the same day. */
+const editedVersions = <T extends z.ZodType>(value: T) =>
+  datedVersions(value).refine((v) => v[0]?.from === BEGINNING && v.every((x, i) => i === 0 || x.from > v[i - 1]!.from), "Versions start at the beginning and go oldest first, one a day");
+
+/** One area's versions as its History page left them. Corrections leave no record: past days just follow. */
+export const saveAreaVersionsRequestSchema = z.discriminatedUnion("area", [
+  z.object({ area: z.literal("goal"), versions: editedVersions(areaValueSchemas.goal), revision: z.number().int().min(1) }),
+  z.object({ area: z.literal("metabolism"), versions: editedVersions(areaValueSchemas.metabolism), revision: z.number().int().min(1) }),
+  z.object({ area: z.literal("fluid"), versions: editedVersions(areaValueSchemas.fluid), revision: z.number().int().min(1) }),
+  z.object({ area: z.literal("macros"), versions: editedVersions(areaValueSchemas.macros), revision: z.number().int().min(1) }),
+]);
 
 export const recapToneSchema = z.enum(["great", "close", "over", "light", "empty"]);
 
@@ -587,6 +605,7 @@ export type ImportResult = z.infer<typeof importResponseSchema>;
 export type MeResponse = z.infer<typeof meResponseSchema>;
 export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>;
 export type SavePlanRequest = z.infer<typeof savePlanRequestSchema>;
+export type SaveAreaVersionsRequest = z.infer<typeof saveAreaVersionsRequestSchema>;
 export type FoodUsage = z.infer<typeof usageResponseSchema>["usage"][number];
 export type ActivityUsage = z.infer<typeof activityUsageResponseSchema>["usage"][number];
 export type CreateFoodResponse = z.infer<typeof createFoodResponseSchema>;

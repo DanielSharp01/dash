@@ -478,6 +478,13 @@ type Request = { plan: Plan; change: "fix" | { from: DateKey }; revision: number
 type Response = PlanHistory;
 ```
 
+**`PUT /api/plan/versions`.** One area's whole version list, as its History page left it: a fixed value, a moved start, a deleted or added version. The first version starts at the beginning and the rest go oldest first, one a day (400 otherwise). Equal neighbours merge into the earlier one, and the area counts as set. Corrections leave no record; past days follow.
+
+```ts
+type Request = { area: PlanArea; versions: { from: VersionStart; value: AreaValue<area> }[]; revision: number };
+type Response = PlanHistory;
+```
+
 **`POST /api/containers`, `PUT /api/containers/:id`, `DELETE /api/containers/:id`.** A `PUT` can't change `kind` (422).
 
 ```ts

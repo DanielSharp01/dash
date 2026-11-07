@@ -91,6 +91,12 @@ export const samePlan = (a: Plan, b: Plan) => deepEqual(a, b);
 /** Neighbouring versions with the same value say nothing; keep the earlier one. */
 const collapse = <V>(versions: Dated<V>[]) => versions.filter((v, i) => i === 0 || !deepEqual(v.value, versions[i - 1]!.value));
 
+/** One area's versions as edited on its History page, or undefined when nothing changed. */
+export function replaceAreaVersions<A extends PlanArea>(history: PlanAreas, area: A, versions: Dated<AreaValue<A>>[]): PlanAreas | undefined {
+  const next = collapse(versions);
+  return deepEqual(next, history[area]) ? undefined : { ...history, [area]: next };
+}
+
 /** One area's versions after the change, or undefined when the area already holds that value. */
 function changeArea<V>(versions: Dated<V>[], value: V, fallback: V, change: PlanChange): Dated<V>[] | undefined {
   const history = versions.length ? versions : [{ from: BEGINNING, value: fallback }];

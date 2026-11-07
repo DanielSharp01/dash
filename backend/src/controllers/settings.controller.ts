@@ -4,6 +4,7 @@ import {
   meResponseSchema,
   planHistorySchema,
   profileSchema,
+  saveAreaVersionsRequestSchema,
   savePlanRequestSchema,
   updateProfileRequestSchema,
   weighInSchema,
@@ -34,6 +35,13 @@ export function settingsController() {
     line
       .pipe(validateBody(savePlanRequestSchema))
       .pipe(async ({ auth, body }) => ok(await settings.savePlan(auth.userId, body)))
+      .pipe(jsonSend(planHistorySchema, 200)),
+  );
+
+  r.put("/plan/versions", (line) =>
+    line
+      .pipe(validateBody(saveAreaVersionsRequestSchema))
+      .pipe(async ({ auth, body }) => ok(await settings.saveAreaVersions(auth.userId, body)))
       .pipe(jsonSend(planHistorySchema, 200)),
   );
 
