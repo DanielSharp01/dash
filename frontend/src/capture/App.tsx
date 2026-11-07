@@ -10,7 +10,7 @@ import { ExerciseFlow } from "./flows/ExerciseFlow";
 import { ActivityRoute, BatchRoute, CatalogueScreen, type CatalogueTab, ComboRoute, ItemRoute, RecipeRoute } from "./screens/Catalogue";
 import { ContainerRoute, ContainersScreen, NewContainerRoute } from "./screens/Containers";
 import { GoalChartRoute } from "./screens/GoalChart";
-import { GoalAreaRoute, GoalsScreen } from "./screens/Goals";
+import { GoalAreaRoute, ProgressScreen } from "./screens/Goals";
 import { SettingRoute, SettingsScreen } from "./screens/Profile";
 import { SetupRoute } from "./screens/Setup";
 import { WeighInHistoryRoute, WeighInRoute } from "./screens/Weight";
@@ -31,14 +31,14 @@ function useDay(): [string, (d: string) => void] {
   return [day, setDay];
 }
 
-type NavTarget = "today" | "inbox" | "catalogue" | "containers" | "goal" | "settings";
+type NavTarget = "today" | "inbox" | "catalogue" | "containers" | "progress" | "settings";
 
 const sections: { target: NavTarget; path: string; match: string[]; icon: string; label: string }[] = [
   { target: "today", path: "/", match: ["/"], icon: "📅", label: "Today" },
   { target: "inbox", path: "/follow-up", match: ["/follow-up"], icon: "📥", label: "To follow up" },
   { target: "catalogue", path: "/items", match: ["/items", "/combos", "/recipes", "/activities"], icon: "🗂️", label: "Catalogue" },
   { target: "containers", path: "/containers", match: ["/containers"], icon: "🫙", label: "Containers" },
-  { target: "goal", path: "/goal", match: ["/goal"], icon: "🎯", label: "Goal" },
+  { target: "progress", path: "/progress", match: ["/progress"], icon: "📈", label: "Progress" },
   { target: "settings", path: "/settings", match: ["/settings"], icon: "⚙️", label: "Settings" },
 ];
 
@@ -57,7 +57,7 @@ export function App() {
   const open = useOpen();
   // A new account starts on the goal setup, once; opening it marks it offered.
   useEffect(() => {
-    if (!setupOffered) open("/goal/setup");
+    if (!setupOffered) open("/progress/setup");
   }, []);
   const [day, setDay] = useDay();
 
@@ -114,12 +114,12 @@ export function App() {
         <Route path="/recipes/:id" element={<RecipeRoute />} />
         <Route path="/recipes/:id/:batchId" element={<BatchRoute />} />
         <Route path="/activities/:id" element={<ActivityRoute />} />
-        <Route path="/goal" element={<GoalsScreen onMenu={openMenu} />} />
-        <Route path="/goal/weigh-in" element={<WeighInRoute />} />
-        <Route path="/goal/weigh-ins" element={<WeighInHistoryRoute />} />
-        <Route path="/goal/chart/:area" element={<GoalChartRoute />} />
-        <Route path="/goal/setup" element={<SetupRoute />} />
-        <Route path="/goal/:area" element={<GoalAreaRoute />} />
+        <Route path="/progress" element={<ProgressScreen onMenu={openMenu} />} />
+        <Route path="/progress/weigh-in" element={<WeighInRoute />} />
+        <Route path="/progress/weigh-ins" element={<WeighInHistoryRoute />} />
+        <Route path="/progress/chart/:area" element={<GoalChartRoute />} />
+        <Route path="/progress/setup" element={<SetupRoute />} />
+        <Route path="/progress/:area" element={<GoalAreaRoute />} />
         <Route path="/containers" element={<ContainersScreen onMenu={openMenu} />} />
         <Route path="/containers/new/:kind" element={<NewContainerRoute />} />
         <Route path="/containers/:id" element={<ContainerRoute />} />

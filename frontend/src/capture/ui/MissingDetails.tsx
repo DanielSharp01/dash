@@ -11,7 +11,7 @@ export function MissingDetails({ missing, lead }: { missing: DailyTargets["missi
     <div className="notice">
       <span>
         {lead} {list}.{" "}
-        <button className="link" onClick={() => open("/goal/setup")}>
+        <button className="link" onClick={() => open("/progress/setup")}>
           Set up your goals
         </button>
       </span>

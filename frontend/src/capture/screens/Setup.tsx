@@ -32,7 +32,7 @@ export function SetupRoute() {
   const { left } = useSetupProgress();
   // Where it starts is decided once; finishing a step's fields mustn't move the page before Next.
   const [start] = useState(left[0] ?? steps[0]);
-  const { step, depth, go, back, replace, close } = useSteps<Step>(start, undefined, "/goal");
+  const { step, depth, go, back, replace, close } = useSteps<Step>(start, undefined, "/progress");
   useEffect(() => markSetupOffered(), []);
   const index = steps.indexOf(step);
   const next = () => (index < steps.length - 1 ? go(steps[index + 1]!) : close());
@@ -145,7 +145,7 @@ function WeightStep({ shell, onNext }: { shell: ShellProps; onNext: () => void }
   };
   return (
     <SetupShell shell={shell} next={{ disabled: !kg, onClick: save }}>
-      <Question title="What do you weigh today?" hint={["Weigh in again whenever you like from Goals.", "The trend matters more than any one day."]}>
+      <Question title="What do you weigh today?" hint={["Weigh in again whenever you like from Progress.", "The trend matters more than any one day."]}>
         <form
           className="big-entry"
           onSubmit={(e) => {
@@ -195,7 +195,7 @@ function DayFields({ draft, update }: { draft: Plan; update: (patch: Partial<Pla
     <Question
       title="What's a normal day like?"
       lead={["Not counting workouts.", "Log those as exercise and they add to your budget."]}
-      hint={["You can fine-tune it on Goals later.", "For example, from what you know you maintain on."]}
+      hint={["You can fine-tune it on Progress later.", "For example, from what you know you maintain on."]}
     >
       <Choices
         options={metabolismPresets.map((m) => ({ value: m.value, label: m.label, detail: `× ${m.value}` }))}

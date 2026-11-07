@@ -15,7 +15,7 @@ export function FluidSection() {
   const finished = days.filter((d) => d.date < today && d.totals);
   const average = finished.length ? averageOf(finished, (d) => d.totals!.fluid.value) : undefined;
   const sofar = now.totals?.fluid;
-  const openChart = () => open("/goal/chart/fluid");
+  const openChart = () => open("/progress/chart/fluid");
 
   return (
     <>
@@ -42,7 +42,7 @@ export function FluidSection() {
           </div>
         </dl>
         <div className="card-actions">
-          <button className="chip" onClick={() => open("/goal/fluid")}>
+          <button className="chip" onClick={() => open("/progress/fluid")}>
             Edit fluid
           </button>
           <button className="chip" onClick={openChart}>

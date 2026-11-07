@@ -33,7 +33,7 @@ export function WeightSection() {
   const plan = planAt(history);
   const range = chartRange(all, today);
   const logged = useLoggedWeight(all, range.from, today);
-  const openChart = () => open("/goal/chart/weight");
+  const openChart = () => open("/progress/chart/weight");
   const { goal } = plan;
   const losing = goal.kgPerWeek > 0;
   const finish = latest && targetDate(latest.kg, goal);
@@ -94,19 +94,19 @@ export function WeightSection() {
           </div>
         </dl>
         <div className="card-actions">
-          <button className="chip" onClick={() => open("/goal/goal")}>
+          <button className="chip" onClick={() => open("/progress/goal")}>
             Edit goal
           </button>
-          <button className="chip" onClick={() => open("/goal/metabolism")}>
+          <button className="chip" onClick={() => open("/progress/metabolism")}>
             Metabolism
           </button>
-          <button className="chip" onClick={() => open("/goal/weigh-ins")}>
+          <button className="chip" onClick={() => open("/progress/weigh-ins")}>
             History
           </button>
           <button className="chip" onClick={openChart}>
             Full chart
           </button>
-          <button className="chip primary" onClick={() => open("/goal/weigh-in")}>
+          <button className="chip primary" onClick={() => open("/progress/weigh-in")}>
             Weigh in
           </button>
         </div>
@@ -360,7 +360,7 @@ const longDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateStri
  * to know as you step off the scale: the weigh-in before, the change since, and what's left.
  */
 export function WeighInRoute() {
-  const { close } = useSteps<"weigh">("weigh", undefined, "/goal");
+  const { close } = useSteps<"weigh">("weigh", undefined, "/progress");
   const { plan } = useMe();
   const all = useWeighIns();
   const [kg, setKg] = useState<number>();
@@ -432,7 +432,7 @@ function ToTarget({ kg, targetKg, kgPerWeek }: { kg?: number; targetKg?: number;
 
 /** For corrections: move a weigh-in to its right day, delete one, or add a missed one. */
 export function WeighInHistoryRoute() {
-  const { close } = useSteps<"history">("history", undefined, "/goal");
+  const { close } = useSteps<"history">("history", undefined, "/progress");
   const open = useOpen();
   const all = useWeighIns();
   const newest = [...all].reverse();
@@ -454,7 +454,7 @@ export function WeighInHistoryRoute() {
     <FlowShell title="Weigh-in history" canGoBack onBack={close} onClose={close}>
       <ul className="list">
         <li>
-          <button className="row row-create" onClick={() => open("/goal/weigh-in")}>
+          <button className="row row-create" onClick={() => open("/progress/weigh-in")}>
             <span className="row-icon">＋</span>
             <span className="row-main">
               <span className="row-title">Add a missed day</span>

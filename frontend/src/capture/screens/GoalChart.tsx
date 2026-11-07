@@ -45,13 +45,13 @@ function quickPicks(area: ChartArea, plan: PlanAreas, weighIns: WeighIn[], today
 
 export function GoalChartRoute() {
   const { area } = useParams();
-  if (!isChartArea(area)) return <Navigate to="/goal" replace />;
+  if (!isChartArea(area)) return <Navigate to="/progress" replace />;
   return <GoalChart key={area} area={area} />;
 }
 
-/** One Goals chart over a chosen stretch, by day or by week, with what that stretch averaged. */
+/** One Progress chart over a chosen stretch, by day or by week, with what that stretch averaged. */
 function GoalChart({ area }: { area: ChartArea }) {
-  const { close } = useSteps<"chart">("chart", undefined, "/goal");
+  const { close } = useSteps<"chart">("chart", undefined, "/progress");
   const { plan } = useMe();
   const weighIns = useWeighIns();
   const today = todayKey();

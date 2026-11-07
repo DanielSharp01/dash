@@ -18,7 +18,7 @@ export function MacrosSection() {
   const preset = plan.chosen.includes("macros") ? macroPresetLabel(planAt(plan).macroPlan.preset) : "Not set";
   // Without weight, height and age the grams come from a fixed fallback, not from you.
   const placeholder = current.missing.length > 0;
-  const openChart = () => open("/goal/chart/macros");
+  const openChart = () => open("/progress/chart/macros");
 
   return (
     <>
@@ -34,7 +34,7 @@ export function MacrosSection() {
           ))}
         </dl>
         <div className="card-actions">
-          <button className="chip" onClick={() => open("/goal/macros")}>
+          <button className="chip" onClick={() => open("/progress/macros")}>
             Edit macros
           </button>
           <button className="chip" onClick={openChart}>

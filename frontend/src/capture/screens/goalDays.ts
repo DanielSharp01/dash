@@ -28,7 +28,7 @@ export function useGoalDays(from: string, to: string) {
   return days;
 }
 
-/** The Goals overview's window: this week up to today. */
+/** The Progress overview's window: this week up to today. */
 export function useLastWeek() {
   const today = todayKey();
   const days = useGoalDays(shiftDate(today, -6), today);

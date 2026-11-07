@@ -51,19 +51,19 @@ const areas: Record<GoalArea, { title: string; icon: string }> = {
 const DAY = 86_400_000;
 const fmt = (n: number) => Math.round(n).toLocaleString();
 
-export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
-  const { close } = useSteps<"goal">("goal");
+export function ProgressScreen({ onMenu }: { onMenu: () => void }) {
+  const { close } = useSteps<"progress">("progress");
   const open = useOpen();
   const { plan: history } = useMe();
   const changes = planChanges(history);
   const setup = useSetupProgress();
 
   return (
-    <FlowShell title="Goal" canGoBack={false} onBack={close} onClose={close} onMenu={onMenu}>
+    <FlowShell title="Progress" canGoBack={false} onBack={close} onClose={close} onMenu={onMenu}>
       {setup.left.length > 0 && (
         <ul className="list setup-card">
           <li>
-            <button className="row" onClick={() => open("/goal/setup")}>
+            <button className="row" onClick={() => open("/progress/setup")}>
               <span className="row-icon">🎯</span>
               <span className="row-main">
                 <span className="row-title">Set up your goals</span>
@@ -146,13 +146,13 @@ const isArea = (area: string | undefined): area is GoalArea => area !== undefine
 
 export function GoalAreaRoute() {
   const { area } = useParams();
-  if (!isArea(area)) return <Navigate to="/goal" replace />;
+  if (!isArea(area)) return <Navigate to="/progress" replace />;
   return <SetGoalArea key={area} area={area} />;
 }
 
 /** One area's values as a draft, so trying options doesn't create a version per tap. */
 function SetGoalArea({ area }: { area: GoalArea }) {
-  const { close } = useSteps<"set">("set", undefined, "/goal");
+  const { close } = useSteps<"set">("set", undefined, "/progress");
   const { profile, plan: history } = useMe();
   const current = planAt(history);
   const [draft, setDraft] = useState<Plan>(current);
