@@ -2095,25 +2095,6 @@ h1 {
   background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--fluid) 35%, transparent) 0 2px, color-mix(in srgb, var(--fluid) 10%, transparent) 2px 5px);
 }
 
-.plan-save {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--surface);
-  border-radius: var(--radius);
-  padding: 12px;
-  box-shadow: 0 -4px 20px rgb(0 0 0 / 0.15);
-}
-
-.plan-save .hint {
-  margin: 0;
-}
-
-.plan-save-buttons {
-  display: flex;
-  gap: 8px;
-}
-
 input[type="checkbox"] {
   appearance: none;
   flex: none;

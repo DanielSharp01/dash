@@ -8,7 +8,7 @@ import { CookFlow } from "./flows/CookFlow";
 import { EatFlow } from "./flows/EatFlow";
 import { ExerciseFlow } from "./flows/ExerciseFlow";
 import { ActivityRoute, BatchRoute, CatalogueScreen, type CatalogueTab, ComboRoute, ItemRoute, RecipeRoute } from "./screens/Catalogue";
-import { GoalsScreen } from "./screens/Goals";
+import { GoalAreaRoute, GoalsScreen } from "./screens/Goals";
 import { SettingsScreen, WeighInsScreen } from "./screens/Profile";
 import { type EntryActions, InboxScreen, Today } from "./screens/Today";
 import { Drawer } from "./ui/Drawer";
@@ -108,6 +108,7 @@ export function App() {
         <Route path="/activities/:id" element={<ActivityRoute />} />
         <Route path="/weigh-ins" element={<WeighInsScreen onMenu={openMenu} />} />
         <Route path="/goal" element={<GoalsScreen onMenu={openMenu} />} />
+        <Route path="/goal/:area" element={<GoalAreaRoute />} />
         <Route path="/settings" element={<SettingsScreen onMenu={openMenu} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
