@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ageOn, dailyTargets, genericSourceOf, type Entry, formatWeight, type Plan, planAt, type PlanVersion, type Pot, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weightUnit } from "@dash/core";
+import { ageOn, dailyTargets, genericSourceOf, type Entry, formatWeighIn, type Plan, planAt, type PlanVersion, type Pot, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weightUnit } from "@dash/core";
 import { useEntriesBetween } from "../../queries/entries.queries";
 import { savePlan, saveProfile, useMe, useProfile } from "../../queries/me.queries";
 import { addPot, removePot } from "../../queries/pots.queries";
@@ -44,8 +44,8 @@ export function WeighInsScreen({ onMenu }: { onMenu: () => void }) {
   const [formKey, setFormKey] = useState(0);
   const newest = [...all].reverse();
   const latest = newest[0];
-  const diff = (i: number) => (newest[i + 1] ? toDisplayWeight(newest[i].kg, units) - toDisplayWeight(newest[i + 1].kg, units) : undefined);
-  const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${Math.abs(Math.round(n * 10) / 10)} ${weightUnit(units)}`;
+  const diff = (i: number) => (newest[i + 1] ? toDisplayWeight(newest[i].kg - newest[i + 1].kg, units) : undefined);
+  const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${Math.abs(n).toFixed(2)} ${weightUnit(units)}`;
   const change = trendChange(all, units);
   const bmi = latest && heightCm ? latest.kg / (heightCm / 100) ** 2 : undefined;
 
@@ -54,7 +54,7 @@ export function WeighInsScreen({ onMenu }: { onMenu: () => void }) {
     const added = { id: crypto.randomUUID(), date, kg };
     const replaced = all.find((w) => w.date === date);
     void addWeighIn(added);
-    notify(`Weighed in ${formatWeight(kg, units)}`, () => {
+    notify(`Weighed in ${formatWeighIn(kg, units)}`, () => {
       void removeWeighIn(added.id);
       // The server dropped the one it replaced, so it comes back as a new weigh-in.
       if (replaced) void addWeighIn({ ...replaced, id: crypto.randomUUID() });
@@ -69,7 +69,7 @@ export function WeighInsScreen({ onMenu }: { onMenu: () => void }) {
       {latest && (
         <section className="weigh-latest">
           <div className="weigh-big">
-            <strong>{toDisplayWeight(latest.kg, units)}</strong>
+            <strong>{toDisplayWeight(latest.kg, units).toFixed(2)}</strong>
             <span>{weightUnit(units)}</span>
           </div>
           <div className="weigh-meta">
@@ -103,7 +103,7 @@ export function WeighInsScreen({ onMenu }: { onMenu: () => void }) {
             {newest.map((w, i) => (
               <li key={w.id} className="weigh-row">
                 <span className="weigh-date">{new Date(`${w.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}</span>
-                <b>{formatWeight(w.kg, units)}</b>
+                <b>{formatWeighIn(w.kg, units)}</b>
                 <span className="weigh-diff">{diff(i) !== undefined ? signed(diff(i)!) : ""}</span>
                 <button
                   className="icon-btn small"
@@ -332,7 +332,7 @@ function trendChange(all: WeighIn[], units: UnitSystem) {
   if (ref === latest) return undefined;
   const label =
     dayMs(ref.date) <= cutoff ? "in 30 days" : `since ${new Date(`${ref.date}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
-  return { delta: toDisplayWeight(latest.kg, units) - toDisplayWeight(ref.kg, units), label };
+  return { delta: toDisplayWeight(latest.kg - ref.kg, units), label };
 }
 
 /** The last 90 days as a bare line; the history below is its table view. */

@@ -3,12 +3,14 @@ import type { UnitSystem } from "./schemas";
 const LB = 0.45359237;
 const INCH = 2.54;
 
-const round1 = (n: number) => Math.round(n * 10) / 10;
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export const weightUnit = (u: UnitSystem) => (u === "metric" ? "kg" : "lb");
-export const toDisplayWeight = (kg: number, u: UnitSystem) => round1(u === "metric" ? kg : kg / LB);
+export const toDisplayWeight = (kg: number, u: UnitSystem) => round2(u === "metric" ? kg : kg / LB);
 export const fromDisplayWeight = (n: number, u: UnitSystem) => (u === "metric" ? n : n * LB);
 export const formatWeight = (kg: number, u: UnitSystem) => `${toDisplayWeight(kg, u)} ${weightUnit(u)}`;
+/** Always two decimals, as scales show them, so a list of weigh-ins lines up. */
+export const formatWeighIn = (kg: number, u: UnitSystem) => `${toDisplayWeight(kg, u).toFixed(2)} ${weightUnit(u)}`;
 
 export function formatHeight(cm: number, u: UnitSystem) {
   if (u === "metric") return `${Math.round(cm)} cm`;
