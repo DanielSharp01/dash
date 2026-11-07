@@ -31,6 +31,7 @@ export const unitSystemEnum = pgEnum("unit_system", ["metric", "imperial"]);
 export const sexEnum = pgEnum("sex", ["male", "female"]);
 export const clockEnum = pgEnum("clock", ["24h", "12h"]);
 export const macroPresetEnum = pgEnum("macro_preset", ["balanced", "high-protein", "low-carb", "keto", "low-fat", "custom"]);
+export const planAreaEnum = pgEnum("plan_area", ["goal", "metabolism", "fluid", "macros"]);
 export const foodKindEnum = pgEnum("food_kind", ["item", "recipe", "combo"]);
 export const foodUnitEnum = pgEnum("food_unit", ["g", "ml", "piece"]);
 export const labelPerEnum = pgEnum("label_per", ["100", "serving"]);
@@ -85,6 +86,8 @@ export const profilesTable = pgTable(
     revision: revision(),
     /** Bumped by every plan change; guards the four plan-area version tables as one document. */
     planRevision: integer().notNull().default(1),
+    /** Plan areas the person has set; the rest hold the defaults a new account starts with. */
+    chosenPlanAreas: planAreaEnum().array().notNull().default(sql`'{}'`),
   },
   (t) => [check("profiles_day_ends_at", sql`${t.dayEndsAt} between 0 and 6`)],
 );

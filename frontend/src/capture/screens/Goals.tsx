@@ -153,10 +153,13 @@ function SetGoalArea({ area }: { area: GoalArea }) {
   const fromValid = !!from && from >= since;
   const [asking, setAsking] = useState(false);
   const changed = !samePlan(draft, current);
+  const unset = !history.chosen.includes(area);
   const save = (change: "fix" | { from: string }) => {
-    void savePlan(draft, change);
+    void savePlan(draft, change, [area]);
     close();
   };
+  // A new account's default can be kept as it is; with nothing changed there's nothing to correct or date.
+  const submit = () => (changed ? setAsking(true) : unset && save("fix"));
 
   return (
     <FlowShell
@@ -165,7 +168,7 @@ function SetGoalArea({ area }: { area: GoalArea }) {
       onBack={close}
       onClose={close}
       footer={
-        <button className="btn btn-primary btn-block" disabled={!changed} onClick={() => setAsking(true)}>
+        <button className="btn btn-primary btn-block" disabled={!changed && !unset} onClick={submit}>
           Save
         </button>
       }
@@ -179,7 +182,7 @@ function SetGoalArea({ area }: { area: GoalArea }) {
       )}
       {area === "metabolism" && <MetabolismFields draft={draft} update={update} bmr={t.calc?.bmr} />}
       {area === "macros" && <MacroFields draft={draft} update={update} t={t} />}
-      {area === "fluid" && <FluidFields draft={draft} update={update} units={units} onSubmit={() => changed && setAsking(true)} />}
+      {area === "fluid" && <FluidFields draft={draft} update={update} units={units} onSubmit={submit} />}
 
       {asking && (
         <Sheet title="Save the change" onClose={() => setAsking(false)}>

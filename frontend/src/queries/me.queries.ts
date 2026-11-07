@@ -1,5 +1,5 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { applyPlanChange, type MeResponse, type Plan, type PlanHistory, type Profile, type ProfileInput } from "@dash/core";
+import { applyPlanChange, type MeResponse, type Plan, type PlanArea, type PlanHistory, type Profile, type ProfileInput } from "@dash/core";
 import * as meApi from "../api/me.api";
 import { queryClient as qc } from "./client";
 import { keys } from "./keys";
@@ -50,17 +50,22 @@ export function forgetRecapSeen() {
   return meApi.deleteRecapSeen();
 }
 
-/** "fix" rewrites the current plan; a date starts a new one there. Saving the current plan does nothing. */
-export function savePlan(plan: Plan, change: "fix" | { from: string }) {
+/**
+ * "fix" rewrites the current plan; a date starts a new one there. `choose` marks areas as set even
+ * when their values stay, so a new account can accept a default; with nothing new, it does nothing.
+ */
+export function savePlan(plan: Plan, change: "fix" | { from: string }, choose: PlanArea[]) {
   const history = me()?.plan;
-  const areas = history && applyPlanChange(history, plan, change);
-  if (!history || !areas) return;
+  if (!history) return;
+  const areas = applyPlanChange(history, plan, change);
+  const chosen = [...new Set([...history.chosen, ...choose])];
+  if (!areas && chosen.length === history.chosen.length) return;
   return optimistic<PlanHistory, PlanHistory>({
     scope: "plan",
     get: () => me()?.plan,
     set: (p) => p && patchMe({ plan: p }),
-    next: { ...history, ...areas },
-    send: () => meApi.postPlan({ plan, change, revision: me()!.plan.revision }),
+    next: { ...history, ...areas, chosen },
+    send: () => meApi.postPlan({ plan, change, revision: me()!.plan.revision, choose }),
     stored: (p) => p,
   });
 }

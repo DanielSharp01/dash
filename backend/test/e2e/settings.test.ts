@@ -21,7 +21,7 @@ describe("session", () => {
     expect(res.body).toMatchObject({
       user: { id: u.id },
       profile: { units: "metric", dayEndsAt: 0, clock: "24h", revision: 1 },
-      plan: { ...splitPlanVersions([{ from: BEGINNING, plan: defaultPlan }]), revision: 1 },
+      plan: { ...splitPlanVersions([{ from: BEGINNING, plan: defaultPlan }]), revision: 1, chosen: [] },
       pots: [],
     });
   });
@@ -54,7 +54,7 @@ describe("plan", () => {
   it("starts a version on a date, fixes the newest, and ignores an unchanged plan", async () => {
     const u = await newUser();
     await u.get("/me");
-    const dated = await u.post("/plan", { plan: faster, change: { from: "2026-09-01" }, revision: 1 });
+    const dated = await u.post("/plan", { plan: faster, change: { from: "2026-09-01" }, revision: 1, choose: ["goal"] });
     expect(dated.body.goal).toEqual([
       { from: BEGINNING, value: { goal: defaultPlan.goal } },
       { from: "2026-09-01", value: { goal: faster.goal } },
@@ -62,19 +62,29 @@ describe("plan", () => {
     expect(dated.body.fluid).toEqual([{ from: BEGINNING, value: { fluidGoalMl: defaultPlan.fluidGoalMl } }]);
     expect(dated.body.revision).toBe(2);
 
-    const same = await u.post("/plan", { plan: faster, change: "fix", revision: 2 });
+    const same = await u.post("/plan", { plan: faster, change: "fix", revision: 2, choose: ["goal"] });
     expect(same.body.revision).toBe(2);
 
     // Fluid has one version, so fixing it rewrites that one; the goal keeps both of its versions.
-    const fixed = await u.post("/plan", { plan: { ...faster, fluidGoalMl: 2500 }, change: "fix", revision: 2 });
+    const fixed = await u.post("/plan", { plan: { ...faster, fluidGoalMl: 2500 }, change: "fix", revision: 2, choose: ["fluid"] });
     expect(fixed.body.fluid).toEqual([{ from: BEGINNING, value: { fluidGoalMl: 2500 } }]);
     expect(fixed.body.goal).toEqual(dated.body.goal);
-    expect((await u.post("/plan", { plan: defaultPlan, change: "fix", revision: 2 })).status).toBe(409);
+    expect((await u.post("/plan", { plan: defaultPlan, change: "fix", revision: 2, choose: [] })).status).toBe(409);
+  });
+
+  it("marks an area set when it's chosen, even keeping a new account's default", async () => {
+    const u = await newUser();
+    await u.get("/me");
+    const kept = await u.post("/plan", { plan: defaultPlan, change: "fix", revision: 1, choose: ["macros"] });
+    expect(kept.body).toMatchObject({ revision: 2, chosen: ["macros"] });
+    const changed = await u.post("/plan", { plan: faster, change: "fix", revision: 2, choose: ["goal"] });
+    expect(changed.body.chosen).toEqual(["macros", "goal"]);
+    expect((await u.get("/me")).body.plan.chosen).toEqual(["macros", "goal"]);
   });
 
   it("requires exactly one of fat and carb share", async () => {
     const u = await newUser();
-    const res = await u.post("/plan", { plan: { ...defaultPlan, macroPlan: { preset: "balanced", proteinPerKg: 1.6, fatPct: 0.3, carbPct: 0.4 } }, change: "fix", revision: 1 });
+    const res = await u.post("/plan", { plan: { ...defaultPlan, macroPlan: { preset: "balanced", proteinPerKg: 1.6, fatPct: 0.3, carbPct: 0.4 } }, change: "fix", revision: 1, choose: ["macros"] });
     expect(res.status).toBe(400);
   });
 });

@@ -1,4 +1,4 @@
-import { applyPlanChange, type Plan, type Pot, type ProfileInput, type WeighIn } from "@dash/core";
+import { applyPlanChange, type Plan, type PlanArea, type Pot, type ProfileInput, type WeighIn } from "@dash/core";
 import { db } from "../providers/db";
 import {
   deletePotRow,
@@ -14,6 +14,7 @@ import {
   listWeighIns,
   replacePlanAreas,
   replaceWeighIn,
+  setChosenPlanAreas,
   updatePotRow,
   updateProfile,
 } from "../repositories/settings.repo";
@@ -31,7 +32,13 @@ export async function me(userId: string) {
     listPots(db, userId),
   ]);
   if (!user) throw notFound();
-  return { user, profile: profile!, plan: { ...areas, revision: profileRow!.planRevision }, pots, ...opt("recapSeenOn", profileRow!.recapSeenOn) };
+  return {
+    user,
+    profile: profile!,
+    plan: { ...areas, revision: profileRow!.planRevision, chosen: profileRow!.chosenPlanAreas },
+    pots,
+    ...opt("recapSeenOn", profileRow!.recapSeenOn),
+  };
 }
 
 export async function saveProfile(userId: string, req: ProfileInput & { revision: number }) {
@@ -43,16 +50,21 @@ export async function saveProfile(userId: string, req: ProfileInput & { revision
   });
 }
 
-export async function savePlan(userId: string, req: { plan: Plan; change: "fix" | { from: string }; revision: number }) {
+/** Choosing an area that keeps its values is still a change: it moves the area off the new account's defaults. */
+export async function savePlan(userId: string, req: { plan: Plan; change: "fix" | { from: string }; revision: number; choose: PlanArea[] }) {
   return db.transaction(async (tx) => {
     await ensureProfile(tx, userId);
     const row = (await getProfileRow(tx, userId, { lock: true }))!;
     const areas = await getPlanAreas(tx, userId);
-    await expectRevision(row.planRevision, req.revision, async () => ({ ...areas, revision: row.planRevision }));
+    const current = { ...areas, revision: row.planRevision, chosen: row.chosenPlanAreas };
+    await expectRevision(row.planRevision, req.revision, async () => current);
     const next = applyPlanChange(areas, req.plan, req.change);
-    if (!next) return { ...areas, revision: row.planRevision };
-    await replacePlanAreas(tx, userId, next, row.planRevision + 1);
-    return { ...(await getPlanAreas(tx, userId)), revision: row.planRevision + 1 };
+    const chosen = [...new Set([...row.chosenPlanAreas, ...req.choose])];
+    if (!next && chosen.length === row.chosenPlanAreas.length) return current;
+    const revision = row.planRevision + 1;
+    if (next) await replacePlanAreas(tx, userId, next, revision);
+    await setChosenPlanAreas(tx, userId, chosen, revision);
+    return { ...(next ? await getPlanAreas(tx, userId) : areas), revision, chosen };
   });
 }
 

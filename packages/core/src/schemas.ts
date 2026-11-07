@@ -294,7 +294,12 @@ export const planAreasSchema = z.object({
   fluid: datedVersions(planSchema.pick({ fluidGoalMl: true })),
   macros: datedVersions(planSchema.pick({ macroPlan: true })),
 });
-export const planHistorySchema = planAreasSchema.extend({ revision: z.number().int().min(1) });
+export const planAreaSchema = z.enum(["goal", "metabolism", "fluid", "macros"]);
+export const planHistorySchema = planAreasSchema.extend({
+  revision: z.number().int().min(1),
+  /** Areas the person has set themselves; the rest still hold the defaults a new account starts with. */
+  chosen: z.array(planAreaSchema),
+});
 
 export const unitSystemSchema = z.enum(["metric", "imperial"]);
 export const clockSchema = z.enum(["24h", "12h"]);
@@ -362,6 +367,8 @@ export const savePlanRequestSchema = z.object({
   /** "fix" rewrites each changed area's newest version; a date starts a new version there and drops that area's later ones. */
   change: z.union([z.literal("fix"), z.object({ from: dateKeySchema })]),
   revision: z.number().int().min(1),
+  /** Areas this save sets, even when their values stay the same, as when a new account accepts a default. */
+  choose: z.array(planAreaSchema),
 });
 
 export const recapToneSchema = z.enum(["great", "close", "over", "light", "empty"]);

@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
-import { BEGINNING, defaultPlan, type PlanAreas, type Pot, type Profile, type ProfileInput, splitPlanVersions, type WeighIn } from "@dash/core";
+import { BEGINNING, defaultPlan, type PlanArea, type PlanAreas, type Pot, type Profile, type ProfileInput, splitPlanVersions, type WeighIn } from "@dash/core";
 import { fluidVersionsTable, goalVersionsTable, macroVersionsTable, metabolismVersionsTable, potsTable, profilesTable, weighInsTable } from "../db/schema";
 import type { Executor } from "../providers/db";
 import { opt } from "./mapping";
@@ -121,6 +121,10 @@ export async function replacePlanAreas(ex: Executor, userId: string, areas: Plan
   for (const table of [goalVersionsTable, metabolismVersionsTable, fluidVersionsTable, macroVersionsTable]) await ex.delete(table).where(eq(table.userId, userId));
   await insertPlanAreas(ex, userId, areas);
   await ex.update(profilesTable).set({ planRevision }).where(eq(profilesTable.userId, userId));
+}
+
+export async function setChosenPlanAreas(ex: Executor, userId: string, chosen: PlanArea[], planRevision: number) {
+  await ex.update(profilesTable).set({ chosenPlanAreas: chosen, planRevision }).where(eq(profilesTable.userId, userId));
 }
 
 export async function listWeighIns(ex: Executor, userId: string): Promise<WeighIn[]> {
