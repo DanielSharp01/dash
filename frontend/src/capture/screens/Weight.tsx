@@ -295,14 +295,22 @@ function weeklyAverages(weighIns: WeighIn[], from: string, to: string): WeighIn[
   });
 }
 
-/** Weighing in is quick: the weight, today unless you pick another day. */
+const longDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+
+/**
+ * Weighing in is quick: the weight, today unless you pick another day. Around it, what you'd want
+ * to know as you step off the scale: the weigh-in before, the change since, and what's left.
+ */
 export function WeighInRoute() {
   const { close } = useSteps<"weigh">("weigh", undefined, "/goal");
-  const { units } = useProfile();
+  const { profile, plan } = useMe();
+  const { units } = profile;
   const all = useWeighIns();
   const [kg, setKg] = useState<number>();
   const [date, setDate] = useState(todayKey);
   const replaced = all.find((w) => w.date === date);
+  const before = all.findLast((w) => w.date < date);
+  const { goal } = planAt(plan);
 
   const save = () => {
     if (!kg) return;
@@ -317,16 +325,51 @@ export function WeighInRoute() {
   };
 
   return (
-    <FlowShell title="Weigh in" canGoBack onBack={close} onClose={close}>
-      <section className="weigh-form">
-        <WeightInput kg={kg} units={units} onChange={setKg} autoFocus />
-        <DateChip prefix="On" value={date} max={todayKey()} onChange={setDate} />
-        {replaced && <p className="hint">Replaces the {formatWeighIn(replaced.kg, units)} already on that day.</p>}
+    <FlowShell
+      title="Weigh in"
+      canGoBack
+      onBack={close}
+      onClose={close}
+      footer={
         <button className="btn btn-primary btn-block" disabled={!kg} onClick={save}>
           Save
         </button>
-      </section>
+      }
+    >
+      <form
+        className="weigh-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save();
+        }}
+      >
+        <p className="weigh-before">{before ? `Last: ${formatWeighIn(before.kg, units)} · ${longDate(before.date)}` : "Your first weigh-in"}</p>
+        <WeightInput kg={kg} units={units} onChange={setKg} autoFocus enterKeyHint="go" />
+        <WeighInChange kg={kg} before={before} kgPerWeek={goal.kgPerWeek} units={units} />
+        <ToTarget kg={kg ?? before?.kg} targetKg={goal.targetKg} kgPerWeek={goal.kgPerWeek} units={units} />
+        <DateChip prefix="On" value={date} max={todayKey()} onChange={setDate} />
+        {replaced && <p className="hint">Replaces the {formatWeighIn(replaced.kg, units)} already on that day.</p>}
+      </form>
     </FlowShell>
+  );
+}
+
+/** Down reads as good while losing, up while gaining; holding steady has no direction to cheer. */
+function WeighInChange({ kg, before, kgPerWeek, units }: { kg?: number; before?: WeighIn; kgPerWeek: number; units: UnitSystem }) {
+  if (kg === undefined || !before) return <p className="weigh-change"> </p>;
+  const delta = kg - before.kg;
+  const tone = kgPerWeek === 0 || Math.abs(delta) < 0.005 ? "plain" : delta < 0 === kgPerWeek > 0 ? "good" : "warn";
+  return <p className={`weigh-change ${tone}`}>{signed(toDisplayWeight(delta, units), units)} since then</p>;
+}
+
+function ToTarget({ kg, targetKg, kgPerWeek, units }: { kg?: number; targetKg?: number; kgPerWeek: number; units: UnitSystem }) {
+  if (kg === undefined || targetKg === undefined) return null;
+  const reached = kgPerWeek >= 0 ? kg <= targetKg : kg >= targetKg;
+  if (reached) return <p className="weigh-to-go">You've reached your {formatWeight(targetKg, units)} target</p>;
+  return (
+    <p className="weigh-to-go">
+      {Math.abs(toDisplayWeight(kg - targetKg, units)).toFixed(2)} {weightUnit(units)} to {formatWeight(targetKg, units)}
+    </p>
   );
 }
 

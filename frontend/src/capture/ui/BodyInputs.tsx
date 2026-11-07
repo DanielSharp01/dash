@@ -8,13 +8,14 @@ const parse = (v: string) => {
 };
 
 /** Keeps the typed text so converting units doesn't fight the person mid-edit. */
-export function WeightInput({ kg, units, onChange, autoFocus }: { kg?: number; units: UnitSystem; onChange: (kg?: number) => void; autoFocus?: boolean }) {
+export function WeightInput({ kg, units, onChange, autoFocus, enterKeyHint }: { kg?: number; units: UnitSystem; onChange: (kg?: number) => void; autoFocus?: boolean; enterKeyHint?: "go" }) {
   const [text, setText] = useState(kg === undefined ? "" : String(toDisplayWeight(kg, units)));
   return (
     <label className="kcal-field big-number">
       <input
         inputMode="decimal"
         autoFocus={autoFocus}
+        enterKeyHint={enterKeyHint}
         placeholder="–"
         value={text}
         onChange={(e) => {

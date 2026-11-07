@@ -1839,7 +1839,46 @@ h1 {
 .weigh-form {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 10px;
+  padding-top: 12vh;
+  text-align: center;
+}
+
+.weigh-form .kcal-field input {
+  width: 5ch;
+  font-size: 3.4rem;
+  text-align: center;
+}
+
+.weigh-form .kcal-field span {
+  font-size: 1.2rem;
+}
+
+.weigh-form p {
+  margin: 0;
+}
+
+.weigh-before,
+.weigh-to-go {
+  color: var(--muted);
+}
+
+.weigh-change {
+  min-height: 1.4em;
+  font-weight: 600;
+}
+
+.weigh-change.good {
+  color: var(--good);
+}
+
+.weigh-change.warn {
+  color: var(--warn);
+}
+
+.weigh-form .date-chip {
+  align-self: center;
 }
 
 .weigh-form .field {
