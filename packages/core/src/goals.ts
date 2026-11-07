@@ -199,3 +199,30 @@ export function plannedWeight(history: PlanAreas, weighIns: WeighIn[], from: str
     return [dates.map(at)];
   });
 }
+
+/**
+ * The weight logged eating implies: from a weigh-in, each day moves it by what was eaten minus what
+ * was burned, with resting burn worked out from the weight so far. A day with no food logged counts
+ * as eating maintenance, so it holds the weight. Each point is the morning after its day. Needs
+ * height and birthday.
+ */
+export function loggedWeight(
+  profile: ProfileInput,
+  history: PlanAreas,
+  start: { date: string; kg: number },
+  days: { date: string; eaten?: number; burned: number }[],
+): { date: string; kg: number }[] | undefined {
+  const { heightCm, birthday } = profile;
+  if (!heightCm || !birthday) return undefined;
+  let kg = start.kg;
+  const points = [{ date: start.date, kg }];
+  for (const day of days) {
+    if (day.eaten !== undefined) {
+      const multiplier = planAt(history, day.date).metabolismMultiplier;
+      const maintenance = restingBurn(kg, heightCm, ageOn(birthday, new Date(`${day.date}T12:00:00`)), profile.sex) * multiplier;
+      kg += (day.eaten - maintenance - day.burned) / KCAL_PER_KG;
+    }
+    points.push({ date: shiftDate(day.date, 1), kg });
+  }
+  return points;
+}

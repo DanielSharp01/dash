@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { ageOn, formatWeighIn, formatWeight, metabolismPresets, planAt, type PlanAreas, plannedWeight, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weightUnit } from "@dash/core";
+import { ageOn, dayTotals, formatWeighIn, formatWeight, loggedWeight, metabolismPresets, planAt, type PlanAreas, plannedWeight, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weightUnit } from "@dash/core";
+import { useEntriesBetween } from "../../queries/entries.queries";
+import { useFoodLookup } from "../../queries/foods.queries";
 import { useMe, useProfile } from "../../queries/me.queries";
 import { addWeighIn, removeWeighIn, useWeighIns } from "../../queries/weighIns.queries";
 import { ADULT_AGE, targetDate } from "../body";
@@ -28,6 +30,8 @@ export function WeightSection() {
   const bmi = latest && heightCm ? latest.kg / (heightCm / 100) ** 2 : undefined;
   const today = todayKey();
   const plan = planAt(history);
+  const range = chartRange(all, today);
+  const logged = useLoggedWeight(all, range.from, today);
   const { goal } = plan;
   const losing = goal.kgPerWeek > 0;
   const finish = latest && targetDate(latest.kg, goal);
@@ -89,10 +93,26 @@ export function WeightSection() {
             Weigh in
           </button>
         </div>
-        <WeightChart weighIns={all} history={history} units={units} today={today} {...chartRange(all, today)} />
+        <WeightChart weighIns={all} history={history} units={units} today={today} logged={logged} {...range} />
       </section>
     </>
   );
+}
+
+/** What logged eating says the weight did since the first weigh-in in view, up to this morning. */
+function useLoggedWeight(all: WeighIn[], from: string, today: string) {
+  const { profile, plan } = useMe();
+  const foods = useFoodLookup();
+  const start = all.find((w) => w.date >= from && w.date <= today);
+  const entries = useEntriesBetween(start?.date ?? today, shiftDate(today, -1)).data;
+  if (!start || !entries || start.date >= today) return undefined;
+  const days = Array.from({ length: Math.round((dayMs(today) - dayMs(start.date)) / DAY) }, (_, i) => {
+    const date = shiftDate(start.date, i);
+    const ofDay = entries.filter((e) => e.when.date === date);
+    const totals = dayTotals(ofDay, foods);
+    return { date, eaten: ofDay.some((e) => e.kind === "food") ? totals.kcal.value : undefined, burned: totals.burned };
+  });
+  return loggedWeight(profile, plan, start, days);
 }
 
 const bmiBands = [
@@ -141,12 +161,15 @@ const W = 340;
 const H = 170;
 const plot = { left: 34, right: W - 8, top: 8, bottom: H - 20 };
 
-/** Weigh-ins as dots on a line, with each settings stretch's planned pace dashed behind them. */
-function WeightChart({ weighIns, history, units, from, to, today }: { weighIns: WeighIn[]; history: PlanAreas; units: UnitSystem; from: string; to: string; today: string }) {
+/**
+ * Weigh-ins as dots on a line, each settings stretch's planned pace dashed behind them, and the
+ * weight logged eating implies.
+ */
+function WeightChart({ weighIns, history, units, from, to, today, logged }: { weighIns: WeighIn[]; history: PlanAreas; units: UnitSystem; from: string; to: string; today: string; logged: { date: string; kg: number }[] | undefined }) {
   const points = weighIns.filter((w) => w.date >= from && w.date <= to);
   if (!points.length) return <p className="hint weight-empty">No weigh-ins in the last {CHART_DAYS} days.</p>;
   const planned = plannedWeight(history, weighIns, from, to);
-  const shown = [...points.map((p) => toDisplayWeight(p.kg, units)), ...planned.flat().map((p) => toDisplayWeight(p.kg, units))];
+  const shown = [...points, ...planned.flat(), ...(logged ?? [])].map((p) => toDisplayWeight(p.kg, units));
   const lo = Math.floor(Math.min(...shown) - 0.3);
   const hi = Math.ceil(Math.max(...shown) + 0.3);
   const step = hi - lo > 6 ? 2 : 1;
@@ -160,46 +183,54 @@ function WeightChart({ weighIns, history, units, from, to, today }: { weighIns: 
   const last = points.at(-1)!;
 
   return (
-    <svg className="weigh-trend" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Weight over the last ${CHART_DAYS} days, with the planned pace dashed`}>
-      {yTicks.map((v) => {
-        const ty = plot.bottom - ((v - lo) / (hi - lo)) * (plot.bottom - plot.top);
-        return (
-          <g key={v}>
-            <line x1={plot.left} x2={plot.right} y1={ty} y2={ty} style={{ stroke: "var(--line)" }} />
-            <text x={plot.left - 6} y={ty + 4} textAnchor="end" className="chart-label">
-              {v}
+    <>
+      <svg className="weigh-trend" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Weight over the last ${CHART_DAYS} days, with the planned pace dashed and the weight logged eating implies`}>
+        {yTicks.map((v) => {
+          const ty = plot.bottom - ((v - lo) / (hi - lo)) * (plot.bottom - plot.top);
+          return (
+            <g key={v}>
+              <line x1={plot.left} x2={plot.right} y1={ty} y2={ty} style={{ stroke: "var(--line)" }} />
+              <text x={plot.left - 6} y={ty + 4} textAnchor="end" className="chart-label">
+                {v}
+              </text>
+            </g>
+          );
+        })}
+        {dateTicks.map((d) => (
+          <text key={d} x={x(d)} y={H - 4} textAnchor={d === to ? "end" : "middle"} className="chart-label">
+            {new Date(`${d}T12:00:00`).toLocaleDateString(undefined, span / DAY <= 45 ? { day: "numeric", month: "short" } : { month: "short" })}
+          </text>
+        ))}
+        {planned.map((line) => (
+          <polyline
+            key={line[0]!.date}
+            points={line.map((p) => `${x(p.date)},${y(p.kg)}`).join(" ")}
+            fill="none"
+            style={{ stroke: "var(--muted)" }}
+            strokeWidth="1.5"
+            strokeDasharray="5 4"
+          />
+        ))}
+        {to > today && (
+          <g>
+            <line x1={x(today)} x2={x(today)} y1={plot.top} y2={plot.bottom} style={{ stroke: "var(--line)" }} strokeDasharray="2 3" />
+            <text x={x(today) + 4} y={plot.top + 10} className="chart-label">
+              today
             </text>
           </g>
-        );
-      })}
-      {dateTicks.map((d) => (
-        <text key={d} x={x(d)} y={H - 4} textAnchor={d === to ? "end" : "middle"} className="chart-label">
-          {new Date(`${d}T12:00:00`).toLocaleDateString(undefined, span / DAY <= 45 ? { day: "numeric", month: "short" } : { month: "short" })}
-        </text>
-      ))}
-      {planned.map((line) => (
-        <polyline
-          key={line[0]!.date}
-          points={line.map((p) => `${x(p.date)},${y(p.kg)}`).join(" ")}
-          fill="none"
-          style={{ stroke: "var(--muted)" }}
-          strokeWidth="1.5"
-          strokeDasharray="5 4"
-        />
-      ))}
-      {to > today && (
-        <g>
-          <line x1={x(today)} x2={x(today)} y1={plot.top} y2={plot.bottom} style={{ stroke: "var(--line)" }} strokeDasharray="2 3" />
-          <text x={x(today) + 4} y={plot.top + 10} className="chart-label">
-            today
-          </text>
-        </g>
-      )}
-      <polyline points={points.map((p) => `${x(p.date)},${y(p.kg)}`).join(" ")} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinejoin="round" />
-      {points.map((p) => (
-        <circle key={p.id} cx={x(p.date)} cy={y(p.kg)} r={p === last ? 4 : 2.5} style={{ fill: "var(--accent)", stroke: "var(--surface)" }} strokeWidth={p === last ? 2 : 1} />
-      ))}
-    </svg>
+        )}
+        {logged && <polyline points={logged.map((p) => `${x(p.date)},${y(p.kg)}`).join(" ")} fill="none" style={{ stroke: "var(--food)" }} strokeWidth="1.5" strokeLinejoin="round" />}
+        <polyline points={points.map((p) => `${x(p.date)},${y(p.kg)}`).join(" ")} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinejoin="round" />
+        {points.map((p) => (
+          <circle key={p.id} cx={x(p.date)} cy={y(p.kg)} r={p === last ? 4 : 2.5} style={{ fill: "var(--accent)", stroke: "var(--surface)" }} strokeWidth={p === last ? 2 : 1} />
+        ))}
+      </svg>
+      <ul className="chart-legend">
+        <li className="legend-weigh-ins">Weigh-ins</li>
+        <li className="legend-line legend-planned-line">Planned</li>
+        {logged && <li className="legend-line legend-logged-line">From logged</li>}
+      </ul>
+    </>
   );
 }
 

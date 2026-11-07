@@ -20,6 +20,7 @@ import {
   labelSchema,
   planAt,
   plannedWeight,
+  loggedWeight,
   provenanceChips,
   lookupOf,
   splitPlanVersions,
@@ -218,6 +219,26 @@ describe("plannedWeight", () => {
       { date: "2026-10-01", kg: 90 },
       { date: "2026-10-08", kg: 89.5 },
       { date: "2026-10-15", kg: 89.5 },
+    ]);
+  });
+});
+
+describe("loggedWeight", () => {
+  const profile = { units: "metric", heightCm: 180, birthday: "1990-01-01", sex: "male", dayEndsAt: 0, clock: "24h", autoRecap: true } as const;
+  const history = splitPlanVersions([{ from: BEGINNING, plan: defaultPlan }]);
+  const maintenance = (kg: number) => restingBurn(kg, 180, 36, "male") * defaultPlan.metabolismMultiplier;
+
+  it("moves by each day's balance at the weight so far, and holds on days with no food logged", () => {
+    const points = loggedWeight(profile, history, { date: "2026-10-01", kg: 90 }, [
+      { date: "2026-10-01", eaten: maintenance(90) - 770, burned: 0 },
+      { date: "2026-10-02", burned: 300 },
+      { date: "2026-10-03", eaten: maintenance(89.9), burned: 385 },
+    ]);
+    expect(points?.map((p) => [p.date, Number(p.kg.toFixed(6))])).toEqual([
+      ["2026-10-01", 90],
+      ["2026-10-02", 89.9],
+      ["2026-10-03", 89.9],
+      ["2026-10-04", 89.85],
     ]);
   });
 });

@@ -1966,6 +1966,7 @@ h1 {
 }
 
 .chart-legend {
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -2003,6 +2004,10 @@ h1 {
   background: var(--fat);
 }
 
+.legend-fluid::before {
+  background: var(--fluid);
+}
+
 .legend-other::before {
 .legend-fluid::before {
   background: var(--fluid);
@@ -2010,6 +2015,11 @@ h1 {
 
   background: var(--muted);
   opacity: 0.45;
+}
+
+.chart-legend .legend-weigh-ins::before {
+  background: var(--accent);
+  border-radius: 50%;
 }
 
 .chart-legend .legend-line::before {
@@ -2022,6 +2032,15 @@ h1 {
 .chart-legend .legend-protein-line::before {
   border-top-style: dashed;
   border-top-color: var(--protein);
+}
+
+.chart-legend .legend-planned-line::before {
+  border-top-style: dashed;
+  border-top-color: var(--muted);
+}
+
+.chart-legend .legend-logged-line::before {
+  border-top-color: var(--food);
 }
 
 .stat-row {
