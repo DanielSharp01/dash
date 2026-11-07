@@ -1771,12 +1771,8 @@ h1 {
 .month-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  gap: 4px;
   margin-bottom: 12px;
-}
-
-.month-grid .chip {
-  justify-content: center;
 }
 
 .day-grid {
@@ -1875,14 +1871,14 @@ h1 {
   border-color: var(--fat);
 }
 
-.day-chip {
+.date-tile {
   height: 40px;
   border-radius: 10px;
   background: var(--surface);
   font-variant-numeric: tabular-nums;
 }
 
-.day-chip[aria-checked="true"] {
+.date-tile[aria-checked="true"] {
   background: var(--accent);
   color: var(--accent-text);
   font-weight: 700;

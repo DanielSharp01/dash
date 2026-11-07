@@ -93,7 +93,7 @@ export function BirthdayInput({ value, onChange }: { value?: string; onChange: (
             key={m}
             role="radio"
             aria-checked={month === i + 1}
-            className="chip"
+            className="date-tile"
             onClick={() => {
               const nextDay = day && day > daysIn(i + 1) ? undefined : day;
               setMonth(i + 1);
@@ -112,7 +112,7 @@ export function BirthdayInput({ value, onChange }: { value?: string; onChange: (
               key={d}
               role="radio"
               aria-checked={day === d}
-              className="day-chip"
+              className="date-tile"
               onClick={() => {
                 setDay(d);
                 emit(age, month, d);
