@@ -105,7 +105,7 @@ const bmiBands = [
 ] as const;
 
 /** WHO adult bands. The label travels with the colour so it never carries meaning alone. */
-function BmiBadge({ bmi, withBand }: { bmi: number; withBand: boolean }) {
+export function BmiBadge({ bmi, withBand }: { bmi: number; withBand: boolean }) {
   const value = (Math.round(bmi * 10) / 10).toFixed(1);
   if (!withBand) return <span className="bmi badge-muted">BMI {value}</span>;
   const band = bmiBands.find((b) => bmi < b.below)!;
