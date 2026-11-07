@@ -15,12 +15,15 @@ import { PortionList } from "./PortionList";
 const storeBatch = (recipeId: string, batch: Batch, foods: FoodLookup) =>
   void saveBatch(recipeId, { ...batch, ingredients: batch.ingredients.map((p) => withBase(p, asItem(foods(p.foodId)))) });
 
+/** The batch a new cooking copies its ingredients from: the last one not deleted. */
+export const copySource = (r: Pick<Recipe, "batches">) => r.batches.filter((b) => !b.deleted).at(-1);
+
 /**
  * The next cooking starts from the last one's ingredients, to adjust for this time. A recipe
  * inside it comes from its current batch now, e.g. this time's coating.
  */
 export function startBatch(r: Pick<Recipe, "batches">, foods?: FoodLookup): Batch {
-  const last = r.batches.filter((b) => !b.deleted).at(-1);
+  const last = copySource(r);
   const ingredients = (last?.ingredients ?? []).map(({ foodId, amount, batchId }): Portion => {
     const inner = asRecipe(foods?.(foodId));
     const current = (inner && currentBatch(inner)?.id) ?? batchId;

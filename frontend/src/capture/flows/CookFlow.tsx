@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { asRecipe, cookingState, type Recipe, type StoredBatch } from "@dash/core";
 import { useFoodLookup } from "../../queries/foods.queries";
-import { BatchEditor, createRecipe, startBatch } from "../editors/RecipeEditors";
+import { BatchEditor, copySource, createRecipe, startBatch } from "../editors/RecipeEditors";
 import { batchLabel, unfinishedBatch } from "../foods";
 import { todayKey } from "../time";
 import { FlowShell } from "../ui/FlowShell";
@@ -13,6 +13,11 @@ import { useSteps } from "../ui/useSteps";
 type Step = "name" | "choose" | "batch" | "done";
 
 const yieldLabel = (b: StoredBatch) => (!b.yield ? "" : "grams" in b.yield ? `${b.yield.grams.toLocaleString()} g` : `${b.yield.portions} portions`);
+
+const copiedLabel = (r: Recipe) => {
+  const source = copySource(r);
+  return source?.ingredients.length ? batchLabel(source) : undefined;
+};
 
 /**
  * Records a recipe as it's made, without logging anything eaten. A batch still cooking opens
@@ -29,6 +34,8 @@ export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (log
   const [current, setCurrent] = useState(recipeId);
   const recipe = asRecipe(foods(current));
   const [draft, setDraft] = useState(() => (opened && start?.kind === "fresh" ? startBatch(opened, foods) : undefined));
+  // A copy looks just like a real cooking, so it says where it came from for as long as it's open.
+  const [copiedFrom, setCopiedFrom] = useState(() => (opened && start?.kind === "fresh" ? copiedLabel(opened) : undefined));
   // Set while fixing a batch finished today instead of cooking a new one.
   const [fixingId, setFixingId] = useState<string>();
   const fixing = fixingId ? recipe?.batches.find((b) => b.id === fixingId && !b.deleted) : undefined;
@@ -37,6 +44,7 @@ export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (log
   const cookAgain = (r: Recipe) => {
     setFixingId(undefined);
     setDraft(startBatch(r, foods));
+    setCopiedFrom(copiedLabel(r));
     go("batch");
   };
   const cook = (r: Recipe) => {
@@ -89,6 +97,11 @@ export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (log
   if (step === "batch" && recipe && batch)
     return (
       <FlowShell title={recipe.name} subtitle={`${fixing ? "Batch" : "Cooking"} · ${batchLabel(batch)}`} canGoBack={depth > 1} onBack={back} onClose={close}>
+        {copiedFrom && batch.id === draft?.id && (
+          <div className="notice">
+            <span>Copied from {copiedFrom}, change what's different.</span>
+          </div>
+        )}
         <BatchEditor
           recipeId={recipe.id}
           batchId={batch.id}
@@ -116,6 +129,7 @@ export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (log
         onNew={(name) => {
           setCurrent(createRecipe(name.trim()).id);
           setDraft(startBatch({ batches: [] }));
+          setCopiedFrom(undefined);
           go("batch");
         }}
         extra={
