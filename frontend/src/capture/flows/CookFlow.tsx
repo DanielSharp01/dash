@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { asRecipe, type Recipe } from "@dash/core";
-import { saveBatch, useFoodLookup } from "../../queries/foods.queries";
+import { useFoodLookup } from "../../queries/foods.queries";
 import { BatchEditor, createRecipe, startBatch } from "../editors/RecipeEditors";
 import { batchLabel, unfinishedBatch } from "../foods";
 import { FlowShell } from "../ui/FlowShell";
@@ -10,8 +10,8 @@ import { useSteps } from "../ui/useSteps";
 type Step = "name" | "batch" | "done";
 
 /**
- * Records a recipe as it's made, without logging anything eaten. The batch is saved as it
- * goes, so closing mid-cook keeps it as a draft to come back to.
+ * Records a recipe as it's made, without logging anything eaten. A new batch is saved from its
+ * first change on, so closing mid-cook keeps it to come back to and closing untouched leaves nothing.
  */
 export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (logPortionOf?: Recipe) => void }) {
   const foods = useFoodLookup();
@@ -20,10 +20,11 @@ export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (log
   const [query, setQuery] = useState("");
   const [current, setCurrent] = useState(recipeId);
   const recipe = asRecipe(foods(current));
-  const draft = recipe && unfinishedBatch(recipe);
+  const [draft, setDraft] = useState(() => (recipe && !unfinishedBatch(recipe) ? startBatch(recipe, foods) : undefined));
+  const batch = recipe && (unfinishedBatch(recipe) ?? draft);
 
   const cook = (r: Recipe) => {
-    if (!unfinishedBatch(r)) void saveBatch(r.id, startBatch(r, foods));
+    if (!unfinishedBatch(r)) setDraft(startBatch(r, foods));
     setCurrent(r.id);
     go("batch");
   };
@@ -48,10 +49,10 @@ export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (log
       </FlowShell>
     );
 
-  if (step === "batch" && recipe && draft)
+  if (step === "batch" && recipe && batch)
     return (
-      <FlowShell title={recipe.name} subtitle={`Cooking · ${batchLabel(draft)}`} canGoBack={depth > 1} onBack={back} onClose={close}>
-        <BatchEditor recipeId={recipe.id} batchId={draft.id} onFinished={() => go("done")} />
+      <FlowShell title={recipe.name} subtitle={`Cooking · ${batchLabel(batch)}`} canGoBack={depth > 1} onBack={back} onClose={close}>
+        <BatchEditor recipeId={recipe.id} batchId={batch.id} draft={draft} onFinished={() => go("done")} />
       </FlowShell>
     );
 
@@ -68,6 +69,7 @@ export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (log
         onPick={(f) => f.kind === "recipe" && cook(f)}
         onNew={(name) => {
           setCurrent(createRecipe(name.trim()).id);
+          setDraft(startBatch({ batches: [] }));
           go("batch");
         }}
         extra={

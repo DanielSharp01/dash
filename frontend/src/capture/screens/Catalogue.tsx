@@ -8,8 +8,8 @@ import { undoBy } from "../errors";
 import { ActivityEditor } from "../editors/ActivityEditor";
 import { comboToRecipe, ComboEditor } from "../editors/ComboEditor";
 import { ItemEditor } from "../editors/ItemEditor";
-import { BatchEditor, createRecipe, RecipeEditor, startBatch } from "../editors/RecipeEditors";
-import { blankItem, duplicateItem, ownCopy, unfinishedBatch, useListedFoods, usesOf } from "../foods";
+import { BatchEditor, createRecipe, RecipeEditor } from "../editors/RecipeEditors";
+import { blankItem, duplicateItem, ownCopy, useListedFoods, usesOf } from "../foods";
 import { FlowShell } from "../ui/FlowShell";
 import { useDebounced } from "../ui/useDebounced";
 import { FoodRow } from "../ui/FoodSearch";
@@ -321,10 +321,7 @@ export function RecipeRoute() {
         recipe={recipe}
         onDelete={recipe.public ? undefined : () => (removeFood(recipe), close())}
         onOpenBatch={(b) => open(`/recipes/${recipe.id}/${b.id}`)}
-        onCookAgain={() => {
-          if (!unfinishedBatch(recipe)) void saveBatch(recipe.id, startBatch(recipe, foods));
-          open(`/cook/${recipe.id}`);
-        }}
+        onCookAgain={() => open(`/cook/${recipe.id}`)}
         onToCombo={(c) => {
           void saveFood(c);
           void deleteFood(recipe.id);

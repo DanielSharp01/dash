@@ -29,11 +29,10 @@ export function startBatch(r: Pick<Recipe, "batches">, foods?: FoodLookup): Batc
   return { id: crypto.randomUUID(), madeOn: todayKey(), ingredients, gone: false };
 }
 
-/** A new recipe is stored with its first batch, so the cook screen has something to fill in. */
+/** Stored as soon as it's named; its first batch waits in the cook screen until something goes in. */
 export function createRecipe(name: string) {
   const recipe: RecipeInput = { id: crypto.randomUUID(), kind: "recipe", name, icon: autoFoodIcon(name, "recipe"), iconAuto: true, catalogued: true };
   void saveFood(recipe);
-  void saveBatch(recipe.id, startBatch({ batches: [] }));
   return recipe;
 }
 
@@ -59,13 +58,14 @@ export const recipeToCombo = (r: Recipe, b: Batch): ComboInput => ({
 
 /**
  * Ingredients are saved as they go in, since cooking takes a while. Weighing the finished dish
- * sizes it; the pot's weight comes off so it can stay on the scale.
+ * sizes it; the pot's weight comes off so it can stay on the scale. A new batch is an unsaved
+ * `draft` until its first change, so a recipe picked by mistake leaves nothing behind.
  */
-export function BatchEditor({ recipeId, batchId, onFinished }: { recipeId: string; batchId: string; onFinished: (b: Batch) => void }) {
+export function BatchEditor({ recipeId, batchId, draft, onFinished }: { recipeId: string; batchId: string; draft?: Batch; onFinished: (b: Batch) => void }) {
   const foods = useFoodLookup();
   const pots = useMe().containers.filter((c): c is Pot => c.kind === "pot");
   const recipe = asRecipe(foods(recipeId));
-  const batch = recipe?.batches.find((b) => b.id === batchId && !b.deleted);
+  const batch = recipe?.batches.find((b) => b.id === batchId && !b.deleted) ?? (draft?.id === batchId ? draft : undefined);
   const [mode, setMode] = useState<"weighed" | "portions">(() => (batch?.yield && "portions" in batch.yield ? "portions" : "weighed"));
   const [scale, setScale] = useState<number | undefined>(() => (batch?.yield && "grams" in batch.yield ? batch.yield.grams : undefined));
   const [potId, setPotId] = useState<string>();
