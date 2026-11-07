@@ -800,7 +800,7 @@ h1 {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
-  margin: 16px 4px 6px;
+  margin: 24px 4px 12px;
 }
 
 .row {
@@ -2939,6 +2939,15 @@ input[type="checkbox"]:focus-visible {
 
 .date-chip .value-chip {
   background: var(--bg);
+}
+
+.weigh-row .date-chip {
+  margin-top: 0;
+}
+
+.weigh-row .value-chip,
+.weigh-row b {
+  white-space: nowrap;
 }
 
 /* Only there for showPicker; the chip is what people see and tap. */

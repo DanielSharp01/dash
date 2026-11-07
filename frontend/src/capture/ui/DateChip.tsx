@@ -20,7 +20,8 @@ export const tapCard = (onTap: () => void, disabled = false) => ({
  */
 export function DateChip({ prefix, value, min, max, onChange }: { prefix: string; value: string; min?: string; max?: string; onChange: (date: string) => void }) {
   const input = useRef<HTMLInputElement>(null);
-  const shown = value === todayKey() ? "today" : new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  const sameYear = value.slice(0, 4) === todayKey().slice(0, 4);
+  const shown = value === todayKey() ? "today" : new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }) });
 
   return (
     <span className="date-chip" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
