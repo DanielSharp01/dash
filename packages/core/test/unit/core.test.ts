@@ -21,6 +21,7 @@ import {
   planAt,
   plannedWeight,
   loggedWeight,
+  projectedWeight,
   provenanceChips,
   lookupOf,
   splitPlanVersions,
@@ -239,6 +240,16 @@ describe("loggedWeight", () => {
       ["2026-10-02", 89.9],
       ["2026-10-03", 89.9],
       ["2026-10-04", 89.85],
+    ]);
+  });
+});
+
+describe("projectedWeight", () => {
+  it("carries the pace on from the weigh-in and levels off at the target", () => {
+    expect(projectedWeight({ date: "2026-11-07", kg: 81 }, { kgPerWeek: 0.5, targetKg: 80 }, "2026-12-31")).toEqual([
+      { date: "2026-11-07", kg: 81 },
+      { date: "2026-11-21", kg: 80 },
+      { date: "2026-12-31", kg: 80 },
     ]);
   });
 });

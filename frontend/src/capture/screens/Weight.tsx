@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ageOn, dayTotals, daysBetween, formatWeighIn, formatWeight, loggedWeight, metabolismPresets, planAt, type PlanAreas, plannedWeight, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weeksBetween, weightUnit } from "@dash/core";
+import { ageOn, dayTotals, daysBetween, formatWeighIn, formatWeight, loggedWeight, metabolismPresets, type Plan, planAt, type PlanAreas, plannedWeight, projectedWeight, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weeklyTrend, weeksBetween, weightUnit } from "@dash/core";
 import { useEntriesBetween } from "../../queries/entries.queries";
 import { useFoodLookup } from "../../queries/foods.queries";
 import { useMe, useProfile } from "../../queries/me.queries";
@@ -31,7 +31,7 @@ export function WeightSection() {
   const bmi = latest && heightCm ? latest.kg / (heightCm / 100) ** 2 : undefined;
   const today = todayKey();
   const plan = planAt(history);
-  const range = chartRange(all, today, CHART_DAYS);
+  const range = chartRange(all, today);
   const logged = useLoggedWeight(all, range.from, today);
   const openChart = () => open("/goal/chart/weight");
   const { goal } = plan;
@@ -153,13 +153,12 @@ function trendChange(all: WeighIn[], units: UnitSystem) {
 }
 
 /**
- * The last `days` (all of them for Infinity), no wider than the weigh-ins in it need. With less than
- * two weeks of them, the chart starts at the first and runs two weeks on, so the planned line shows
- * where it's heading.
+ * Up to the last 90 days, no wider than the weigh-ins in it need. With less than two weeks of them,
+ * the chart starts at the first and runs two weeks on, so the planned line shows where it's heading.
  */
-export function chartRange(all: WeighIn[], today: string, days: number) {
-  const longest = Number.isFinite(days) ? shiftDate(today, -days) : "";
-  const first = all.find((w) => w.date >= longest)?.date ?? (longest || today);
+function chartRange(all: WeighIn[], today: string) {
+  const longest = shiftDate(today, -CHART_DAYS);
+  const first = all.find((w) => w.date >= longest)?.date ?? longest;
   return first < shiftDate(today, -14) ? { from: first, to: today } : { from: first, to: shiftDate(first, 14) };
 }
 
@@ -192,10 +191,13 @@ export function WeightChart({
 }) {
   const plot = chartFrame(tall);
   const inView = weighIns.filter((w) => w.date >= from && w.date <= to);
-  if (!inView.length) return <p className="hint weight-empty">No weigh-ins in the last {daysBetween(from, to)} days.</p>;
+  if (!inView.length) return <p className="hint weight-empty">No weigh-ins from {shortDate(from)} to {shortDate(to)}.</p>;
   const points = by === "day" ? inView : weeklyAverages(inView, from, to);
-  const planned = plannedWeight(history, weighIns, from, to);
-  const shown = [...points, ...planned.flat(), ...(logged ?? [])].map((p) => toDisplayWeight(p.kg, units));
+  // Past today, the pace carried on from the latest weigh-in lands on the target when Goals says it will.
+  const latest = to > today ? weighIns.findLast((w) => w.date <= today) : undefined;
+  const planned = latest && latest.date <= from ? [] : plannedWeight(history, weighIns, from, latest?.date ?? to);
+  const projected = latest && projectedWeight(latest.date < from ? { date: from, kg: latest.kg } : latest, planAt(history).goal, to);
+  const shown = [...points, ...planned.flat(), ...(projected ?? []), ...(logged ?? [])].map((p) => toDisplayWeight(p.kg, units));
   const lo = Math.floor(Math.min(...shown) - 0.3);
   const hi = Math.ceil(Math.max(...shown) + 0.3);
   const step = hi - lo > 6 ? 2 : 1;
@@ -243,6 +245,16 @@ export function WeightChart({
             strokeDasharray="5 4"
           />
         ))}
+        {projected && (
+          <polyline
+            points={projected.map((p) => `${x(p.date)},${y(p.kg)}`).join(" ")}
+            fill="none"
+            style={{ stroke: "var(--accent)" }}
+            strokeWidth="2"
+            strokeDasharray="0.5 4"
+            strokeLinecap="round"
+          />
+        )}
         {to > today && (
           <g>
             <line x1={x(today)} x2={x(today)} y1={plot.top} y2={plot.bottom} style={{ stroke: "var(--line)" }} strokeDasharray="2 3" />
@@ -260,8 +272,45 @@ export function WeightChart({
       <ul className="chart-legend">
         <li className="legend-weigh-ins">{by === "week" ? "Weekly average" : "Weigh-ins"}</li>
         <li className="legend-line legend-planned-line">Planned</li>
+        {projected && <li className="legend-line legend-projected-line">Projected</li>}
         {logged && <li className="legend-line legend-logged-line">From logged</li>}
       </ul>
+    </>
+  );
+}
+
+/**
+ * The stretch's rates a week: the trend line through the weigh-ins, what logged eating implies, and
+ * the plan's pace. Under them, how far weigh-ins scatter around the trend from day to day.
+ */
+export function WeightStats({ weighIns, logged, goal, units }: { weighIns: WeighIn[]; logged: { date: string; kg: number }[] | undefined; goal: Plan["goal"]; units: UnitSystem }) {
+  const actual = weeklyTrend(weighIns);
+  const fromLogged = logged && weeklyTrend(logged);
+  const perWeek = (kg: number) => signed(toDisplayWeight(kg, units), units);
+  return (
+    <>
+      <dl className="stat-row">
+        <div>
+          <dt>Actual</dt>
+          <dd>{actual ? perWeek(actual.perWeek) : "—"}</dd>
+          <dd className="stat-sub">a week</dd>
+        </div>
+        <div className="stat-logged">
+          <dt>From logged</dt>
+          <dd>{fromLogged ? perWeek(fromLogged.perWeek) : "—"}</dd>
+          <dd className="stat-sub">a week</dd>
+        </div>
+        <div>
+          <dt>Planned</dt>
+          <dd>{goal.kgPerWeek === 0 ? "Hold" : perWeek(-goal.kgPerWeek)}</dd>
+          <dd className="stat-sub">{goal.kgPerWeek === 0 ? " " : "a week"}</dd>
+        </div>
+      </dl>
+      {actual && (
+        <p className="hint stat-note">
+          Weigh-ins scatter ± {toDisplayWeight(actual.scatter, units).toFixed(2)} {weightUnit(units)} around the trend from day to day.
+        </p>
+      )}
     </>
   );
 }

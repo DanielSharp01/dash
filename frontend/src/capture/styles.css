@@ -2077,6 +2077,11 @@ h1 {
   border-top-color: var(--food);
 }
 
+.chart-legend .legend-projected-line::before {
+  border-top-style: dotted;
+  border-top-color: var(--accent);
+}
+
 .stat-row {
   grid-column: 1 / -1;
   display: grid;
@@ -2097,6 +2102,7 @@ h1 {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .stat-row dd {
@@ -2162,6 +2168,34 @@ h1 {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.chart-span .date-chip {
+  display: flex;
+  flex: 1;
+  align-self: stretch;
+  margin-top: 0;
+}
+
+.segmented.chart-span .value-chip {
+  width: 100%;
+  background: none;
+  border: none;
+  font-size: inherit;
+}
+
+.segmented.chart-span.custom .value-chip {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}
+
+.stat-logged dd:not(.stat-sub) {
+  color: var(--food);
+}
+
+.stat-note {
+  margin: 0;
 }
 
 .bmi {

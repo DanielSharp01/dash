@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateBurn, logicalDateIn, sortKey, weeksBetween } from "../../src/index";
+import { estimateBurn, logicalDateIn, meanAndSpread, sortKey, weeklyTrend, weeksBetween } from "../../src/index";
 
 describe("estimateBurn", () => {
   it("scales distance by body weight and converts the unit", () => {
@@ -40,6 +40,30 @@ describe("weeksBetween", () => {
 
   it("gives a range of one Sunday its own week", () => {
     expect(weeksBetween("2026-11-01", "2026-11-01")).toEqual([{ from: "2026-11-01", to: "2026-11-01" }]);
+  });
+});
+
+describe("meanAndSpread", () => {
+  it("gives the mean and the standard deviation around it", () => {
+    const s = meanAndSpread([1, 2, 3, 4])!;
+    expect(s.mean).toBe(2.5);
+    expect(s.spread).toBeCloseTo(Math.sqrt(1.25));
+  });
+});
+
+describe("weeklyTrend", () => {
+  it("fits a line through the weights and measures how far they scatter from it", () => {
+    const t = weeklyTrend([
+      { date: "2026-10-01", kg: 90 },
+      { date: "2026-10-02", kg: 90 },
+      { date: "2026-10-03", kg: 89.4 },
+    ])!;
+    expect(t.perWeek).toBeCloseTo(-2.1);
+    expect(t.scatter).toBeCloseTo(Math.sqrt(0.02));
+  });
+
+  it("has no trend from a single day", () => {
+    expect(weeklyTrend([{ date: "2026-10-01", kg: 90 }])).toBeUndefined();
   });
 });
 

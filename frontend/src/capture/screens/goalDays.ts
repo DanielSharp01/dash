@@ -61,19 +61,25 @@ export const stepPath = (values: number[], slot: number, y: (v: number) => numbe
   values.flatMap((v, i) => [`${i === 0 ? "M" : "L"}${chart.left + i * slot},${y(v)}`, `L${chart.left + (i + 1) * slot},${y(v)}`]).join(" ");
 
 const MAX_LABELS = 7;
+/** Roughly how wide "27 Oct" is at the axis font size. */
+const LABEL_WIDTH = 40;
 
 /**
  * Under each bar while they fit: weekday and date for a week of days, otherwise the date (a week's
  * Monday). With more bars, every few, counted back from the newest so it's always labelled; when
- * bars are narrower than a label, the newest ends at the frame's edge instead of spilling past it.
+ * bars are narrower than a label, the newest ends at the frame's edge instead of spilling past it,
+ * and a label too close to it is left out.
  */
 export function bucketLabels(buckets: Bucket[], by: Grouping, slot: number) {
   const every = Math.ceil(buckets.length / MAX_LABELS);
   const format: Intl.DateTimeFormatOptions = by === "day" && buckets.length <= MAX_LABELS ? { weekday: "short", day: "numeric" } : { day: "numeric", month: "short" };
+  const edge = slot < LABEL_WIDTH;
   return buckets.map((b, i) => {
     if ((buckets.length - 1 - i) % every !== 0) return undefined;
+    const newest = i === buckets.length - 1;
+    const x = edge && newest ? chart.right : chart.left + (i + 0.5) * slot;
+    if (edge && !newest && x > chart.right - LABEL_WIDTH * 1.5) return undefined;
     const text = new Date(`${b.from}T12:00:00`).toLocaleDateString(undefined, format);
-    const atEdge = i === buckets.length - 1 && slot < 40;
-    return { text, x: atEdge ? chart.right : chart.left + (i + 0.5) * slot, anchor: atEdge ? ("end" as const) : ("middle" as const) };
+    return { text, x, anchor: edge && newest ? ("end" as const) : ("middle" as const) };
   });
 }

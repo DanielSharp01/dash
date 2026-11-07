@@ -201,6 +201,21 @@ export function plannedWeight(history: PlanAreas, weighIns: WeighIn[], from: str
 }
 
 /**
+ * Where the planned pace takes you from a weigh-in up to `to`, levelling off once it reaches the
+ * target: the plan carried on from where you actually are rather than from where it started.
+ */
+export function projectedWeight(start: { date: string; kg: number }, goal: Plan["goal"], to: string): { date: string; kg: number }[] {
+  const { kgPerWeek, targetKg } = goal;
+  const heading = targetKg !== undefined && kgPerWeek !== 0 && (kgPerWeek > 0 ? targetKg < start.kg : targetKg > start.kg);
+  const at = (date: string) => {
+    const kg = start.kg - (kgPerWeek * daysBetween(start.date, date)) / 7;
+    return { date, kg: heading ? (kgPerWeek > 0 ? Math.max(kg, targetKg) : Math.min(kg, targetKg)) : kg };
+  };
+  const reached = heading ? shiftDate(start.date, Math.ceil(((start.kg - targetKg) / kgPerWeek) * 7)) : undefined;
+  return [start.date, ...(reached !== undefined && reached < to ? [reached] : []), to].map(at);
+}
+
+/**
  * The weight logged eating implies: from a weigh-in, each day moves it by what was eaten minus what
  * was burned, with resting burn worked out from the weight so far. A day with no food logged counts
  * as eating maintenance, so it holds the weight. Each point is the morning after its day. Needs
