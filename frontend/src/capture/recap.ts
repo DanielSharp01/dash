@@ -56,7 +56,7 @@ export function useDayRecap(date: string | undefined, { fresh = false } = {}) {
   const recap = useMemo(() => {
     if (!date || !history) return undefined;
     const entries = day ? [...history.filter((e) => e.when.date !== date), ...day] : history;
-    return dayRecap(date, entries, (d) => dailyTargets(profile, plan.versions, weighIns, d), foods);
+    return dayRecap(date, entries, (d) => dailyTargets(profile, plan, weighIns, d), foods);
   }, [date, history, day, profile, plan, weighIns, foods]);
   return settled ? recap : undefined;
 }

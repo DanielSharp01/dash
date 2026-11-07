@@ -53,13 +53,13 @@ export function forgetRecapSeen() {
 /** "fix" rewrites the current plan; a date starts a new one there. Saving the current plan does nothing. */
 export function savePlan(plan: Plan, change: "fix" | { from: string }) {
   const history = me()?.plan;
-  const versions = history && applyPlanChange(history.versions, plan, change);
-  if (!history || !versions) return;
+  const areas = history && applyPlanChange(history, plan, change);
+  if (!history || !areas) return;
   return optimistic<PlanHistory, PlanHistory>({
     scope: "plan",
     get: () => me()?.plan,
     set: (p) => p && patchMe({ plan: p }),
-    next: { ...history, versions },
+    next: { ...history, ...areas },
     send: () => meApi.postPlan({ plan, change, revision: me()!.plan.revision }),
     stored: (p) => p,
   });

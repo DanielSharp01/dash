@@ -12,6 +12,7 @@ import {
   foodInputSchema,
   planSchema,
   profileInputSchema,
+  splitPlanVersions,
   type ActivityInput,
   type Batch,
   type EntryInput,
@@ -19,14 +20,13 @@ import {
   type ImportRequest,
   type Line,
   type MeasureKey,
-  type PlanVersion,
 } from "@dash/core";
 import { activitiesTable, entriesTable, foodsTable, potsTable, weighInsTable } from "../db/schema";
 import { db, type Tx } from "../providers/db";
 import { insertActivity } from "../repositories/activity.repo";
 import { insertEntry } from "../repositories/entry.repo";
 import { insertBatch, insertFood } from "../repositories/food.repo";
-import { ensureProfile, getProfileRow, replacePlanVersions, updateProfile } from "../repositories/settings.repo";
+import { ensureProfile, getProfileRow, replacePlanAreas, updateProfile } from "../repositories/settings.repo";
 import { publicActivityId } from "../seeds";
 import { publicActivities } from "../seeds/definitions";
 
@@ -314,8 +314,8 @@ export async function importExport(userId: string, req: ImportRequest) {
     const current = { goal: p.goal, metabolismMultiplier: p.metabolismMultiplier, calibratedFrom: p.calibratedFrom, fluidGoalMl: p.fluidGoalMl, macroPlan: p.macroPlan };
     const history = p.planHistory?.length ? p.planHistory.map((h) => ({ from: upgradeFrom(h.from), plan: h.plan })) : p.goal ? [{ from: BEGINNING, plan: current }] : [];
     if (history.length) {
-      const versions: PlanVersion[] = history.map((h) => ({ from: h.from, plan: strict(planSchema, h.plan, `the plan from ${h.from}`) }));
-      await replacePlanVersions(tx, userId, versions, row.planRevision + 1);
+      const versions = history.map((h) => ({ from: h.from, plan: strict(planSchema, h.plan, `the plan from ${h.from}`) }));
+      await replacePlanAreas(tx, userId, splitPlanVersions(versions), row.planRevision + 1);
     }
 
     return { foods: foods.length, entries: entries.length, activities: activities.length, weighIns: weighIns.length, pots: pots.length };

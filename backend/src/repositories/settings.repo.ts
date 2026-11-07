@@ -1,11 +1,10 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
-import { BEGINNING, defaultPlan, type Plan, type PlanVersion, type Pot, type Profile, type ProfileInput, type WeighIn } from "@dash/core";
-import { planVersionsTable, potsTable, profilesTable, weighInsTable } from "../db/schema";
+import { BEGINNING, defaultPlan, type PlanAreas, type Pot, type Profile, type ProfileInput, splitPlanVersions, type WeighIn } from "@dash/core";
+import { fluidVersionsTable, goalVersionsTable, macroVersionsTable, metabolismVersionsTable, potsTable, profilesTable, weighInsTable } from "../db/schema";
 import type { Executor } from "../providers/db";
 import { opt } from "./mapping";
 
 type ProfileRow = typeof profilesTable.$inferSelect;
-type PlanRow = typeof planVersionsTable.$inferSelect;
 
 const toProfile = (row: ProfileRow): Profile => ({
   units: row.units,
@@ -20,41 +19,10 @@ const toProfile = (row: ProfileRow): Profile => ({
   revision: row.revision,
 });
 
-function toPlanVersion(row: PlanRow): PlanVersion {
-  const plan: Plan = {
-    goal: { kgPerWeek: row.goalKgPerWeek, ...opt("targetKg", row.goalTargetKg) },
-    metabolismMultiplier: row.metabolismMultiplier,
-    ...(row.calibratedMaintenanceKcal !== null && row.calibratedExerciseKcal !== null
-      ? { calibratedFrom: { maintenanceKcal: row.calibratedMaintenanceKcal, loggedExerciseKcal: row.calibratedExerciseKcal } }
-      : {}),
-    fluidGoalMl: row.fluidGoalMl,
-    macroPlan: { preset: row.macroPreset, proteinPerKg: row.proteinPerKg, ...opt("fatPct", row.fatPct), ...opt("carbPct", row.carbPct) },
-  };
-  return { from: row.effectiveFrom, plan };
-}
-
-function planValues(userId: string, v: PlanVersion) {
-  const p = v.plan;
-  return {
-    userId,
-    effectiveFrom: v.from,
-    goalKgPerWeek: p.goal.kgPerWeek,
-    goalTargetKg: p.goal.targetKg ?? null,
-    metabolismMultiplier: p.metabolismMultiplier,
-    calibratedMaintenanceKcal: p.calibratedFrom?.maintenanceKcal ?? null,
-    calibratedExerciseKcal: p.calibratedFrom?.loggedExerciseKcal ?? null,
-    fluidGoalMl: p.fluidGoalMl,
-    macroPreset: p.macroPlan.preset,
-    proteinPerKg: p.macroPlan.proteinPerKg,
-    fatPct: p.macroPlan.fatPct ?? null,
-    carbPct: p.macroPlan.carbPct ?? null,
-  };
-}
-
 /** Every account has a profile and a plan; signing in creates them the first time. */
 export async function ensureProfile(ex: Executor, userId: string) {
   const inserted = await ex.insert(profilesTable).values({ userId }).onConflictDoNothing().returning({ userId: profilesTable.userId });
-  if (inserted.length) await ex.insert(planVersionsTable).values(planValues(userId, { from: BEGINNING, plan: defaultPlan }));
+  if (inserted.length) await insertPlanAreas(ex, userId, splitPlanVersions([{ from: BEGINNING, plan: defaultPlan }]));
 }
 
 export async function getProfileRow(ex: Executor, userId: string, opts: { lock?: boolean } = {}) {
@@ -102,14 +70,56 @@ export async function clearRecapSeen(ex: Executor, userId: string) {
   await ex.update(profilesTable).set({ recapSeenOn: null }).where(eq(profilesTable.userId, userId));
 }
 
-export async function getPlanVersions(ex: Executor, userId: string) {
-  const rows = await ex.select().from(planVersionsTable).where(eq(planVersionsTable.userId, userId)).orderBy(asc(planVersionsTable.effectiveFrom));
-  return rows.map(toPlanVersion);
+export async function getPlanAreas(ex: Executor, userId: string): Promise<PlanAreas> {
+  const goal = await ex.select().from(goalVersionsTable).where(eq(goalVersionsTable.userId, userId)).orderBy(asc(goalVersionsTable.effectiveFrom));
+  const metabolism = await ex.select().from(metabolismVersionsTable).where(eq(metabolismVersionsTable.userId, userId)).orderBy(asc(metabolismVersionsTable.effectiveFrom));
+  const fluid = await ex.select().from(fluidVersionsTable).where(eq(fluidVersionsTable.userId, userId)).orderBy(asc(fluidVersionsTable.effectiveFrom));
+  const macros = await ex.select().from(macroVersionsTable).where(eq(macroVersionsTable.userId, userId)).orderBy(asc(macroVersionsTable.effectiveFrom));
+  return {
+    goal: goal.map((r) => ({ from: r.effectiveFrom, value: { goal: { kgPerWeek: r.kgPerWeek, ...opt("targetKg", r.targetKg) } } })),
+    metabolism: metabolism.map((r) => ({
+      from: r.effectiveFrom,
+      value: {
+        metabolismMultiplier: r.multiplier,
+        ...(r.calibratedMaintenanceKcal !== null && r.calibratedExerciseKcal !== null
+          ? { calibratedFrom: { maintenanceKcal: r.calibratedMaintenanceKcal, loggedExerciseKcal: r.calibratedExerciseKcal } }
+          : {}),
+      },
+    })),
+    fluid: fluid.map((r) => ({ from: r.effectiveFrom, value: { fluidGoalMl: r.goalMl } })),
+    macros: macros.map((r) => ({
+      from: r.effectiveFrom,
+      value: { macroPlan: { preset: r.preset, proteinPerKg: r.proteinPerKg, ...opt("fatPct", r.fatPct), ...opt("carbPct", r.carbPct) } },
+    })),
+  };
 }
 
-export async function replacePlanVersions(ex: Executor, userId: string, versions: PlanVersion[], planRevision: number) {
-  await ex.delete(planVersionsTable).where(eq(planVersionsTable.userId, userId));
-  if (versions.length) await ex.insert(planVersionsTable).values(versions.map((v) => planValues(userId, v)));
+async function insertPlanAreas(ex: Executor, userId: string, areas: PlanAreas) {
+  const at = (from: string) => ({ userId, effectiveFrom: from });
+  if (areas.goal.length)
+    await ex.insert(goalVersionsTable).values(areas.goal.map((v) => ({ ...at(v.from), kgPerWeek: v.value.goal.kgPerWeek, targetKg: v.value.goal.targetKg ?? null })));
+  if (areas.metabolism.length)
+    await ex.insert(metabolismVersionsTable).values(
+      areas.metabolism.map((v) => ({
+        ...at(v.from),
+        multiplier: v.value.metabolismMultiplier,
+        calibratedMaintenanceKcal: v.value.calibratedFrom?.maintenanceKcal ?? null,
+        calibratedExerciseKcal: v.value.calibratedFrom?.loggedExerciseKcal ?? null,
+      })),
+    );
+  if (areas.fluid.length) await ex.insert(fluidVersionsTable).values(areas.fluid.map((v) => ({ ...at(v.from), goalMl: v.value.fluidGoalMl })));
+  if (areas.macros.length)
+    await ex.insert(macroVersionsTable).values(
+      areas.macros.map((v) => {
+        const m = v.value.macroPlan;
+        return { ...at(v.from), preset: m.preset, proteinPerKg: m.proteinPerKg, fatPct: m.fatPct ?? null, carbPct: m.carbPct ?? null };
+      }),
+    );
+}
+
+export async function replacePlanAreas(ex: Executor, userId: string, areas: PlanAreas, planRevision: number) {
+  for (const table of [goalVersionsTable, metabolismVersionsTable, fluidVersionsTable, macroVersionsTable]) await ex.delete(table).where(eq(table.userId, userId));
+  await insertPlanAreas(ex, userId, areas);
   await ex.update(profilesTable).set({ planRevision }).where(eq(profilesTable.userId, userId));
 }
 

@@ -80,7 +80,8 @@ describe("import", () => {
 
     const me = (await u.get("/me")).body;
     expect(me.profile).toMatchObject({ heightCm: 175, dayEndsAt: 2 });
-    expect(me.plan.versions.map((v: any) => v.from)).toEqual([BEGINNING, "2026-09-01"]);
+    expect(me.plan.goal.map((v: { from: string }) => v.from)).toEqual([BEGINNING, "2026-09-01"]);
+    expect(me.plan.fluid.map((v: { from: string }) => v.from)).toEqual([BEGINNING]);
     expect(me.pots[0].name).toBe("Big pot");
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BEGINNING, defaultPlan } from "@dash/core";
+import { BEGINNING, defaultPlan, splitPlanVersions } from "@dash/core";
 import { anonymous, newUser, uuid } from "../support/helpers";
 
 describe("session", () => {
@@ -21,7 +21,7 @@ describe("session", () => {
     expect(res.body).toMatchObject({
       user: { id: u.id },
       profile: { units: "metric", dayEndsAt: 0, clock: "24h", revision: 1 },
-      plan: { versions: [{ from: BEGINNING, plan: defaultPlan }], revision: 1 },
+      plan: { ...splitPlanVersions([{ from: BEGINNING, plan: defaultPlan }]), revision: 1 },
       pots: [],
     });
   });
@@ -55,16 +55,20 @@ describe("plan", () => {
     const u = await newUser();
     await u.get("/me");
     const dated = await u.post("/plan", { plan: faster, change: { from: "2026-09-01" }, revision: 1 });
-    expect(dated.body).toEqual({ versions: [{ from: BEGINNING, plan: defaultPlan }, { from: "2026-09-01", plan: faster }], revision: 2 });
+    expect(dated.body.goal).toEqual([
+      { from: BEGINNING, value: { goal: defaultPlan.goal } },
+      { from: "2026-09-01", value: { goal: faster.goal } },
+    ]);
+    expect(dated.body.fluid).toEqual([{ from: BEGINNING, value: { fluidGoalMl: defaultPlan.fluidGoalMl } }]);
+    expect(dated.body.revision).toBe(2);
 
     const same = await u.post("/plan", { plan: faster, change: "fix", revision: 2 });
     expect(same.body.revision).toBe(2);
 
+    // Fluid has one version, so fixing it rewrites that one; the goal keeps both of its versions.
     const fixed = await u.post("/plan", { plan: { ...faster, fluidGoalMl: 2500 }, change: "fix", revision: 2 });
-    expect(fixed.body.versions.map((v: any) => [v.from, v.plan.fluidGoalMl])).toEqual([
-      [BEGINNING, 2000],
-      ["2026-09-01", 2500],
-    ]);
+    expect(fixed.body.fluid).toEqual([{ from: BEGINNING, value: { fluidGoalMl: 2500 } }]);
+    expect(fixed.body.goal).toEqual(dated.body.goal);
     expect((await u.post("/plan", { plan: defaultPlan, change: "fix", revision: 2 })).status).toBe(409);
   });
 

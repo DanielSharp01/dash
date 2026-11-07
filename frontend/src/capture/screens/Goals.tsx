@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   BEGINNING,
+  changeStartsFrom,
   dailyTargets,
   fluidUnit,
   formatFluid,
@@ -11,8 +12,10 @@ import {
   type MacroPreset,
   MIN_KCAL,
   type Plan,
+  type PlanAreas,
   planAt,
   samePlan,
+  splitPlanVersions,
   toDisplayFluid,
   toDisplayWeight,
   type UnitSystem,
@@ -37,20 +40,20 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
   const { close } = useSteps<"goal">("goal");
   const { profile, plan: history } = useMe();
   const { units } = profile;
-  const current = planAt(history.versions);
+  const current = planAt(history);
   // Edits stay a draft so trying out options doesn't create a version per tap.
   const [draft, setDraft] = useState<Plan>(current);
   const updatePlan = (patch: Partial<Plan>) => setDraft((d) => ({ ...d, ...patch }));
   const goal = draft.goal;
-  const t = dailyTargets(profile, [{ from: BEGINNING, plan: draft }], useWeighIns());
+  const t = dailyTargets(profile, splitPlanVersions([{ from: BEGINNING, plan: draft }]), useWeighIns());
   const dirty = !samePlan(draft, current);
   const [asking, setAsking] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [from, setFrom] = useState(todayKey);
-  const since = history.versions.at(-1)?.from ?? BEGINNING;
+  const since = changeStartsFrom(history, draft);
   const fromValid = !!from && from >= since;
   const finish = t.calc && targetDate(t.calc.bodyKg, goal);
-  const versions = history.versions;
+  const changes = planChanges(history, units);
   const saveAs = (change: "fix" | { from: string }) => {
     void savePlan(draft, change);
     setAsking(false);
@@ -204,15 +207,15 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
         <p className="hint">{describeMacros(draft.macroPlan)}</p>
       </div>
 
-      {versions.length > 1 && (
+      {changes.length > 1 && (
         <details className="version-history">
-          <summary>History · {versions.length} versions</summary>
+          <summary>History · {changes.length} changes</summary>
           <ul>
-            {[...versions].reverse().map((h) => (
-              <li key={h.from}>
+            {changes.map(([from, parts]) => (
+              <li key={from}>
                 <span>
-                  <b>{h.from !== BEGINNING ? `Since ${new Date(`${h.from}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}` : "Before"}</b>
-                  {describePlan(h.plan, units)}
+                  <b>{from !== BEGINNING ? `Since ${new Date(`${from}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}` : "Before"}</b>
+                  {parts.join(" · ")}
                 </span>
               </li>
             ))}
@@ -228,7 +231,13 @@ function describeMacros(m: Plan["macroPlan"]) {
   return `Protein at ${m.proteinPerKg} g per kg of a healthy-range weight, ${split}.`;
 }
 
-function describePlan(p: Plan, units: UnitSystem) {
-  const pace = p.goal.kgPerWeek > 0 ? `−${formatWeight(p.goal.kgPerWeek, units)}/week` : "Maintain";
-  return [pace, macroPresets[p.macroPlan.preset].label, `× ${p.metabolismMultiplier}`, `💧 ${formatFluid(p.fluidGoalMl, units)}`].join(" · ");
+/** Newest first; each start date lists only the areas that changed on it. */
+function planChanges(h: PlanAreas, units: UnitSystem) {
+  const byFrom = new Map<string, string[]>();
+  const add = (from: string, part: string) => byFrom.set(from, [...(byFrom.get(from) ?? []), part]);
+  for (const v of h.goal) add(v.from, v.value.goal.kgPerWeek > 0 ? `−${formatWeight(v.value.goal.kgPerWeek, units)}/week` : "Maintain");
+  for (const v of h.macros) add(v.from, macroPresets[v.value.macroPlan.preset].label);
+  for (const v of h.metabolism) add(v.from, `× ${v.value.metabolismMultiplier}`);
+  for (const v of h.fluid) add(v.from, `💧 ${formatFluid(v.value.fluidGoalMl, units)}`);
+  return [...byFrom].sort(([a], [b]) => b.localeCompare(a));
 }

@@ -283,9 +283,18 @@ export const planSchema = z.object({
   macroPlan: macroPlanSchema,
 });
 
-export const planVersionSchema = z.object({ from: versionStartSchema, plan: planSchema });
-/** Oldest first; the newest version is the current plan. */
-export const planHistorySchema = z.object({ versions: z.array(planVersionSchema), revision: z.number().int().min(1) });
+const datedVersions = <T extends z.ZodType>(value: T) => z.array(z.object({ from: versionStartSchema, value }));
+/**
+ * Each area of the plan keeps its own versions, oldest first, so changing one never adds a version
+ * to the others. A day's plan takes each area's version in effect on it.
+ */
+export const planAreasSchema = z.object({
+  goal: datedVersions(planSchema.pick({ goal: true })),
+  metabolism: datedVersions(planSchema.pick({ metabolismMultiplier: true, calibratedFrom: true })),
+  fluid: datedVersions(planSchema.pick({ fluidGoalMl: true })),
+  macros: datedVersions(planSchema.pick({ macroPlan: true })),
+});
+export const planHistorySchema = planAreasSchema.extend({ revision: z.number().int().min(1) });
 
 export const unitSystemSchema = z.enum(["metric", "imperial"]);
 export const clockSchema = z.enum(["24h", "12h"]);
@@ -350,7 +359,7 @@ export const updateProfileRequestSchema = profileInputSchema.extend(revisionFiel
 
 export const savePlanRequestSchema = z.object({
   plan: planSchema,
-  /** "fix" rewrites the newest version; a date starts a new version there and drops later ones. */
+  /** "fix" rewrites each changed area's newest version; a date starts a new version there and drops that area's later ones. */
   change: z.union([z.literal("fix"), z.object({ from: dateKeySchema })]),
   revision: z.number().int().min(1),
 });
@@ -543,7 +552,9 @@ export type Entry = z.infer<typeof entrySchema>;
 export type MacroPreset = z.infer<typeof macroPresetSchema>;
 export type MacroPlan = z.infer<typeof macroPlanSchema>;
 export type Plan = z.infer<typeof planSchema>;
-export type PlanVersion = z.infer<typeof planVersionSchema>;
+export type PlanAreas = z.infer<typeof planAreasSchema>;
+export type PlanArea = keyof PlanAreas;
+export type AreaValue<A extends PlanArea> = PlanAreas[A][number]["value"];
 export type PlanHistory = z.infer<typeof planHistorySchema>;
 export type UnitSystem = z.infer<typeof unitSystemSchema>;
 export type Clock = z.infer<typeof clockSchema>;

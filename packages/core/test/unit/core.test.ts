@@ -18,8 +18,10 @@ import {
   foodInputSchema,
   groupKey,
   labelSchema,
+  planAt,
   provenanceChips,
   lookupOf,
+  splitPlanVersions,
   unsureItemsInUse,
   type Entry,
   type Food,
@@ -157,19 +159,31 @@ describe("comboAsLines", () => {
 });
 
 describe("applyPlanChange", () => {
-  const v1 = [{ from: BEGINNING, plan: defaultPlan }];
+  const v1 = splitPlanVersions([{ from: BEGINNING, plan: defaultPlan }]);
   const faster = { ...defaultPlan, goal: { kgPerWeek: 0.75 } };
 
   it("is a no-op for the current plan", () => {
     expect(applyPlanChange(v1, { ...defaultPlan }, "fix")).toBeUndefined();
   });
 
-  it("starts a version on a date and drops later ones", () => {
+  it("starts a version on a date and drops that area's later ones", () => {
     const v2 = applyPlanChange(v1, faster, { from: "2026-08-01" })!;
-    expect(v2.map((v) => v.from)).toEqual([BEGINNING, "2026-08-01"]);
+    expect(v2.goal.map((v) => v.from)).toEqual([BEGINNING, "2026-08-01"]);
     const v3 = applyPlanChange(v2, defaultPlan, { from: "2026-07-01" })!;
-    // Back to the first plan from July: neighbours collapse into the first version.
-    expect(v3).toEqual([{ from: BEGINNING, plan: defaultPlan }]);
+    // Back to the first goal from July: neighbours collapse into the first version.
+    expect(v3.goal).toEqual(v1.goal);
+  });
+
+  it("leaves areas it doesn't change alone, even when starting before their newest version", () => {
+    const v2 = applyPlanChange(v1, faster, { from: "2026-08-01" })!;
+    const v3 = applyPlanChange(v2, { ...faster, fluidGoalMl: 2500 }, { from: "2026-07-01" })!;
+    expect(v3.goal).toEqual(v2.goal);
+    expect(v3.fluid.map((v) => [v.from, v.value.fluidGoalMl])).toEqual([
+      [BEGINNING, 2000],
+      ["2026-07-01", 2500],
+    ]);
+    expect(planAt(v3, "2026-07-15")).toEqual({ ...defaultPlan, fluidGoalMl: 2500 });
+    expect(planAt(v3)).toEqual({ ...faster, fluidGoalMl: 2500 });
   });
 });
 
@@ -264,7 +278,7 @@ describe("schemas", () => {
 describe("dailyTargets", () => {
   const profile = { units: "metric", heightCm: 180, birthday: "1990-01-01", dayEndsAt: 0, clock: "24h", autoRecap: true } as const;
   const weighIns = [{ id: uid(), date: "2026-01-01", kg: 110 }];
-  const withPlan = (patch: Partial<typeof defaultPlan>) => [{ from: BEGINNING, plan: { ...defaultPlan, ...patch } }];
+  const withPlan = (patch: Partial<typeof defaultPlan>) => splitPlanVersions([{ from: BEGINNING, plan: { ...defaultPlan, ...patch } }]);
 
   it("caps a target weight at the healthy maximum for protein, like the current weight", () => {
     const capped = dailyTargets(profile, withPlan({ goal: { kgPerWeek: 0.5, targetKg: 95 } }), weighIns, "2026-06-01");

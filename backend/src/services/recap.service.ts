@@ -4,7 +4,7 @@ import { entriesTable } from "../db/schema";
 import { db } from "../providers/db";
 import { loadEntries } from "../repositories/entry.repo";
 import { loadFoods, visibleTo } from "../repositories/food.repo";
-import { clearRecapSeen, ensureProfile, getPlanVersions, getProfile, getProfileRow, listWeighIns, markRecapSeen } from "../repositories/settings.repo";
+import { clearRecapSeen, ensureProfile, getPlanAreas, getProfile, getProfileRow, listWeighIns, markRecapSeen } from "../repositories/settings.repo";
 import { unprocessable } from "./common";
 
 /** A recap is only for a day that's over on the person's own clock. */
@@ -18,14 +18,14 @@ async function expectFinished(userId: string, day: string) {
 
 export async function recap(userId: string, day: string) {
   await expectFinished(userId, day);
-  const [profile, versions, weighIns, foods, entries] = await Promise.all([
+  const [profile, plan, weighIns, foods, entries] = await Promise.all([
     getProfile(db, userId),
-    getPlanVersions(db, userId),
+    getPlanAreas(db, userId),
     listWeighIns(db, userId),
     loadFoods(db, visibleTo(userId), userId),
     loadEntries(db, and(eq(entriesTable.userId, userId), isNull(entriesTable.deletedAt), between(entriesTable.whenDate, shiftDate(day, -RECAP_WINDOW_DAYS), day))),
   ]);
-  return dayRecap(day, entries, (d) => dailyTargets(profile!, versions, weighIns, d), lookupOf(foods));
+  return dayRecap(day, entries, (d) => dailyTargets(profile!, plan, weighIns, d), lookupOf(foods));
 }
 
 export async function markSeen(userId: string, day: string) {

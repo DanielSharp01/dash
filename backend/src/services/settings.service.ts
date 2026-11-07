@@ -6,13 +6,13 @@ import {
   ensureProfile,
   findPot,
   findWeighIn,
-  getPlanVersions,
+  getPlanAreas,
   getProfile,
   getProfileRow,
   listPots,
   insertPot,
   listWeighIns,
-  replacePlanVersions,
+  replacePlanAreas,
   replaceWeighIn,
   updatePotRow,
   updateProfile,
@@ -23,15 +23,15 @@ import { claimId, expectRevision, notFound, sameId } from "./common";
 
 export async function me(userId: string) {
   await ensureProfile(db, userId);
-  const [user, profile, versions, profileRow, pots] = await Promise.all([
+  const [user, profile, areas, profileRow, pots] = await Promise.all([
     findUser(db, userId),
     getProfile(db, userId),
-    getPlanVersions(db, userId),
+    getPlanAreas(db, userId),
     getProfileRow(db, userId),
     listPots(db, userId),
   ]);
   if (!user) throw notFound();
-  return { user, profile: profile!, plan: { versions, revision: profileRow!.planRevision }, pots, ...opt("recapSeenOn", profileRow!.recapSeenOn) };
+  return { user, profile: profile!, plan: { ...areas, revision: profileRow!.planRevision }, pots, ...opt("recapSeenOn", profileRow!.recapSeenOn) };
 }
 
 export async function saveProfile(userId: string, req: ProfileInput & { revision: number }) {
@@ -47,12 +47,12 @@ export async function savePlan(userId: string, req: { plan: Plan; change: "fix" 
   return db.transaction(async (tx) => {
     await ensureProfile(tx, userId);
     const row = (await getProfileRow(tx, userId, { lock: true }))!;
-    const versions = await getPlanVersions(tx, userId);
-    await expectRevision(row.planRevision, req.revision, async () => ({ versions, revision: row.planRevision }));
-    const next = applyPlanChange(versions, req.plan, req.change);
-    if (!next) return { versions, revision: row.planRevision };
-    await replacePlanVersions(tx, userId, next, row.planRevision + 1);
-    return { versions: await getPlanVersions(tx, userId), revision: row.planRevision + 1 };
+    const areas = await getPlanAreas(tx, userId);
+    await expectRevision(row.planRevision, req.revision, async () => ({ ...areas, revision: row.planRevision }));
+    const next = applyPlanChange(areas, req.plan, req.change);
+    if (!next) return { ...areas, revision: row.planRevision };
+    await replacePlanAreas(tx, userId, next, row.planRevision + 1);
+    return { ...(await getPlanAreas(tx, userId)), revision: row.planRevision + 1 };
   });
 }
 

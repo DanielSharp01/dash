@@ -83,35 +83,36 @@ export const profilesTable = pgTable(
     /** Not part of the revisioned profile: devices only ever move it forward. */
     recapSeenOn: day(),
     revision: revision(),
-    /** Bumped by every plan change; guards plan_versions as one document. */
+    /** Bumped by every plan change; guards the four plan-area version tables as one document. */
     planRevision: integer().notNull().default(1),
   },
   (t) => [check("profiles_day_ends_at", sql`${t.dayEndsAt} between 0 and 6`)],
 );
 
-/** The plan history; the current plan is the newest row. */
-export const planVersionsTable = pgTable(
-  "plan_versions",
-  {
-    id: uuid().primaryKey().defaultRandom(),
-    userId: owner(),
-    effectiveFrom: versionStart(),
-    goalKgPerWeek: doublePrecision().notNull(),
-    goalTargetKg: doublePrecision(),
-    metabolismMultiplier: doublePrecision().notNull(),
-    calibratedMaintenanceKcal: doublePrecision(),
-    calibratedExerciseKcal: doublePrecision(),
-    fluidGoalMl: doublePrecision().notNull(),
-    macroPreset: macroPresetEnum().notNull(),
-    proteinPerKg: doublePrecision().notNull(),
-    fatPct: doublePrecision(),
-    carbPct: doublePrecision(),
-  },
+/** A version starts on effectiveFrom and lasts until the next one; the current one is the newest row. */
+const planAreaColumns = () => ({ id: uuid().primaryKey().defaultRandom(), userId: owner(), effectiveFrom: versionStart() });
+
+export const goalVersionsTable = pgTable(
+  "goal_versions",
+  { ...planAreaColumns(), kgPerWeek: doublePrecision().notNull(), targetKg: doublePrecision() },
+  (t) => [unique().on(t.userId, t.effectiveFrom)],
+);
+
+export const metabolismVersionsTable = pgTable(
+  "metabolism_versions",
+  { ...planAreaColumns(), multiplier: doublePrecision().notNull(), calibratedMaintenanceKcal: doublePrecision(), calibratedExerciseKcal: doublePrecision() },
   (t) => [
     unique().on(t.userId, t.effectiveFrom),
-    check("plan_versions_calibrated", sql`(${t.calibratedMaintenanceKcal} is null) = (${t.calibratedExerciseKcal} is null)`),
-    check("plan_versions_one_pct", sql`(${t.fatPct} is null) <> (${t.carbPct} is null)`),
+    check("metabolism_versions_calibrated", sql`(${t.calibratedMaintenanceKcal} is null) = (${t.calibratedExerciseKcal} is null)`),
   ],
+);
+
+export const fluidVersionsTable = pgTable("fluid_versions", { ...planAreaColumns(), goalMl: doublePrecision().notNull() }, (t) => [unique().on(t.userId, t.effectiveFrom)]);
+
+export const macroVersionsTable = pgTable(
+  "macro_versions",
+  { ...planAreaColumns(), preset: macroPresetEnum().notNull(), proteinPerKg: doublePrecision().notNull(), fatPct: doublePrecision(), carbPct: doublePrecision() },
+  (t) => [unique().on(t.userId, t.effectiveFrom), check("macro_versions_one_pct", sql`(${t.fatPct} is null) <> (${t.carbPct} is null)`)],
 );
 
 export const weighInsTable = pgTable(

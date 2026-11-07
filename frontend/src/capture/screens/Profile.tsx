@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ageOn, dailyTargets, genericSourceOf, type Entry, formatWeighIn, type Plan, planAt, type PlanVersion, type Pot, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weightUnit } from "@dash/core";
+import { ageOn, dailyTargets, genericSourceOf, type Entry, formatWeighIn, type Plan, type PlanAreas, planAt, type Pot, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weightUnit } from "@dash/core";
 import { useEntriesBetween } from "../../queries/entries.queries";
 import { savePlan, saveProfile, useMe, useProfile } from "../../queries/me.queries";
 import { addPot, removePot } from "../../queries/pots.queries";
@@ -14,7 +14,7 @@ import { TrashIcon } from "../ui/TrashIcon";
 import { useSteps } from "../ui/useSteps";
 
 /** For settings that describe the body rather than the goal, like calibrating the multiplier. */
-const correctPlan = (versions: PlanVersion[], patch: Partial<Plan>) => void savePlan({ ...planAt(versions), ...patch }, "fix");
+const correctPlan = (history: PlanAreas, patch: Partial<Plan>) => void savePlan({ ...planAt(history), ...patch }, "fix");
 
 function UnitTiles({ value, onChange }: { value: UnitSystem; onChange: (u: UnitSystem) => void }) {
   return (
@@ -127,7 +127,7 @@ export function WeighInsScreen({ onMenu }: { onMenu: () => void }) {
 export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
   const { close } = useSteps<"list">("list");
   const { user, profile, plan, pots } = useMe();
-  const current = planAt(plan.versions);
+  const current = planAt(plan);
   const updateProfile = (patch: Parameters<typeof saveProfile>[0]) => void saveProfile(patch);
   return (
     <FlowShell title="Settings" canGoBack={false} onBack={close} onClose={close} onMenu={onMenu}>
@@ -222,7 +222,7 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
               key={m.value}
               className="tile"
               aria-pressed={!current.calibratedFrom && current.metabolismMultiplier === m.value}
-              onClick={() => correctPlan(plan.versions, { metabolismMultiplier: m.value, calibratedFrom: undefined })}
+              onClick={() => correctPlan(plan, { metabolismMultiplier: m.value, calibratedFrom: undefined })}
             >
               <strong>× {m.value}</strong>
               <small>{m.label}</small>
@@ -237,7 +237,7 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
             key={current.metabolismMultiplier}
             onBlur={(e) => {
               const n = Number(e.target.value.replace(",", "."));
-              if (n >= 1 && n <= 2.5 && n !== current.metabolismMultiplier) correctPlan(plan.versions, { metabolismMultiplier: n, calibratedFrom: undefined });
+              if (n >= 1 && n <= 2.5 && n !== current.metabolismMultiplier) correctPlan(plan, { metabolismMultiplier: n, calibratedFrom: undefined });
             }}
           />
         </label>
@@ -409,7 +409,7 @@ function KnownMaintenance() {
   const logged = loggedExercisePerDay(useEntriesBetween(from, today).data ?? [], from);
   const [kcal, setKcal] = useState("");
   const [includesWorkouts, setIncludesWorkouts] = useState(true);
-  const bmr = dailyTargets(profile, plan.versions, weighIns).calc?.bmr;
+  const bmr = dailyTargets(profile, plan, weighIns).calc?.bmr;
   const n = Number(kcal);
   const subtract = includesWorkouts ? logged : 0;
   const multiplier = bmr && n > 0 ? Math.round(((n - subtract) / bmr) * 100) / 100 : undefined;
@@ -437,7 +437,7 @@ function KnownMaintenance() {
               <button
                 className="link"
                 onClick={() => {
-                  correctPlan(plan.versions, { metabolismMultiplier: multiplier, calibratedFrom: { maintenanceKcal: n, loggedExerciseKcal: subtract } });
+                  correctPlan(plan, { metabolismMultiplier: multiplier, calibratedFrom: { maintenanceKcal: n, loggedExerciseKcal: subtract } });
                   setKcal("");
                 }}
               >

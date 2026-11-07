@@ -1,6 +1,6 @@
 import { deepEqual } from "./equal";
 import { bodyKgAt } from "./weighIns";
-import { BEGINNING, type MacroPlan, type MacroPreset, type Plan, type PlanVersion, type ProfileInput, type WeighIn } from "./schemas";
+import { type AreaValue, BEGINNING, type MacroPlan, type MacroPreset, type Plan, type PlanArea, type PlanAreas, type ProfileInput, type WeighIn } from "./schemas";
 
 export const KCAL_PER_KG = 7700;
 /** Below this, eating enough protein and micronutrients gets hard; common clinical floor for unsupervised diets. */
@@ -41,31 +41,72 @@ export interface DailyTargets {
   missing: ("weight" | "height" | "age")[];
 }
 
-/** The plan in effect on a day; without a date, the current one. Versions are oldest first. */
-export function planAt(versions: PlanVersion[], date?: string): Plan {
-  if (!versions.length) return defaultPlan;
-  if (!date) return versions[versions.length - 1]!.plan;
-  return ([...versions].reverse().find((h) => h.from <= date) ?? versions[0]!).plan;
+/** The part of a plan each area keeps versions of. */
+const areaOf: { [A in PlanArea]: (plan: Plan) => AreaValue<A> } = {
+  goal: (p) => ({ goal: p.goal }),
+  metabolism: (p) => ({ metabolismMultiplier: p.metabolismMultiplier, ...(p.calibratedFrom ? { calibratedFrom: p.calibratedFrom } : {}) }),
+  fluid: (p) => ({ fluidGoalMl: p.fluidGoalMl }),
+  macros: (p) => ({ macroPlan: p.macroPlan }),
+};
+const planAreas = Object.keys(areaOf) as PlanArea[];
+
+type Dated<V> = { from: string; value: V };
+type PlanChange = "fix" | { from: string };
+
+const valueAt = <V>(versions: Dated<V>[], date?: string) => (date ? ([...versions].reverse().find((v) => v.from <= date) ?? versions[0]) : versions.at(-1))?.value;
+
+/** The plan in effect on a day, each area's version on it; without a date, the current one. */
+export function planAt(history: PlanAreas, date?: string): Plan {
+  return {
+    ...defaultPlan,
+    ...valueAt(history.goal, date),
+    ...valueAt(history.metabolism, date),
+    ...valueAt(history.fluid, date),
+    ...valueAt(history.macros, date),
+  };
 }
 
 export const samePlan = (a: Plan, b: Plan) => deepEqual(a, b);
 
-/** Neighbouring versions with the same plan say nothing; keep the earlier one. */
-export const collapseHistory = (versions: PlanVersion[]) => versions.filter((h, i) => i === 0 || !samePlan(h.plan, versions[i - 1]!.plan));
+/** Neighbouring versions with the same value say nothing; keep the earlier one. */
+const collapse = <V>(versions: Dated<V>[]) => versions.filter((v, i) => i === 0 || !deepEqual(v.value, versions[i - 1]!.value));
+
+/** One area's versions after the change, or undefined when the area already holds that value. */
+function changeArea<V>(versions: Dated<V>[], value: V, fallback: V, change: PlanChange): Dated<V>[] | undefined {
+  const history = versions.length ? versions : [{ from: BEGINNING, value: fallback }];
+  if (deepEqual(history.at(-1)!.value, value)) return undefined;
+  const updated =
+    change === "fix" ? [...history.slice(0, -1), { ...history.at(-1)!, value }] : [...history.filter((v) => v.from < change.from), { from: change.from, value }];
+  return collapse(updated);
+}
 
 /**
- * "fix" rewrites the plan in effect now, so past days change too; a date starts a new version
- * there and leaves earlier days alone. A date on the current version's day replaces it.
- * Returns undefined when the plan is the current one, since then nothing changes.
+ * Changes only the areas whose values differ. "fix" rewrites an area's current version, so past
+ * days change too; a date starts a new version there and leaves earlier days alone. A date on the
+ * current version's day replaces it. Undefined when the plan is the current one.
  */
-export function applyPlanChange(versions: PlanVersion[], next: Plan, change: "fix" | { from: string }): PlanVersion[] | undefined {
-  if (versions.length && samePlan(next, planAt(versions))) return undefined;
-  const history = versions.length ? versions : [{ from: BEGINNING, plan: defaultPlan }];
-  const updated =
-    change === "fix"
-      ? [...history.slice(0, -1), { ...history[history.length - 1]!, plan: next }]
-      : [...history.filter((h) => h.from < change.from), { from: change.from, plan: next }];
-  return collapseHistory(updated);
+export function applyPlanChange(history: PlanAreas, next: Plan, change: PlanChange): PlanAreas | undefined {
+  const goal = changeArea(history.goal, areaOf.goal(next), areaOf.goal(defaultPlan), change);
+  const metabolism = changeArea(history.metabolism, areaOf.metabolism(next), areaOf.metabolism(defaultPlan), change);
+  const fluid = changeArea(history.fluid, areaOf.fluid(next), areaOf.fluid(defaultPlan), change);
+  const macros = changeArea(history.macros, areaOf.macros(next), areaOf.macros(defaultPlan), change);
+  if (!goal && !metabolism && !fluid && !macros) return undefined;
+  return { goal: goal ?? history.goal, metabolism: metabolism ?? history.metabolism, fluid: fluid ?? history.fluid, macros: macros ?? history.macros };
+}
+
+/** A new version for `next` can't start before this without dropping later versions of an area it changes. */
+export function changeStartsFrom(history: PlanAreas, next: Plan): string {
+  const current = planAt(history);
+  return planAreas
+    .filter((a) => !deepEqual(areaOf[a](next), areaOf[a](current)))
+    .map((a) => history[a].at(-1)?.from ?? BEGINNING)
+    .reduce((latest, from) => (from > latest ? from : latest), BEGINNING);
+}
+
+/** Whole-plan versions, as older backups and new accounts start out, as per-area versions. */
+export function splitPlanVersions(versions: { from: string; plan: Plan }[]): PlanAreas {
+  const area = <A extends PlanArea>(a: A) => collapse(versions.map((v) => ({ from: v.from, value: areaOf[a](v.plan) })));
+  return { goal: area("goal"), metabolism: area("metabolism"), fluid: area("fluid"), macros: area("macros") };
 }
 
 /** Mifflin–St Jeor; the sex term is the formula's, averaged when not given. */
@@ -80,13 +121,13 @@ export function ageOn(birthday: string, date: Date = new Date()) {
   return date.getFullYear() - y - (hadBirthday ? 0 : 1);
 }
 
-export function dailyTargets(profile: ProfileInput, versions: PlanVersion[], weighIns: WeighIn[], date?: string): DailyTargets {
+export function dailyTargets(profile: ProfileInput, history: PlanAreas, weighIns: WeighIn[], date?: string): DailyTargets {
   const body = bodyKgAt(weighIns, date);
   const missing: DailyTargets["missing"] = [];
   if (!body.known) missing.push("weight");
   if (!profile.heightCm) missing.push("height");
   if (!profile.birthday) missing.push("age");
-  const plan = planAt(versions, date);
+  const plan = planAt(history, date);
   const on = date ? new Date(`${date}T12:00:00`) : new Date();
   if (missing.length || !profile.heightCm || !profile.birthday) {
     const age = profile.birthday ? ageOn(profile.birthday, on) : AVERAGE_AGE;
