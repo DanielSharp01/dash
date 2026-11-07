@@ -31,6 +31,21 @@ export const currentBatch = (r: Recipe) => {
 export const batchOn = (r: Recipe, date: string) =>
   [...liveBatches(r)].reverse().find((b) => isFinished(b) && b.madeOn <= date) ?? liveBatches(r).find(isFinished);
 
+export type CookingState = { kind: "cooking"; batch: StoredBatch } | { kind: "finished-today"; batch: StoredBatch } | { kind: "fresh" };
+
+/**
+ * What picking a recipe to cook meets. A batch still cooking is the one to continue; one of one's
+ * own finished today and not eaten up more likely needs fixing than cooking again, so it's offered
+ * alongside. Once marked eaten up it's done with, and fixing it goes through the recipe's batches.
+ */
+export function cookingState(r: Recipe, today: string): CookingState {
+  const own = [...liveBatches(r)].reverse().filter((b) => !b.shared);
+  const cooking = own.find((b) => !isFinished(b));
+  if (cooking) return { kind: "cooking", batch: cooking };
+  const finishedToday = own.find((b) => isFinished(b) && b.madeOn === today && !b.gone);
+  return finishedToday ? { kind: "finished-today", batch: finishedToday } : { kind: "fresh" };
+}
+
 /** A recipe is only offered for logging once at least one cooking is finished. */
 export const loggable = (f: Food) => f.kind !== "recipe" || !!latestBatch(f);
 

@@ -3,6 +3,7 @@ import {
   applyPlanChange,
   BEGINNING,
   comboAsLines,
+  cookingState,
   currentBatch,
   customMacroPlan,
   dailyTargets,
@@ -264,6 +265,30 @@ describe("currentBatch", () => {
     expect(currentBatch(recipe([leftover, reference]))!.id).toBe("own-old");
     expect(currentBatch(recipe([{ ...leftover, gone: true }, reference]))!.id).toBe("own-old");
     expect(currentBatch(recipe([reference]))!.id).toBe("shared");
+  });
+});
+
+describe("cookingState", () => {
+  const batch = (madeOn: string, extra: object = {}) => ({ id: uid(), madeOn, ingredients: [], yield: { portions: 4 }, gone: false, revision: 1, deleted: false, ...extra });
+  const recipe = (batches: object[]) => ({ ...flags, id: uid(), kind: "recipe", name: "Chili", icon: "🌶️", batches }) as unknown as Recipe;
+  const today = "2026-11-07";
+
+  it("continues a batch still cooking, even when another was finished today", () => {
+    const cooking = batch("2026-11-05", { yield: undefined });
+    expect(cookingState(recipe([cooking, batch(today)]), today)).toEqual({ kind: "cooking", batch: cooking });
+  });
+
+  it("offers today's finished batch while some is left, but not yesterday's", () => {
+    const finished = batch(today);
+    expect(cookingState(recipe([batch("2026-11-01"), finished]), today)).toEqual({ kind: "finished-today", batch: finished });
+    expect(cookingState(recipe([batch(today, { gone: true })]), today)).toEqual({ kind: "fresh" });
+    expect(cookingState(recipe([batch("2026-11-06")]), today)).toEqual({ kind: "fresh" });
+  });
+
+  it("ignores deleted batches and a shared reference batch", () => {
+    const deletedCooking = batch(today, { yield: undefined, deleted: true });
+    const shared = batch(today, { shared: true });
+    expect(cookingState(recipe([deletedCooking, shared]), today)).toEqual({ kind: "fresh" });
   });
 });
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { asItem, asRecipe, autoFoodIcon, type Batch, displayName, batchPerUnit, batchTotal, type ComboInput, currentBatch, type FoodLookup, isFinished, type Portion, type Pot, type Recipe, type RecipeInput, round, withBase } from "@dash/core";
 import { publishFood, saveBatch, saveFood, useFoodLookup } from "../../queries/foods.queries";
 import { useMe } from "../../queries/me.queries";
-import { batchLabel, finishedBatches } from "../foods";
+import { batchLabel, finishedBatches, unfinishedBatch } from "../foods";
 import { NutritionPreview } from "../flows/EatFlow";
 import { todayKey } from "../time";
 import { NumberInput } from "../ui/NumberInput";
@@ -196,6 +196,7 @@ export function RecipeEditor({
   const [icon, setIcon] = useState(current.iconAuto ? undefined : current.icon);
   const rename = (patch: Partial<RecipeInput>) => void saveFood({ ...recipeInput(current), ...patch });
   const latest = finishedBatches(current).at(-1);
+  const cooking = unfinishedBatch(current);
   const batchCount = current.batches.filter((b) => !b.deleted).length;
   const [confirming, setConfirming] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -265,8 +266,8 @@ export function RecipeEditor({
         <button className="row row-create" onClick={onCookAgain}>
           <span className="row-icon">🔥</span>
           <span className="row-main">
-            <span className="row-title">Cook it again</span>
-            <span className="row-sub">Starts from the last batch's ingredients</span>
+            <span className="row-title">{cooking ? "Continue cooking" : "Cook it again"}</span>
+            <span className="row-sub">{cooking ? `Since ${batchLabel(cooking)}` : "Starts from the last batch's ingredients"}</span>
           </span>
         </button>
       </div>

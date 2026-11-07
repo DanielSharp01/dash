@@ -1,33 +1,70 @@
 import { useCallback, useState } from "react";
-import { asRecipe, type Recipe } from "@dash/core";
+import { asRecipe, cookingState, type Recipe, type StoredBatch } from "@dash/core";
 import { useFoodLookup } from "../../queries/foods.queries";
 import { BatchEditor, createRecipe, startBatch } from "../editors/RecipeEditors";
 import { batchLabel, unfinishedBatch } from "../foods";
+import { todayKey } from "../time";
 import { FlowShell } from "../ui/FlowShell";
 import { FoodSearch } from "../ui/FoodSearch";
+import { notify } from "../ui/notify";
+import { Choices, Question } from "../ui/Question";
 import { useSteps } from "../ui/useSteps";
 
-type Step = "name" | "batch" | "done";
+type Step = "name" | "choose" | "batch" | "done";
+
+const yieldLabel = (b: StoredBatch) => (!b.yield ? "" : "grams" in b.yield ? `${b.yield.grams.toLocaleString()} g` : `${b.yield.portions} portions`);
 
 /**
- * Records a recipe as it's made, without logging anything eaten. A new batch is saved from its
- * first change on, so closing mid-cook keeps it to come back to and closing untouched leaves nothing.
+ * Records a recipe as it's made, without logging anything eaten. A batch still cooking opens
+ * straight away; one finished today is offered to fix before cooking again. A new batch is saved
+ * from its first change on, so closing mid-cook keeps it and closing untouched leaves nothing.
  */
 export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (logPortionOf?: Recipe) => void }) {
   const foods = useFoodLookup();
   const exit = useCallback(() => onDone(), [onDone]);
-  const { step, depth, go, back, close } = useSteps<Step>(recipeId ? "batch" : "name", exit);
+  const opened = asRecipe(foods(recipeId));
+  const [start] = useState(() => opened && cookingState(opened, todayKey()));
+  const { step, depth, go, back, close } = useSteps<Step>(recipeId ? (start?.kind === "finished-today" ? "choose" : "batch") : "name", exit);
   const [query, setQuery] = useState("");
   const [current, setCurrent] = useState(recipeId);
   const recipe = asRecipe(foods(current));
-  const [draft, setDraft] = useState(() => (recipe && !unfinishedBatch(recipe) ? startBatch(recipe, foods) : undefined));
-  const batch = recipe && (unfinishedBatch(recipe) ?? draft);
+  const [draft, setDraft] = useState(() => (opened && start?.kind === "fresh" ? startBatch(opened, foods) : undefined));
+  // Set while fixing a batch finished today instead of cooking a new one.
+  const [fixingId, setFixingId] = useState<string>();
+  const fixing = fixingId ? recipe?.batches.find((b) => b.id === fixingId && !b.deleted) : undefined;
+  const batch = recipe && (fixing ?? unfinishedBatch(recipe) ?? draft);
 
-  const cook = (r: Recipe) => {
-    if (!unfinishedBatch(r)) setDraft(startBatch(r, foods));
-    setCurrent(r.id);
+  const cookAgain = (r: Recipe) => {
+    setFixingId(undefined);
+    setDraft(startBatch(r, foods));
     go("batch");
   };
+  const cook = (r: Recipe) => {
+    const state = cookingState(r, todayKey());
+    setCurrent(r.id);
+    if (state.kind === "finished-today") return go("choose");
+    if (state.kind === "fresh") return cookAgain(r);
+    go("batch");
+  };
+
+  if (step === "choose" && recipe) {
+    const state = cookingState(recipe, todayKey());
+    const today = state.kind === "finished-today" ? state.batch : undefined;
+    return (
+      <FlowShell title={recipe.name} canGoBack={depth > 1} onBack={back} onClose={close}>
+        <Question title="You cooked this today" hint={["Fix today's batch, or start a new one from its ingredients."]}>
+          <Choices
+            options={[...(today ? [{ value: "fix" as const, label: "Edit today's batch", detail: yieldLabel(today) }] : []), { value: "again" as const, label: "Cook again" }]}
+            onPick={(choice) => {
+              if (choice === "again" || !today) return cookAgain(recipe);
+              setFixingId(today.id);
+              go("batch");
+            }}
+          />
+        </Question>
+      </FlowShell>
+    );
+  }
 
   if (step === "done" && recipe)
     return (
@@ -51,8 +88,17 @@ export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (log
 
   if (step === "batch" && recipe && batch)
     return (
-      <FlowShell title={recipe.name} subtitle={`Cooking · ${batchLabel(batch)}`} canGoBack={depth > 1} onBack={back} onClose={close}>
-        <BatchEditor recipeId={recipe.id} batchId={batch.id} draft={draft} onFinished={() => go("done")} />
+      <FlowShell title={recipe.name} subtitle={`${fixing ? "Batch" : "Cooking"} · ${batchLabel(batch)}`} canGoBack={depth > 1} onBack={back} onClose={close}>
+        <BatchEditor
+          recipeId={recipe.id}
+          batchId={batch.id}
+          draft={draft}
+          onFinished={() => {
+            if (!fixing) return go("done");
+            notify(`Saved ${recipe.name}`);
+            close();
+          }}
+        />
       </FlowShell>
     );
 
