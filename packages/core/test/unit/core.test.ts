@@ -19,6 +19,7 @@ import {
   groupKey,
   labelSchema,
   planAt,
+  plannedWeight,
   provenanceChips,
   lookupOf,
   splitPlanVersions,
@@ -184,6 +185,40 @@ describe("applyPlanChange", () => {
     ]);
     expect(planAt(v3, "2026-07-15")).toEqual({ ...defaultPlan, fluidGoalMl: 2500 });
     expect(planAt(v3)).toEqual({ ...faster, fluidGoalMl: 2500 });
+  });
+});
+
+describe("plannedWeight", () => {
+  const weighIns = [
+    { id: uid(), date: "2026-10-01", kg: 90 },
+    { id: uid(), date: "2026-10-15", kg: 89.4 },
+  ];
+  const history = (goal: typeof defaultPlan.goal, metabolismFrom?: string) => {
+    const h = splitPlanVersions([{ from: BEGINNING, plan: { ...defaultPlan, goal } }]);
+    return metabolismFrom ? { ...h, metabolism: [...h.metabolism, { from: metabolismFrom, value: { metabolismMultiplier: 1.3 } }] } : h;
+  };
+
+  it("starts a new stretch where the metabolism changed, from the weight that day", () => {
+    const lines = plannedWeight(history({ kgPerWeek: 0.5 }, "2026-10-15"), weighIns, "2026-09-01", "2026-10-29");
+    expect(lines).toEqual([
+      [
+        { date: "2026-10-01", kg: 90 },
+        { date: "2026-10-15", kg: 89 },
+      ],
+      [
+        { date: "2026-10-15", kg: 89.4 },
+        { date: "2026-10-29", kg: 88.4 },
+      ],
+    ]);
+  });
+
+  it("levels off at the target", () => {
+    const [line] = plannedWeight(history({ kgPerWeek: 0.5, targetKg: 89.5 }), weighIns, "2026-10-01", "2026-10-15");
+    expect(line).toEqual([
+      { date: "2026-10-01", kg: 90 },
+      { date: "2026-10-08", kg: 89.5 },
+      { date: "2026-10-15", kg: 89.5 },
+    ]);
   });
 });
 

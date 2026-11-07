@@ -9,7 +9,8 @@ import { EatFlow } from "./flows/EatFlow";
 import { ExerciseFlow } from "./flows/ExerciseFlow";
 import { ActivityRoute, BatchRoute, CatalogueScreen, type CatalogueTab, ComboRoute, ItemRoute, RecipeRoute } from "./screens/Catalogue";
 import { GoalAreaRoute, GoalsScreen } from "./screens/Goals";
-import { SettingsScreen, WeighInsScreen } from "./screens/Profile";
+import { SettingsScreen } from "./screens/Profile";
+import { WeighInHistoryRoute, WeighInRoute } from "./screens/Weight";
 import { type EntryActions, InboxScreen, Today } from "./screens/Today";
 import { Drawer } from "./ui/Drawer";
 import { RecapHost } from "./ui/RecapHost";
@@ -27,13 +28,12 @@ function useDay(): [string, (d: string) => void] {
   return [day, setDay];
 }
 
-type NavTarget = "today" | "inbox" | "catalogue" | "weighIns" | "goal" | "settings";
+type NavTarget = "today" | "inbox" | "catalogue" | "goal" | "settings";
 
 const sections: { target: NavTarget; path: string; match: string[]; icon: string; label: string }[] = [
   { target: "today", path: "/", match: ["/"], icon: "📅", label: "Today" },
   { target: "inbox", path: "/follow-up", match: ["/follow-up"], icon: "📥", label: "To follow up" },
   { target: "catalogue", path: "/items", match: ["/items", "/combos", "/recipes", "/activities"], icon: "🗂️", label: "Catalogue" },
-  { target: "weighIns", path: "/weigh-ins", match: ["/weigh-ins"], icon: "⚖️", label: "Weigh-ins" },
   { target: "goal", path: "/goal", match: ["/goal"], icon: "🎯", label: "Goal" },
   { target: "settings", path: "/settings", match: ["/settings"], icon: "⚙️", label: "Settings" },
 ];
@@ -106,8 +106,9 @@ export function App() {
         <Route path="/recipes/:id" element={<RecipeRoute />} />
         <Route path="/recipes/:id/:batchId" element={<BatchRoute />} />
         <Route path="/activities/:id" element={<ActivityRoute />} />
-        <Route path="/weigh-ins" element={<WeighInsScreen onMenu={openMenu} />} />
         <Route path="/goal" element={<GoalsScreen onMenu={openMenu} />} />
+        <Route path="/goal/weigh-in" element={<WeighInRoute />} />
+        <Route path="/goal/weigh-ins" element={<WeighInHistoryRoute />} />
         <Route path="/goal/:area" element={<GoalAreaRoute />} />
         <Route path="/settings" element={<SettingsScreen onMenu={openMenu} />} />
         <Route path="*" element={<Navigate to="/" replace />} />

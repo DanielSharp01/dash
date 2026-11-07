@@ -13,6 +13,7 @@ import {
   fromDisplayWeight,
   macroPresets,
   type MacroPreset,
+  metabolismPresets,
   MIN_KCAL,
   type Plan,
   type PlanAreas,
@@ -36,6 +37,7 @@ import { FlowShell } from "../ui/FlowShell";
 import { MissingDetails } from "../ui/MissingDetails";
 import { NumberInput } from "../ui/NumberInput";
 import { useOpen, useSteps } from "../ui/useSteps";
+import { WeightSection } from "./Weight";
 
 type GoalArea = "goal" | "metabolism" | "macros" | "fluid";
 
@@ -47,12 +49,6 @@ const areas: Record<GoalArea, { title: string; icon: string }> = {
 };
 
 const paces: Record<UnitSystem, number[]> = { metric: [0, 0.25, 0.5, 0.75], imperial: [0, 0.5, 1, 1.5] };
-const multipliers = [
-  { value: 1.2, label: "Desk day" },
-  { value: 1.375, label: "Walk around some" },
-  { value: 1.55, label: "On my feet all day" },
-  { value: 1.725, label: "Physical job" },
-];
 const DAY = 86_400_000;
 const fmt = (n: number) => Math.round(n).toLocaleString();
 
@@ -63,30 +59,18 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
   const { units } = profile;
   const plan = planAt(history);
   const t = dailyTargets(profile, history, useWeighIns());
-  const finish = t.calc && targetDate(t.calc.bodyKg, plan.goal);
   const changes = planChanges(history, units);
-  const preset = multipliers.find((m) => m.value === plan.metabolismMultiplier);
-  const summaries: Record<GoalArea, string> = {
-    goal: [
-      plan.goal.kgPerWeek > 0 ? `−${formatWeight(plan.goal.kgPerWeek, units)} a week` : "Maintain",
-      plan.goal.kgPerWeek > 0 && plan.goal.targetKg !== undefined && `target ${formatWeight(plan.goal.targetKg, units)}`,
-      plan.goal.kgPerWeek > 0 && finish && `around ${finish.toLocaleDateString(undefined, { month: "long", year: "numeric" })}`,
-    ]
-      .filter(Boolean)
-      .join(" · "),
-    metabolism: plan.calibratedFrom
-      ? `× ${plan.metabolismMultiplier} · from holding weight on ${fmt(plan.calibratedFrom.maintenanceKcal)} kcal`
-      : `× ${plan.metabolismMultiplier}${preset ? ` · ${preset.label}` : ""}`,
+  const summaries = {
     macros: `${macroPresets[plan.macroPlan.preset].label} · P ${t.protein} g · C ${t.carbs} g · F ${t.fat} g`,
     fluid: `${formatFluid(plan.fluidGoalMl, units)} a day`,
   };
 
   return (
     <FlowShell title="Goal" canGoBack={false} onBack={close} onClose={close} onMenu={onMenu}>
-      <Budget t={t} plan={plan} units={units} />
+      <WeightSection />
 
       <ul className="list">
-        {(Object.keys(areas) as GoalArea[]).map((area) => (
+        {(["macros", "fluid"] as const).map((area) => (
           <li key={area}>
             <button className="row" onClick={() => open(`/goal/${area}`)}>
               <span className="row-icon">{areas[area].icon}</span>
@@ -119,8 +103,8 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
   );
 }
 
-/** The formula only shows where it explains a change: on the goal and metabolism pages. */
-function Budget({ t, plan, units, explain = false }: { t: DailyTargets; plan: Plan; units: UnitSystem; explain?: boolean }) {
+/** The daily budget and how it's worked out; it explains the goal, so it lives on the goal page. */
+function Budget({ t, plan, units }: { t: DailyTargets; plan: Plan; units: UnitSystem }) {
   return (
     <>
       <section className="goal-budget">
@@ -134,7 +118,6 @@ function Budget({ t, plan, units, explain = false }: { t: DailyTargets; plan: Pl
       {t.missing.length > 0 ? (
         <MissingDetails missing={t.missing} lead="Using a placeholder until Dash knows your" />
       ) : (
-        explain &&
         t.calc && (
           <dl className="goal-math">
             <div>
@@ -194,7 +177,7 @@ function SetGoalArea({ area }: { area: GoalArea }) {
 
   return (
     <FlowShell title={areas[area].title} canGoBack onBack={close} onClose={close}>
-      {(area === "goal" || area === "metabolism") && <Budget t={t} plan={draft} units={units} explain />}
+      {area === "goal" && <Budget t={t} plan={draft} units={units} />}
       {area === "goal" && <GoalFields draft={draft} update={update} t={t} units={units} />}
       {area === "metabolism" && <MetabolismFields draft={draft} update={update} bmr={t.calc?.bmr} />}
       {area === "macros" && <MacroFields draft={draft} update={update} t={t} />}
@@ -286,7 +269,7 @@ function MetabolismFields({ draft, update, bmr }: FieldsProps & { bmr: number | 
       )}
       <span className="field-label sub-label">Or start from your day</span>
       <div className="multiplier-presets">
-        {multipliers.map((m) => (
+        {metabolismPresets.map((m) => (
           <button
             key={m.value}
             className="tile"

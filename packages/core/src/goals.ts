@@ -1,4 +1,5 @@
 import { deepEqual } from "./equal";
+import { daysBetween, shiftDate } from "./time";
 import { bodyKgAt } from "./weighIns";
 import { type AreaValue, BEGINNING, type MacroPlan, type MacroPreset, type Plan, type PlanArea, type PlanAreas, type ProfileInput, type WeighIn } from "./schemas";
 
@@ -17,6 +18,14 @@ export const macroPresets: Record<MacroPreset, { label: string; plan: MacroPlan 
   keto: { label: "Keto", plan: { preset: "keto", proteinPerKg: 1.6, carbPct: 0.05 } },
   "low-fat": { label: "Low fat", plan: { preset: "low-fat", proteinPerKg: 1.6, fatPct: 0.2 } },
 };
+
+/** Starting points for the metabolism multiplier, described by what a normal day looks like. */
+export const metabolismPresets = [
+  { value: 1.2, label: "Desk day" },
+  { value: 1.375, label: "Walk around some" },
+  { value: 1.55, label: "On my feet all day" },
+  { value: 1.725, label: "Physical job" },
+];
 
 export const defaultPlan: Plan = {
   goal: { kgPerWeek: 0.5 },
@@ -162,4 +171,31 @@ export function dailyTargets(profile: ProfileInput, history: PlanAreas, weighIns
     plan,
     missing,
   };
+}
+
+/**
+ * What each stretch of unchanged goal and metabolism planned, for days `from` to `to`: a line from
+ * the weight on its first day, down at its pace until the target. A stretch from before any dated
+ * version starts at the first weigh-in in view. One list of points per stretch.
+ */
+export function plannedWeight(history: PlanAreas, weighIns: WeighIn[], from: string, to: string): { date: string; kg: number }[][] {
+  const firstInView = weighIns.find((w) => w.date >= from && w.date <= to)?.date;
+  if (!firstInView) return [];
+  const starts = [...new Set([...history.goal, ...history.metabolism].map((v) => v.from).filter((f) => f !== BEGINNING))].sort();
+  return [BEGINNING, ...starts].flatMap((start, i, all) => {
+    const next = all[i + 1];
+    const begin = start === BEGINNING ? firstInView : start;
+    const stop = next !== undefined && next < to ? next : to;
+    if (begin >= stop || stop < from) return [];
+    const { goal } = planAt(history, begin);
+    const anchor = bodyKgAt(weighIns, begin).kg;
+    const floor = goal.targetKg !== undefined && goal.targetKg < anchor ? goal.targetKg : undefined;
+    // Already at or under the target, the plan is to hold.
+    const pace = goal.targetKg !== undefined && floor === undefined ? 0 : goal.kgPerWeek;
+    const at = (date: string) => ({ date, kg: Math.max(anchor - (pace * daysBetween(begin, date)) / 7, floor ?? -Infinity) });
+    const first = begin < from ? from : begin;
+    const reached = floor !== undefined && pace > 0 ? shiftDate(begin, Math.ceil(((anchor - floor) / pace) * 7)) : undefined;
+    const dates = [first, ...(reached !== undefined && reached > first && reached < stop ? [reached] : []), stop];
+    return [dates.map(at)];
+  });
 }

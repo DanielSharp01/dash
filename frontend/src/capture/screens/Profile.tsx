@@ -1,13 +1,10 @@
 import { useState } from "react";
-import { ageOn, genericSourceOf, formatWeighIn, type Pot, toDisplayWeight, type UnitSystem, type WeighIn, weightUnit } from "@dash/core";
-import { saveProfile, useMe, useProfile } from "../../queries/me.queries";
+import { genericSourceOf, type Pot, type UnitSystem } from "@dash/core";
+import { saveProfile, useMe } from "../../queries/me.queries";
 import { addPot, removePot } from "../../queries/pots.queries";
-import { addWeighIn, removeWeighIn, useWeighIns } from "../../queries/weighIns.queries";
-import { ADULT_AGE } from "../body";
-import { formatHour, todayKey, uses12h } from "../time";
-import { BirthdayInput, HeightInput, WeightInput } from "../ui/BodyInputs";
+import { formatHour, uses12h } from "../time";
+import { BirthdayInput, HeightInput } from "../ui/BodyInputs";
 import { FlowShell } from "../ui/FlowShell";
-import { notify } from "../ui/notify";
 import { NumberInput } from "../ui/NumberInput";
 import { TrashIcon } from "../ui/TrashIcon";
 import { useSteps } from "../ui/useSteps";
@@ -27,96 +24,6 @@ function UnitTiles({ value, onChange }: { value: UnitSystem; onChange: (u: UnitS
         </button>
       ))}
     </div>
-  );
-}
-
-export function WeighInsScreen({ onMenu }: { onMenu: () => void }) {
-  const { close } = useSteps<"list">("list");
-  const { units, heightCm, birthday } = useProfile();
-  const adult = !birthday || ageOn(birthday) >= ADULT_AGE;
-  const all = useWeighIns();
-  const [kg, setKg] = useState<number>();
-  const [date, setDate] = useState(todayKey);
-  const [formKey, setFormKey] = useState(0);
-  const newest = [...all].reverse();
-  const latest = newest[0];
-  const diff = (i: number) => (newest[i + 1] ? toDisplayWeight(newest[i].kg - newest[i + 1].kg, units) : undefined);
-  const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${Math.abs(n).toFixed(2)} ${weightUnit(units)}`;
-  const change = trendChange(all, units);
-  const bmi = latest && heightCm ? latest.kg / (heightCm / 100) ** 2 : undefined;
-
-  const save = () => {
-    if (!kg) return;
-    const added = { id: crypto.randomUUID(), date, kg };
-    const replaced = all.find((w) => w.date === date);
-    void addWeighIn(added);
-    notify(`Weighed in ${formatWeighIn(kg, units)}`, () => {
-      void removeWeighIn(added.id);
-      // The server dropped the one it replaced, so it comes back as a new weigh-in.
-      if (replaced) void addWeighIn({ ...replaced, id: crypto.randomUUID() });
-    });
-    setKg(undefined);
-    setFormKey((k) => k + 1);
-    setDate(todayKey());
-  };
-
-  return (
-    <FlowShell title="Weigh-ins" canGoBack={false} onBack={close} onClose={close} onMenu={onMenu}>
-      {latest && (
-        <section className="weigh-latest">
-          <div className="weigh-big">
-            <strong>{toDisplayWeight(latest.kg, units).toFixed(2)}</strong>
-            <span>{weightUnit(units)}</span>
-          </div>
-          <div className="weigh-meta">
-            <span>
-              {latest.date === todayKey() ? "Today" : new Date(`${latest.date}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
-              {change && ` · ${signed(change.delta)} ${change.label}`}
-            </span>
-            {bmi && <BmiBadge bmi={bmi} withBand={adult} />}
-          </div>
-          <Trend weighIns={all} />
-        </section>
-      )}
-
-      <section className="weigh-form">
-        <h2 className="list-heading">Add a weigh-in</h2>
-        <WeightInput key={`${formKey}-${units}`} kg={kg} units={units} onChange={setKg} />
-        <label className="field">
-          <span className="field-label">Day</span>
-          <input className="text-input" type="date" max={todayKey()} value={date} onChange={(e) => setDate(e.target.value || todayKey())} />
-        </label>
-        {all.some((w) => w.date === date) && <p className="hint">Replaces the weigh-in already on that day.</p>}
-        <button className="btn btn-primary btn-block" disabled={!kg} onClick={save}>
-          Save
-        </button>
-      </section>
-
-      {newest.length > 0 && (
-        <>
-          <h2 className="list-heading">History</h2>
-          <ul className="list">
-            {newest.map((w, i) => (
-              <li key={w.id} className="weigh-row">
-                <span className="weigh-date">{new Date(`${w.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}</span>
-                <b>{formatWeighIn(w.kg, units)}</b>
-                <span className="weigh-diff">{diff(i) !== undefined ? signed(diff(i)!) : ""}</span>
-                <button
-                  className="icon-btn small"
-                  aria-label="Delete weigh-in"
-                  onClick={() => {
-                    void removeWeighIn(w.id);
-                    notify("Deleted", () => void addWeighIn({ ...w, id: crypto.randomUUID() }));
-                  }}
-                >
-                  ✕
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </FlowShell>
   );
 }
 
@@ -250,65 +157,6 @@ function Pots({ pots }: { pots: Pot[] }) {
         </button>
       </div>
     </div>
-  );
-}
-
-const bmiBands = [
-  { below: 18.5, label: "Underweight", tone: "under" },
-  { below: 25, label: "Healthy", tone: "healthy" },
-  { below: 30, label: "Overweight", tone: "over" },
-  { below: 35, label: "Obese class I", tone: "obese" },
-  { below: 40, label: "Obese class II", tone: "obese" },
-  { below: Infinity, label: "Obese class III", tone: "obese" },
-] as const;
-
-/** WHO adult bands. The label travels with the colour so it never carries meaning alone. */
-function BmiBadge({ bmi, withBand }: { bmi: number; withBand: boolean }) {
-  const value = (Math.round(bmi * 10) / 10).toFixed(1);
-  if (!withBand) return <span className="bmi badge-muted">BMI {value}</span>;
-  const band = bmiBands.find((b) => bmi < b.below)!;
-  return (
-    <span className={`bmi bmi-${band.tone}`}>
-      BMI {value} · {band.label}
-    </span>
-  );
-}
-
-const DAY = 86_400_000;
-const dayMs = (key: string) => new Date(`${key}T12:00:00`).getTime();
-
-/** The card summarises a stretch of time; the per-weigh-in changes live in the history. */
-function trendChange(all: WeighIn[], units: UnitSystem) {
-  const latest = all[all.length - 1];
-  if (!latest || all.length < 2) return undefined;
-  const cutoff = dayMs(latest.date) - 30 * DAY;
-  const ref = [...all].reverse().find((w) => dayMs(w.date) <= cutoff) ?? all[0];
-  if (ref === latest) return undefined;
-  const label =
-    dayMs(ref.date) <= cutoff ? "in 30 days" : `since ${new Date(`${ref.date}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
-  return { delta: toDisplayWeight(latest.kg - ref.kg, units), label };
-}
-
-/** The last 90 days as a bare line; the history below is its table view. */
-function Trend({ weighIns }: { weighIns: WeighIn[] }) {
-  const latest = weighIns[weighIns.length - 1];
-  const points = weighIns.filter((w) => dayMs(w.date) >= dayMs(latest.date) - 90 * DAY);
-  if (points.length < 2) return null;
-  const W = 300;
-  const H = 48;
-  const pad = 5;
-  const t0 = dayMs(points[0].date);
-  const span = Math.max(dayMs(latest.date) - t0, DAY);
-  const kgs = points.map((p) => p.kg);
-  const lo = Math.min(...kgs);
-  const range = Math.max(Math.max(...kgs) - lo, 1);
-  const xy = points.map((p) => [pad + ((dayMs(p.date) - t0) / span) * (W - 2 * pad), pad + (1 - (p.kg - lo) / range) * (H - 2 * pad)] as const);
-  const [lx, ly] = xy[xy.length - 1];
-  return (
-    <svg className="weigh-trend" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Weight over the last ${Math.round(span / DAY)} days`}>
-      <polyline points={xy.map((p) => p.join(",")).join(" ")} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={lx} cy={ly} r="4" style={{ fill: "var(--accent)", stroke: "var(--surface)" }} strokeWidth="2" />
-    </svg>
   );
 }
 

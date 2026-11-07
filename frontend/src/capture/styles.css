@@ -1913,6 +1913,91 @@ h1 {
   color: var(--muted);
 }
 
+.weigh-now {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.weigh-when {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.weigh-change {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.weight-stats {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 4px 0;
+  padding: 10px 0;
+  border-block: 1px solid var(--line);
+}
+
+.weight-stats div {
+  min-width: 0;
+}
+
+.weight-stats dt {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.weight-stats dd {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.weight-stats .weight-stat-sub {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.weight-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.weight-actions .chip {
+  flex: 1 1 auto;
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 0.82rem;
+}
+
+.weight-actions .primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.weight-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.chart-label {
+  font-size: 10px;
+  fill: var(--muted);
+}
+
 .weigh-trend {
   grid-column: 1 / -1;
   width: 100%;
