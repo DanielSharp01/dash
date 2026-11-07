@@ -50,6 +50,13 @@ export function forgetRecapSeen() {
   return meApi.deleteRecapSeen();
 }
 
+export function markSetupOffered() {
+  if (me()?.setupOffered !== false) return;
+  patchMe({ setupOffered: true });
+  // A failed save only means the setup may open by itself once more, so it isn't retried or reported.
+  void meApi.postSetupOffered().catch(() => undefined);
+}
+
 /**
  * "fix" rewrites the current plan; a date starts a new one there. `choose` marks areas as set even
  * when their values stay, so a new account can accept a default; with nothing new, it does nothing.

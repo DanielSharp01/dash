@@ -1787,6 +1787,90 @@ h1 {
   gap: 4px;
 }
 
+.setup-question {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 22px;
+  padding-top: 6vh;
+  text-align: center;
+}
+
+.setup-question h2 {
+  margin: 0 0 8px;
+  font-size: 1.45rem;
+}
+
+.setup-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.setup-hint p {
+  margin: 0;
+}
+
+.setup-question .birthday-sentence {
+  justify-content: center;
+}
+
+.setup-question .big-entry {
+  padding-top: 4vh;
+}
+
+.setup-question .big-entry .bmi {
+  align-self: center;
+}
+
+.setup-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.setup-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 0 18px;
+  border-radius: var(--radius);
+  border: 2px solid var(--line);
+  background: var(--surface);
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.setup-choice small {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.setup-choice[aria-pressed="true"] {
+  border-color: var(--accent);
+}
+
+.setup-choice.sex-female {
+  color: var(--protein);
+}
+
+.setup-choice.sex-male {
+  color: var(--fat);
+}
+
+.setup-choice.sex-female[aria-pressed="true"] {
+  border-color: var(--protein);
+}
+
+.setup-choice.sex-male[aria-pressed="true"] {
+  border-color: var(--fat);
+}
+
 .day-chip {
   height: 40px;
   border-radius: 10px;

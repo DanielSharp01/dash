@@ -83,6 +83,8 @@ export const profilesTable = pgTable(
     genericSource: referenceTableEnum(),
     /** Not part of the revisioned profile: devices only ever move it forward. */
     recapSeenOn: day(),
+    /** Whether the goal setup has opened by itself; it does that once, on the first visit. */
+    setupOffered: boolean().notNull().default(false),
     revision: revision(),
     /** Bumped by every plan change; guards the four plan-area version tables as one document. */
     planRevision: integer().notNull().default(1),

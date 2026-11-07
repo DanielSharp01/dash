@@ -15,6 +15,7 @@ import {
   replacePlanAreas,
   replaceWeighIn,
   setChosenPlanAreas,
+  setSetupOffered,
   updatePotRow,
   updateProfile,
 } from "../repositories/settings.repo";
@@ -38,6 +39,7 @@ export async function me(userId: string) {
     plan: { ...areas, revision: profileRow!.planRevision, chosen: profileRow!.chosenPlanAreas },
     pots,
     ...opt("recapSeenOn", profileRow!.recapSeenOn),
+    setupOffered: profileRow!.setupOffered,
   };
 }
 
@@ -66,6 +68,11 @@ export async function savePlan(userId: string, req: { plan: Plan; change: "fix" 
     await setChosenPlanAreas(tx, userId, chosen, revision);
     return { ...(next ? await getPlanAreas(tx, userId) : areas), revision, chosen };
   });
+}
+
+export async function markSetupOffered(userId: string) {
+  await ensureProfile(db, userId);
+  await setSetupOffered(db, userId);
 }
 
 export async function weighIns(userId: string) {

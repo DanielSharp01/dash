@@ -23,7 +23,14 @@ describe("session", () => {
       profile: { units: "metric", dayEndsAt: 0, clock: "24h", revision: 1 },
       plan: { ...splitPlanVersions([{ from: BEGINNING, plan: defaultPlan }]), revision: 1, chosen: [] },
       pots: [],
+      setupOffered: false,
     });
+  });
+
+  it("remembers that the setup has opened, so it opens by itself only once", async () => {
+    const u = await newUser();
+    expect((await u.post("/setup/offered")).status).toBe(204);
+    expect((await u.get("/me")).body.setupOffered).toBe(true);
   });
 });
 

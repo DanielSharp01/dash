@@ -358,6 +358,8 @@ export const meResponseSchema = z.object({
   pots: z.array(potSchema),
   /** The last day whose recap was seen, on any device. */
   recapSeenOn: dateKeySchema.optional(),
+  /** Whether the goal setup has opened by itself yet; it does once, on a new account's first visit. */
+  setupOffered: z.boolean(),
 });
 
 export const updateProfileRequestSchema = profileInputSchema.extend(revisionField);

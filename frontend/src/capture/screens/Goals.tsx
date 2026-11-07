@@ -39,10 +39,11 @@ import { FlowShell } from "../ui/FlowShell";
 import { MissingDetails } from "../ui/MissingDetails";
 import { NumberInput } from "../ui/NumberInput";
 import { Sheet } from "../ui/Sheet";
-import { useSteps } from "../ui/useSteps";
+import { useOpen, useSteps } from "../ui/useSteps";
 import { FluidSection } from "./Fluid";
 import { averageOf, useGoalDays } from "./goalDays";
 import { MacrosSection } from "./Macros";
+import { useSetupProgress } from "./setupProgress";
 import { BmiBadge, WeightSection } from "./Weight";
 
 type GoalArea = "goal" | "metabolism" | "macros" | "fluid";
@@ -59,11 +60,29 @@ const fmt = (n: number) => Math.round(n).toLocaleString();
 
 export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
   const { close } = useSteps<"goal">("goal");
+  const open = useOpen();
   const { profile, plan: history } = useMe();
   const changes = planChanges(history, profile.units);
+  const setup = useSetupProgress();
 
   return (
     <FlowShell title="Goal" canGoBack={false} onBack={close} onClose={close} onMenu={onMenu}>
+      {setup.left.length > 0 && (
+        <ul className="list setup-card">
+          <li>
+            <button className="row" onClick={() => open("/goal/setup")}>
+              <span className="row-icon">🎯</span>
+              <span className="row-main">
+                <span className="row-title">Set up your goals</span>
+                <span className="row-sub">
+                  {setup.done} of {setup.total} done · {setup.done ? "Continue" : "Start"}
+                </span>
+              </span>
+              <span className="row-chevron">›</span>
+            </button>
+          </li>
+        </ul>
+      )}
       <WeightSection />
       <MacrosSection />
       <FluidSection />
@@ -87,8 +106,8 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
   );
 }
 
-/** The daily budget worked out as a sum, top to bottom; it explains the goal, so it lives on the goal page. */
-function Budget({ t, plan, units }: { t: DailyTargets; plan: Plan; units: UnitSystem }) {
+/** The daily budget worked out as a sum, top to bottom; it explains the goal, so it lives with the goal. */
+export function Budget({ t, plan, units }: { t: DailyTargets; plan: Plan; units: UnitSystem }) {
   return (
     <section className="budget">
       {t.missing.length > 0 && <MissingDetails missing={t.missing} lead="Using a placeholder until Dash knows your" />}
@@ -221,7 +240,7 @@ function suggestedTarget(currentKg: number, heightCm: number | undefined) {
 
 type GoalFieldsProps = FieldsProps & { units: UnitSystem; body: { kg: number; known: boolean }; heightCm: number | undefined; adult: boolean };
 
-function GoalFields({ draft, update, units, body, heightCm, adult }: GoalFieldsProps) {
+export function GoalFields({ draft, update, units, body, heightCm, adult }: GoalFieldsProps) {
   const goal = draft.goal;
   const losing = goal.kgPerWeek > 0;
   const scale = paceScale[units];
@@ -436,7 +455,7 @@ type Preset = keyof typeof macroPresets;
  * budget, so the three always add up to it. Protein runs over common guidance, 0.8 to 2.5 g per kg;
  * fat from 15% of calories to where carbs would run out.
  */
-function MacroFields({ draft, update, t }: FieldsProps & { t: DailyTargets }) {
+export function MacroFields({ draft, update, t }: FieldsProps & { t: DailyTargets }) {
   const preset = draft.macroPlan.preset;
   const chips = (
     <div className="chip-row" role="radiogroup" aria-label="Macro split">
@@ -540,7 +559,7 @@ function MacroSlider({ name, tone, grams, min, max, onChange, note }: { name: st
 }
 
 /** One number, so the keyboard's Go saves; last week's drinking shows what the target asks of you. */
-function FluidFields({ draft, update, units, onSubmit }: FieldsProps & { units: UnitSystem; onSubmit: () => void }) {
+export function FluidFields({ draft, update, units, onSubmit }: FieldsProps & { units: UnitSystem; onSubmit: () => void }) {
   const today = todayKey();
   const logged = useGoalDays(shiftDate(today, -7), shiftDate(today, -1)).filter((d) => d.totals);
   const average = logged.length ? averageOf(logged, (d) => d.totals!.fluid.value) : undefined;

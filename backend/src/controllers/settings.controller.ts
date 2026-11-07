@@ -21,6 +21,8 @@ export function settingsController() {
     line.pipe(async ({ auth }) => ok(await settings.me(auth.userId))).pipe(jsonSend(meResponseSchema, 200)),
   );
 
+  r.post("/setup/offered", (line) => line.pipe(async ({ auth }) => settings.markSetupOffered(auth.userId)).pipe(resEnd(204)));
+
   r.put("/profile", (line) =>
     line
       .pipe(validateBody(updateProfileRequestSchema))

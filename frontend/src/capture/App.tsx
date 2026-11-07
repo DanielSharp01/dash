@@ -11,6 +11,7 @@ import { ActivityRoute, BatchRoute, CatalogueScreen, type CatalogueTab, ComboRou
 import { GoalChartRoute } from "./screens/GoalChart";
 import { GoalAreaRoute, GoalsScreen } from "./screens/Goals";
 import { SettingsScreen } from "./screens/Profile";
+import { SetupRoute } from "./screens/Setup";
 import { WeighInHistoryRoute, WeighInRoute } from "./screens/Weight";
 import { type EntryActions, InboxScreen, Today } from "./screens/Today";
 import { Drawer } from "./ui/Drawer";
@@ -41,7 +42,7 @@ const sections: { target: NavTarget; path: string; match: string[]; icon: string
 
 export function App() {
   // Days and times need the person's rollover hour, so nothing renders before /me is in.
-  const { profile } = useMe();
+  const { profile, setupOffered } = useMe();
   // The server needs the person's time zone to tell when their day is over, e.g. for a recap.
   useEffect(() => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -52,6 +53,10 @@ export function App() {
   const followUpCount = useFollowUpCount();
   const location = useLocation();
   const open = useOpen();
+  // A new account starts on the goal setup, once; opening it marks it offered.
+  useEffect(() => {
+    if (!setupOffered) open("/goal/setup");
+  }, []);
   const [day, setDay] = useDay();
 
   const current = sections.find((s) => s.match.some((m) => (m === "/" ? location.pathname === "/" : location.pathname === m)))?.target;
@@ -111,6 +116,7 @@ export function App() {
         <Route path="/goal/weigh-in" element={<WeighInRoute />} />
         <Route path="/goal/weigh-ins" element={<WeighInHistoryRoute />} />
         <Route path="/goal/chart/:area" element={<GoalChartRoute />} />
+        <Route path="/goal/setup" element={<SetupRoute />} />
         <Route path="/goal/:area" element={<GoalAreaRoute />} />
         <Route path="/settings" element={<SettingsScreen onMenu={openMenu} />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -70,6 +70,10 @@ export async function clearRecapSeen(ex: Executor, userId: string) {
   await ex.update(profilesTable).set({ recapSeenOn: null }).where(eq(profilesTable.userId, userId));
 }
 
+export async function setSetupOffered(ex: Executor, userId: string) {
+  await ex.update(profilesTable).set({ setupOffered: true }).where(eq(profilesTable.userId, userId));
+}
+
 export async function getPlanAreas(ex: Executor, userId: string): Promise<PlanAreas> {
   const goal = await ex.select().from(goalVersionsTable).where(eq(goalVersionsTable.userId, userId)).orderBy(asc(goalVersionsTable.effectiveFrom));
   const metabolism = await ex.select().from(metabolismVersionsTable).where(eq(metabolismVersionsTable.userId, userId)).orderBy(asc(metabolismVersionsTable.effectiveFrom));

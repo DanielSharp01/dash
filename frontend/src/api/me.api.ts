@@ -6,3 +6,4 @@ export const putProfile = (body: UpdateProfileRequest) => api.put<Profile>("/pro
 export const postPlan = (body: SavePlanRequest) => api.post<PlanHistory>("/plan", body);
 export const postRecapSeen = (day: string) => api.post<{ recapSeenOn: string }>("/recap/seen", { day });
 export const deleteRecapSeen = () => api.delete("/recap/seen");
+export const postSetupOffered = () => api.post<void>("/setup/offered");

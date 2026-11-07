@@ -162,7 +162,6 @@ export function BirthdayInput({ value, onChange }: { value?: string; onChange: (
           </span>
         </div>
       )}
-      {value && <p className="hint">Born {new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}.</p>}
     </div>
   );
 }

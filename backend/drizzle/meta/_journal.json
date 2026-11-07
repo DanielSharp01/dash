@@ -120,6 +120,13 @@
       "when": 1794073388825,
       "tag": "0016_chosen_plan_areas",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794075745588,
+      "tag": "0017_setup_offered",
+      "breakpoints": true
     }
   ]
 }

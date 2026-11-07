@@ -283,7 +283,7 @@ export function WeightChart({
       </svg>
       <ul className="chart-legend">
         <li className="legend-weigh-ins">{by === "week" ? "Weekly average" : "Weigh-ins"}</li>
-        <li className="legend-line legend-planned-line">Planned</li>
+        {planned.some((line) => line[0]!.date !== line.at(-1)!.date) && <li className="legend-line legend-planned-line">Planned</li>}
         {projected && <li className="legend-line legend-projected-line">Projected</li>}
         {logged && <li className="legend-line legend-logged-line">From logged</li>}
       </ul>
