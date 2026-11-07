@@ -1,36 +1,17 @@
 import { useId } from "react";
-import { dailyTargets, type DailyTargets, type DayTotals, dayTotals, macroPresets, planAt, shiftDate } from "@dash/core";
-import { useEntriesBetween } from "../../queries/entries.queries";
-import { useFoodLookup } from "../../queries/foods.queries";
+import { macroPresets, planAt } from "@dash/core";
 import { useMe } from "../../queries/me.queries";
-import { useWeighIns } from "../../queries/weighIns.queries";
-import { todayKey } from "../time";
 import { useOpen } from "../ui/useSteps";
+import { chart, dayTick, type GoalDay, stepPath, useGoalDays } from "./goalDays";
 
-/** The overview's window; the full chart will offer others. */
-const CHART_DAYS = 7;
-
-type Day = { date: string; totals: DayTotals | undefined; targets: DailyTargets };
-
-/** Macros on Goals: today's targets, how the last two weeks averaged, and each day's calories by macro. */
+/** Macros on Goals: today's targets, how the week averaged, and each day's calories by macro. */
 export function MacrosSection() {
   const open = useOpen();
-  const { profile, plan: history } = useMe();
-  const weighIns = useWeighIns();
-  const foods = useFoodLookup();
-  const today = todayKey();
-  const from = shiftDate(today, -(CHART_DAYS - 1));
-  const entries = useEntriesBetween(from, today).data ?? [];
-  const days: Day[] = Array.from({ length: CHART_DAYS }, (_, i) => {
-    const date = shiftDate(from, i);
-    const ofDay = entries.filter((e) => e.when.date === date);
-    return { date, totals: ofDay.length ? dayTotals(ofDay, foods) : undefined, targets: dailyTargets(profile, history, weighIns, date) };
-  });
+  const { plan } = useMe();
+  const { days, today, finished } = useGoalDays();
   const current = days.at(-1)!.targets;
-  // Today isn't over, so only finished days with something logged count toward the average.
-  const finished = days.filter((d) => d.date < today && d.totals);
   const average = (key: "protein" | "carbs" | "fat") => (finished.length ? Math.round(finished.reduce((sum, d) => sum + d.totals![key].value, 0) / finished.length) : undefined);
-  const preset = macroPresets[planAt(history).macroPlan.preset].label;
+  const preset = macroPresets[planAt(plan).macroPlan.preset].label;
 
   return (
     <>
@@ -56,15 +37,11 @@ export function MacrosSection() {
   );
 }
 
-const W = 340;
-const H = 170;
-const plot = { left: 34, right: W - 8, top: 8, bottom: H - 20 };
-
 /**
  * One bar a day, stacked by calories: protein, carbs, fat, then calories logged without macros, so
- * the height is everything eaten. Dashed: the budget plus that day's logged exercise, and protein.
+ * the height is everything eaten. Lines: the budget plus that day's logged exercise, and protein.
  */
-function MacroChart({ days, today }: { days: Day[]; today: string }) {
+function MacroChart({ days, today }: { days: GoalDay[]; today: string }) {
   const hatch = useId();
   const bars = days.map((d) => {
     const t = d.totals;
@@ -79,17 +56,14 @@ function MacroChart({ days, today }: { days: Day[]; today: string }) {
   const step = top > 2500 ? 1000 : 500;
   const max = Math.ceil((top * 1.05) / step) * step;
   const ticks = Array.from({ length: max / step + 1 }, (_, i) => i * step);
-  const slot = (plot.right - plot.left) / days.length;
+  const slot = (chart.right - chart.left) / days.length;
   const barWidth = slot * 0.62;
-  const y = (kcal: number) => plot.bottom - (kcal / max) * (plot.bottom - plot.top);
+  const y = (kcal: number) => chart.bottom - (kcal / max) * (chart.bottom - chart.top);
   const colors = ["var(--protein)", "var(--carbs)", "var(--fat)", "var(--muted)"];
-  /** Flat across each day, stepping where the value changes, so a steady target reads as one line. */
-  const steps = (value: (b: (typeof bars)[number]) => number) =>
-    bars.flatMap((b, i) => [`${i === 0 ? "M" : "L"}${plot.left + i * slot},${y(value(b))}`, `L${plot.left + (i + 1) * slot},${y(value(b))}`]).join(" ");
 
   return (
     <>
-      <svg className="weigh-trend" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Calories by macro over the last ${days.length} days, against the budget`}>
+      <svg className="weigh-trend" viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label={`Calories by macro over the last ${days.length} days, against the budget`}>
         <defs>
           <pattern id={hatch} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="5" style={{ stroke: "var(--surface)" }} strokeWidth="2" />
@@ -97,14 +71,14 @@ function MacroChart({ days, today }: { days: Day[]; today: string }) {
         </defs>
         {ticks.map((v) => (
           <g key={v}>
-            <line x1={plot.left} x2={plot.right} y1={y(v)} y2={y(v)} style={{ stroke: "var(--line)" }} />
-            <text x={plot.left - 6} y={y(v) + 4} textAnchor="end" className="chart-label">
+            <line x1={chart.left} x2={chart.right} y1={y(v)} y2={y(v)} style={{ stroke: "var(--line)" }} />
+            <text x={chart.left - 6} y={y(v) + 4} textAnchor="end" className="chart-label">
               {v >= 1000 ? `${v / 1000}k` : v}
             </text>
           </g>
         ))}
         {bars.map((b, i) => {
-          const x = plot.left + i * slot + (slot - barWidth) / 2;
+          const x = chart.left + i * slot + (slot - barWidth) / 2;
           let base = 0;
           return (
             <g key={b.date} opacity={b.date === today ? 0.5 : 1}>
@@ -115,14 +89,14 @@ function MacroChart({ days, today }: { days: Day[]; today: string }) {
                 return rect;
               })}
               {b.missing && b.total > 0 && <rect x={x} y={y(b.total)} width={barWidth} height={y(0) - y(b.total)} fill={`url(#${hatch})`} />}
-              <text x={plot.left + (i + 0.5) * slot} y={H - 4} textAnchor="middle" className={b.date === today ? "chart-label chart-label-today" : "chart-label"}>
-                {new Date(`${b.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric" })}
+              <text x={chart.left + (i + 0.5) * slot} y={chart.height - 4} textAnchor="middle" className={b.date === today ? "chart-label chart-label-today" : "chart-label"}>
+                {dayTick(b.date)}
               </text>
             </g>
           );
         })}
-        <path d={steps((b) => b.budget)} fill="none" style={{ stroke: "var(--text)" }} strokeWidth="1.5" opacity={0.7} />
-        <path d={steps((b) => b.proteinLine)} fill="none" style={{ stroke: "var(--protein)" }} strokeWidth="1.5" strokeDasharray="4 3" />
+        <path d={stepPath(bars.map((b) => b.budget), slot, y)} fill="none" style={{ stroke: "var(--text)" }} strokeWidth="1.5" opacity={0.7} />
+        <path d={stepPath(bars.map((b) => b.proteinLine), slot, y)} fill="none" style={{ stroke: "var(--protein)" }} strokeWidth="1.5" strokeDasharray="4 3" />
       </svg>
       <ul className="chart-legend">
         <li className="legend-protein">Protein</li>

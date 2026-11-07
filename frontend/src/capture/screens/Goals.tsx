@@ -37,7 +37,8 @@ import { DateChip, tapCard } from "../ui/DateChip";
 import { FlowShell } from "../ui/FlowShell";
 import { MissingDetails } from "../ui/MissingDetails";
 import { NumberInput } from "../ui/NumberInput";
-import { useOpen, useSteps } from "../ui/useSteps";
+import { useSteps } from "../ui/useSteps";
+import { FluidSection } from "./Fluid";
 import { MacrosSection } from "./Macros";
 import { BmiBadge, WeightSection } from "./Weight";
 
@@ -47,7 +48,7 @@ const areas: Record<GoalArea, { title: string; icon: string }> = {
   goal: { title: "Goal", icon: "🎯" },
   metabolism: { title: "Metabolism", icon: "🔥" },
   macros: { title: "Macros", icon: "🥗" },
-  fluid: { title: "Fluid", icon: "💧" },
+  fluid: { title: "Fluid intake", icon: "💧" },
 };
 
 const DAY = 86_400_000;
@@ -55,29 +56,14 @@ const fmt = (n: number) => Math.round(n).toLocaleString();
 
 export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
   const { close } = useSteps<"goal">("goal");
-  const open = useOpen();
   const { profile, plan: history } = useMe();
-  const { units } = profile;
-  const plan = planAt(history);
-  const changes = planChanges(history, units);
+  const changes = planChanges(history, profile.units);
 
   return (
     <FlowShell title="Goal" canGoBack={false} onBack={close} onClose={close} onMenu={onMenu}>
       <WeightSection />
       <MacrosSection />
-
-      <ul className="list">
-        <li>
-          <button className="row" onClick={() => open("/goal/fluid")}>
-            <span className="row-icon">{areas.fluid.icon}</span>
-            <span className="row-main">
-              <span className="row-title">{areas.fluid.title}</span>
-              <span className="row-sub">{formatFluid(plan.fluidGoalMl, units)} a day</span>
-            </span>
-            <span className="row-chevron">›</span>
-          </button>
-        </li>
-      </ul>
+      <FluidSection />
 
       {changes.length > 1 && (
         <details className="version-history">

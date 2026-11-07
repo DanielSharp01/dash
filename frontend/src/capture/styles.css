@@ -1956,6 +1956,10 @@ h1 {
   color: var(--fat);
 }
 
+.stat-fluid dd:not(.stat-sub) {
+  color: var(--fluid);
+}
+
 .chart-label-today {
   font-weight: 700;
   fill: var(--text);
@@ -2000,6 +2004,10 @@ h1 {
 }
 
 .legend-other::before {
+.legend-fluid::before {
+  background: var(--fluid);
+}
+
   background: var(--muted);
   opacity: 0.45;
 }
