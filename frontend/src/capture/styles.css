@@ -1944,6 +1944,21 @@ h1 {
   color: var(--muted);
 }
 
+.history-start {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.history-value {
+  min-width: 0;
+  max-width: 70%;
+  padding: 8px 0;
+  background: none;
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+}
+
 .summary-icons {
   display: flex;
   flex-wrap: wrap;

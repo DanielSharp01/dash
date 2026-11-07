@@ -11,6 +11,7 @@ import { ActivityRoute, BatchRoute, CatalogueScreen, type CatalogueTab, ComboRou
 import { ContainerRoute, ContainersScreen, NewContainerRoute } from "./screens/Containers";
 import { GoalChartRoute } from "./screens/GoalChart";
 import { GoalAreaRoute, ProgressScreen } from "./screens/Goals";
+import { GoalHistoryRoute } from "./screens/GoalHistory";
 import { SettingRoute, SettingsScreen } from "./screens/Profile";
 import { SetupRoute } from "./screens/Setup";
 import { WeighInHistoryRoute, WeighInRoute } from "./screens/Weight";
@@ -120,6 +121,7 @@ export function App() {
         <Route path="/progress/chart/:area" element={<GoalChartRoute />} />
         <Route path="/progress/setup" element={<SetupRoute />} />
         <Route path="/progress/:area" element={<GoalAreaRoute />} />
+        <Route path="/progress/:area/history" element={<GoalHistoryRoute />} />
         <Route path="/containers" element={<ContainersScreen onMenu={openMenu} />} />
         <Route path="/containers/new/:kind" element={<NewContainerRoute />} />
         <Route path="/containers/:id" element={<ContainerRoute />} />

@@ -70,7 +70,10 @@ const areaOf: { [A in PlanArea]: (plan: Plan) => AreaValue<A> } = {
 };
 const planAreas = Object.keys(areaOf) as PlanArea[];
 
-type Dated<V> = { from: string; value: V };
+/** The part of `plan` that `area` keeps versions of. */
+export const planAreaValue = <A extends PlanArea>(area: A, plan: Plan): AreaValue<A> => areaOf[area](plan);
+
+export type Dated<V> = { from: string; value: V };
 type PlanChange = "fix" | { from: string };
 
 const valueAt = <V>(versions: Dated<V>[], date?: string) => (date ? ([...versions].reverse().find((v) => v.from <= date) ?? versions[0]) : versions.at(-1))?.value;

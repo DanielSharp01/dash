@@ -16,7 +16,6 @@ import {
   metabolismPresets,
   MIN_KCAL,
   type Plan,
-  type PlanAreas,
   planAt,
   samePlan,
   shiftDate,
@@ -39,9 +38,9 @@ import { MacrosSection } from "./Macros";
 import { useSetupProgress } from "./setupProgress";
 import { BmiBadge, WeightSection } from "./Weight";
 
-type GoalArea = "goal" | "metabolism" | "macros" | "fluid";
+export type GoalArea = "goal" | "metabolism" | "macros" | "fluid";
 
-const areas: Record<GoalArea, { title: string; icon: string }> = {
+export const areas: Record<GoalArea, { title: string; icon: string }> = {
   goal: { title: "Goal", icon: "🎯" },
   metabolism: { title: "Metabolism", icon: "🔥" },
   macros: { title: "Macros", icon: "🥗" },
@@ -54,8 +53,6 @@ const fmt = (n: number) => Math.round(n).toLocaleString();
 export function ProgressScreen({ onMenu }: { onMenu: () => void }) {
   const { close } = useSteps<"progress">("progress");
   const open = useOpen();
-  const { plan: history } = useMe();
-  const changes = planChanges(history);
   const setup = useSetupProgress();
 
   return (
@@ -79,22 +76,6 @@ export function ProgressScreen({ onMenu }: { onMenu: () => void }) {
       <WeightSection />
       <MacrosSection />
       <FluidSection />
-
-      {changes.length > 1 && (
-        <details className="version-history">
-          <summary>History · {changes.length} changes</summary>
-          <ul>
-            {changes.map(([from, parts]) => (
-              <li key={from}>
-                <span>
-                  <b>{from !== BEGINNING ? `Since ${new Date(`${from}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}` : "Before"}</b>
-                  {parts.join(" · ")}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
     </FlowShell>
   );
 }
@@ -142,7 +123,7 @@ export function Budget({ t, plan }: { t: DailyTargets; plan: Plan }) {
   );
 }
 
-const isArea = (area: string | undefined): area is GoalArea => area !== undefined && Object.hasOwn(areas, area);
+export const isArea = (area: string | undefined): area is GoalArea => area !== undefined && Object.hasOwn(areas, area);
 
 export function GoalAreaRoute() {
   const { area } = useParams();
@@ -153,12 +134,11 @@ export function GoalAreaRoute() {
 /** One area's values as a draft, so trying options doesn't create a version per tap. */
 function SetGoalArea({ area }: { area: GoalArea }) {
   const { close } = useSteps<"set">("set", undefined, "/progress");
-  const { profile, plan: history } = useMe();
+  const open = useOpen();
+  const { plan: history } = useMe();
   const current = planAt(history);
   const [draft, setDraft] = useState<Plan>(current);
   const update = (patch: Partial<Plan>) => setDraft((d) => ({ ...d, ...patch }));
-  const weighIns = useWeighIns();
-  const t = dailyTargets(profile, splitPlanVersions([{ from: BEGINNING, plan: draft }]), weighIns);
   const [from, setFrom] = useState(todayKey);
   const since = changeStartsFrom(history, draft);
   const fromValid = !!from && from >= since;
@@ -178,22 +158,18 @@ function SetGoalArea({ area }: { area: GoalArea }) {
       canGoBack
       onBack={close}
       onClose={close}
+      actions={
+        <button className="link-btn" onClick={() => open(`/progress/${area}/history`)}>
+          History
+        </button>
+      }
       footer={
         <button className="btn btn-primary btn-block" disabled={!changed && !unset} onClick={submit}>
           Save
         </button>
       }
     >
-      {area === "goal" && <GoalFields draft={draft} update={update} body={bodyKgAt(weighIns)} heightCm={profile.heightCm} adult={!profile.birthday || ageOn(profile.birthday) >= ADULT_AGE} />}
-      {area === "goal" && (
-        <>
-          <h2 className="list-heading budget-heading">How your budget is worked out</h2>
-          <Budget t={t} plan={draft} />
-        </>
-      )}
-      {area === "metabolism" && <MetabolismFields draft={draft} update={update} bmr={t.calc?.bmr} />}
-      {area === "macros" && <MacroFields draft={draft} update={update} t={t} />}
-      {area === "fluid" && <FluidFields draft={draft} update={update} onSubmit={submit} />}
+      <AreaFields area={area} draft={draft} update={update} onSubmit={submit} />
 
       {asking && (
         <Sheet title="Save the change" onClose={() => setAsking(false)}>
@@ -213,6 +189,27 @@ function SetGoalArea({ area }: { area: GoalArea }) {
         </Sheet>
       )}
     </FlowShell>
+  );
+}
+
+/** An area's fields over a draft plan; under the goal, how its budget is worked out. */
+export function AreaFields({ area, draft, update, onSubmit }: { area: GoalArea; draft: Plan; update: (patch: Partial<Plan>) => void; onSubmit: () => void }) {
+  const { profile } = useMe();
+  const weighIns = useWeighIns();
+  const t = dailyTargets(profile, splitPlanVersions([{ from: BEGINNING, plan: draft }]), weighIns);
+  return (
+    <>
+      {area === "goal" && <GoalFields draft={draft} update={update} body={bodyKgAt(weighIns)} heightCm={profile.heightCm} adult={!profile.birthday || ageOn(profile.birthday) >= ADULT_AGE} />}
+      {area === "goal" && (
+        <>
+          <h2 className="list-heading budget-heading">How your budget is worked out</h2>
+          <Budget t={t} plan={draft} />
+        </>
+      )}
+      {area === "metabolism" && <MetabolismFields draft={draft} update={update} bmr={t.calc?.bmr} />}
+      {area === "macros" && <MacroFields draft={draft} update={update} t={t} />}
+      {area === "fluid" && <FluidFields draft={draft} update={update} onSubmit={onSubmit} />}
+    </>
   );
 }
 
@@ -570,13 +567,18 @@ export function FluidFields({ draft, update, onSubmit }: FieldsProps & { onSubmi
   );
 }
 
-/** Newest first; each start date lists only the areas that changed on it. */
-function planChanges(h: PlanAreas) {
-  const byFrom = new Map<string, string[]>();
-  const add = (from: string, part: string) => byFrom.set(from, [...(byFrom.get(from) ?? []), part]);
-  for (const v of h.goal) add(v.from, v.value.goal.kgPerWeek > 0 ? `−${formatWeight(v.value.goal.kgPerWeek)}/week` : "Maintain");
-  for (const v of h.macros) add(v.from, macroPresetLabel(v.value.macroPlan.preset));
-  for (const v of h.metabolism) add(v.from, `× ${v.value.metabolismMultiplier}`);
-  for (const v of h.fluid) add(v.from, `💧 ${formatFluid(v.value.fluidGoalMl)}`);
-  return [...byFrom].sort(([a], [b]) => b.localeCompare(a));
+/** An area's values in a few words, as its History rows show them. */
+export function describeArea(area: GoalArea, plan: Plan) {
+  switch (area) {
+    case "goal":
+      return plan.goal.kgPerWeek > 0 ? `−${formatWeight(plan.goal.kgPerWeek)} a week${plan.goal.targetKg ? ` to ${formatWeight(plan.goal.targetKg)}` : ""}` : "Hold";
+    case "metabolism": {
+      const preset = metabolismPresets.find((m) => m.value === plan.metabolismMultiplier);
+      return `× ${plan.metabolismMultiplier}${preset ? ` · ${preset.label}` : ""}`;
+    }
+    case "macros":
+      return macroPresetLabel(plan.macroPlan.preset);
+    case "fluid":
+      return `${formatFluid(plan.fluidGoalMl)} a day`;
+  }
 }

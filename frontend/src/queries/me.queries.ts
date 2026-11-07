@@ -1,5 +1,5 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { applyPlanChange, type MeResponse, type Plan, type PlanArea, type PlanHistory, type Profile, type ProfileInput } from "@dash/core";
+import { applyPlanChange, type AreaValue, type Dated, type MeResponse, type Plan, type PlanArea, type PlanHistory, type Profile, type ProfileInput, replaceAreaVersions, type SaveAreaVersionsRequest } from "@dash/core";
 import * as meApi from "../api/me.api";
 import { queryClient as qc } from "./client";
 import { keys } from "./keys";
@@ -73,6 +73,24 @@ export function savePlan(plan: Plan, change: "fix" | { from: string }, choose: P
     set: (p) => p && patchMe({ plan: p }),
     next: { ...history, ...areas, chosen },
     send: () => meApi.postPlan({ plan, change, revision: me()!.plan.revision, choose }),
+    stored: (p) => p,
+  });
+}
+
+/** One area's versions as its History page left them; editing an area sets it. */
+export function saveAreaVersions<A extends PlanArea>(area: A, versions: Dated<AreaValue<A>>[]) {
+  const history = me()?.plan;
+  if (!history) return;
+  const areas = replaceAreaVersions(history, area, versions);
+  const chosen = [...new Set([...history.chosen, area])];
+  if (!areas && chosen.length === history.chosen.length) return;
+  return optimistic<PlanHistory, PlanHistory>({
+    scope: "plan",
+    get: () => me()?.plan,
+    set: (p) => p && patchMe({ plan: p }),
+    next: { ...history, ...areas, chosen },
+    // TypeScript can't tie a generic area to its member of the request union.
+    send: () => meApi.putPlanVersions({ area, versions, revision: me()!.plan.revision } as unknown as SaveAreaVersionsRequest),
     stored: (p) => p,
   });
 }
