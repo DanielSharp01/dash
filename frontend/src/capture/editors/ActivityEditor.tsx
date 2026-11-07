@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { type Activity, type ActivityInput, autoActivityIcon, bodyKgAt, type Burn, burnBasisLabel, defaultBurn, estimateBurn, formatWeight, type MeasureKey } from "@dash/core";
-import { useProfile } from "../../queries/me.queries";
 import { useWeighIns } from "../../queries/weighIns.queries";
 import { IconField } from "../ui/Pickers";
 import { NumberInput } from "../ui/NumberInput";
@@ -20,7 +19,6 @@ export function ActivityEditor({ activity, onSave }: { activity: Activity; onSav
   const [icon, setIcon] = useState(activity.iconAuto ? undefined : activity.icon);
   const [measures, setMeasures] = useState<MeasureKey[]>(activity.measures);
   const [burn, setBurn] = useState<Burn | undefined>(activity.burn);
-  const { units } = useProfile();
   const bodyKg = bodyKgAt(useWeighIns()).kg;
   const bases = (["distance", "reps", "duration"] as const).filter((b) => measures.includes(b));
   // Dropping the tracked measure a burn was based on leaves nothing to calculate from.
@@ -84,7 +82,7 @@ export function ActivityEditor({ activity, onSave }: { activity: Activity; onSav
             </label>
             <p className="hint">
               {activeBurn.basis === "duration" && "Rest is 1, walking about 3.5, running 8–10. "}
-              {example && `At ${formatWeight(bodyKg, units)} that's about ${Math.round(example.kcal)} kcal for ${example.from}.`}
+              {example && `At ${formatWeight(bodyKg)} that's about ${Math.round(example.kcal)} kcal for ${example.from}.`}
             </p>
           </>
         )}

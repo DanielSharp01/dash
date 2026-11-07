@@ -1,5 +1,5 @@
 import { namedAmount } from "./units";
-import { nutrientKeys, type Amount, type FoodItemInput, type FoodUnit, type Label, type LabelOrigin, type Nutrients, type Serving, type UnitSystem } from "./schemas";
+import { nutrientKeys, type Amount, type FoodItemInput, type FoodUnit, type Label, type LabelOrigin, type Nutrients, type Serving } from "./schemas";
 
 export { nutrientKeys };
 
@@ -88,19 +88,16 @@ export function contents(food: FoodData, amount: Amount, date: string, base?: nu
 }
 
 /** Servings first, since "1 mug" is how people think, then the units the food can convert. */
-export function unitsFor(food: FoodData | undefined, system: UnitSystem): string[] {
-  if (!food) return system === "metric" ? ["piece", "g", "ml"] : ["piece", "oz", "fl oz"];
-  const servings = servingsOf(food).map((s) => s.name);
-  const base = food.unit === "piece" ? ["piece"] : system === "metric" ? [food.unit] : [food.unit === "g" ? "oz" : "fl oz", food.unit];
-  return [...servings, ...base];
+export function unitsFor(food: FoodData | undefined): string[] {
+  if (!food) return ["piece", "g", "ml"];
+  return [...servingsOf(food).map((s) => s.name), food.unit];
 }
 
 /** A sensible first amount when there's no usual one: a serving, else a common size. */
-export function defaultAmount(food: FoodData | undefined, system: UnitSystem): Amount {
+export function defaultAmount(food: FoodData | undefined): Amount {
   const serving = food && servingsOf(food)[0];
   if (serving) return { value: 1, unit: serving.name };
   if (!food || food.unit === "piece") return { value: 1, unit: "piece" };
-  if (system === "imperial") return food.unit === "g" ? { value: 4, unit: "oz" } : { value: 8, unit: "fl oz" };
   return food.unit === "g" ? { value: 100, unit: "g" } : { value: 250, unit: "ml" };
 }
 

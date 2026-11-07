@@ -7,7 +7,6 @@ import { opt } from "./mapping";
 type ProfileRow = typeof profilesTable.$inferSelect;
 
 const toProfile = (row: ProfileRow): Profile => ({
-  units: row.units,
   ...opt("heightCm", row.heightCm),
   ...opt("birthday", row.birthday),
   ...opt("sex", row.sex),
@@ -40,7 +39,6 @@ export async function updateProfile(ex: Executor, userId: string, input: Profile
   const [row] = await ex
     .update(profilesTable)
     .set({
-      units: input.units,
       heightCm: input.heightCm ?? null,
       birthday: input.birthday ?? null,
       sex: input.sex ?? null,

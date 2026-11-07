@@ -27,7 +27,6 @@ const day = () => date({ mode: "string" });
 /** '-infinity' sorts before every date, so a version with no start needs no special case. */
 const versionStart = () => day().notNull().default(sql`'-infinity'`);
 
-export const unitSystemEnum = pgEnum("unit_system", ["metric", "imperial"]);
 export const sexEnum = pgEnum("sex", ["male", "female"]);
 export const clockEnum = pgEnum("clock", ["24h", "12h"]);
 export const macroPresetEnum = pgEnum("macro_preset", ["balanced", "high-protein", "low-carb", "keto", "low-fat", "custom"]);
@@ -72,7 +71,6 @@ export const profilesTable = pgTable(
     userId: uuid()
       .primaryKey()
       .references(() => usersTable.id, { onDelete: "cascade" }),
-    units: unitSystemEnum().notNull().default("metric"),
     heightCm: doublePrecision(),
     birthday: day(),
     sex: sexEnum(),

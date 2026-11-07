@@ -9,11 +9,8 @@ import {
   dailyTargets,
   type DailyTargets,
   type Entry,
-  fluidUnit,
   formatFluid,
   formatWeight,
-  fromDisplayFluid,
-  fromDisplayWeight,
   macroPresetLabel,
   macroPresets,
   metabolismPresets,
@@ -24,10 +21,6 @@ import {
   samePlan,
   shiftDate,
   splitPlanVersions,
-  toDisplayFluid,
-  toDisplayWeight,
-  type UnitSystem,
-  weightUnit,
 } from "@dash/core";
 import { useEntriesBetween } from "../../queries/entries.queries";
 import { savePlan, useMe } from "../../queries/me.queries";
@@ -61,8 +54,8 @@ const fmt = (n: number) => Math.round(n).toLocaleString();
 export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
   const { close } = useSteps<"goal">("goal");
   const open = useOpen();
-  const { profile, plan: history } = useMe();
-  const changes = planChanges(history, profile.units);
+  const { plan: history } = useMe();
+  const changes = planChanges(history);
   const setup = useSetupProgress();
 
   return (
@@ -107,7 +100,7 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
 }
 
 /** The daily budget worked out as a sum, top to bottom; it explains the goal, so it lives with the goal. */
-export function Budget({ t, plan, units }: { t: DailyTargets; plan: Plan; units: UnitSystem }) {
+export function Budget({ t, plan }: { t: DailyTargets; plan: Plan }) {
   return (
     <section className="budget">
       {t.missing.length > 0 && <MissingDetails missing={t.missing} lead="Using a placeholder until Dash knows your" />}
@@ -127,7 +120,7 @@ export function Budget({ t, plan, units }: { t: DailyTargets; plan: Plan; units:
             </div>
             {t.calc.deficit > 0 && (
               <div className="math-deficit">
-                <dt>− losing {formatWeight(plan.goal.kgPerWeek, units)} a week</dt>
+                <dt>− losing {formatWeight(plan.goal.kgPerWeek)} a week</dt>
                 <dd>−{fmt(t.calc.deficit)}</dd>
               </div>
             )}
@@ -161,7 +154,6 @@ export function GoalAreaRoute() {
 function SetGoalArea({ area }: { area: GoalArea }) {
   const { close } = useSteps<"set">("set", undefined, "/goal");
   const { profile, plan: history } = useMe();
-  const { units } = profile;
   const current = planAt(history);
   const [draft, setDraft] = useState<Plan>(current);
   const update = (patch: Partial<Plan>) => setDraft((d) => ({ ...d, ...patch }));
@@ -192,16 +184,16 @@ function SetGoalArea({ area }: { area: GoalArea }) {
         </button>
       }
     >
-      {area === "goal" && <GoalFields draft={draft} update={update} units={units} body={bodyKgAt(weighIns)} heightCm={profile.heightCm} adult={!profile.birthday || ageOn(profile.birthday) >= ADULT_AGE} />}
+      {area === "goal" && <GoalFields draft={draft} update={update} body={bodyKgAt(weighIns)} heightCm={profile.heightCm} adult={!profile.birthday || ageOn(profile.birthday) >= ADULT_AGE} />}
       {area === "goal" && (
         <>
           <h2 className="list-heading budget-heading">How your budget is worked out</h2>
-          <Budget t={t} plan={draft} units={units} />
+          <Budget t={t} plan={draft} />
         </>
       )}
       {area === "metabolism" && <MetabolismFields draft={draft} update={update} bmr={t.calc?.bmr} />}
       {area === "macros" && <MacroFields draft={draft} update={update} t={t} />}
-      {area === "fluid" && <FluidFields draft={draft} update={update} units={units} onSubmit={submit} />}
+      {area === "fluid" && <FluidFields draft={draft} update={update} onSubmit={submit} />}
 
       {asking && (
         <Sheet title="Save the change" onClose={() => setAsking(false)}>
@@ -226,11 +218,8 @@ function SetGoalArea({ area }: { area: GoalArea }) {
 
 type FieldsProps = { draft: Plan; update: (patch: Partial<Plan>) => void };
 
-/** Metric pace in kg a week; imperial in lb. A drag lands on a snap point within this distance of it. */
-const paceScale: Record<UnitSystem, { max: number; step: number; snaps: number[]; pull: number }> = {
-  metric: { max: 1, step: 0.01, snaps: [0, 0.25, 0.5, 0.75, 1], pull: 0.03 },
-  imperial: { max: 2, step: 0.02, snaps: [0, 0.5, 1, 1.5, 2], pull: 0.06 },
-};
+/** Pace in kg a week. A drag lands on a snap point within this distance of it. */
+const paceScale = { max: 1, step: 0.01, snaps: [0, 0.25, 0.5, 0.75, 1], pull: 0.03 };
 
 /** A starting target: a BMI of 25 when that's below you, else 5 kg off. */
 function suggestedTarget(currentKg: number, heightCm: number | undefined) {
@@ -238,25 +227,24 @@ function suggestedTarget(currentKg: number, heightCm: number | undefined) {
   return Math.round((healthy && healthy < currentKg ? healthy : currentKg - 5) * 2) / 2;
 }
 
-type GoalFieldsProps = FieldsProps & { units: UnitSystem; body: { kg: number; known: boolean }; heightCm: number | undefined; adult: boolean };
+type GoalFieldsProps = FieldsProps & { body: { kg: number; known: boolean }; heightCm: number | undefined; adult: boolean };
 
-export function GoalFields({ draft, update, units, body, heightCm, adult }: GoalFieldsProps) {
+export function GoalFields({ draft, update, body, heightCm, adult }: GoalFieldsProps) {
   const goal = draft.goal;
   const losing = goal.kgPerWeek > 0;
-  const scale = paceScale[units];
-  const pace = toDisplayWeight(goal.kgPerWeek, units);
+  const scale = paceScale;
   const setPace = (value: number) => {
     const snapped = scale.snaps.find((s) => Math.abs(s - value) <= scale.pull) ?? value;
-    update({ goal: { ...goal, kgPerWeek: fromDisplayWeight(snapped, units) } });
+    update({ goal: { ...goal, kgPerWeek: snapped } });
   };
-  const now = toDisplayWeight(body.kg, units);
-  const lowest = heightCm ? toDisplayWeight(18.5 * (heightCm / 100) ** 2, units) : now - (units === "metric" ? 30 : 66);
+  const now = Math.round(body.kg * 100) / 100;
+  const lowest = heightCm ? 18.5 * (heightCm / 100) ** 2 : now - 30;
   const range = { min: Math.floor(Math.min(lowest, now - 10) * 2) / 2, max: Math.floor(now * 2) / 2 };
   const target = goal.targetKg;
 
   return (
     <>
-      <GoalHeadline goal={goal} body={body} units={units} />
+      <GoalHeadline goal={goal} body={body} />
 
       {losing && (
         <div className="field">
@@ -264,8 +252,8 @@ export function GoalFields({ draft, update, units, body, heightCm, adult }: Goal
             <h2 className="list-heading">Target weight</h2>
             {target !== undefined && (
               <label className="slider-value">
-                <NumberInput aria-label="Target weight" value={toDisplayWeight(target, units)} onChange={(n) => n !== undefined && n > 0 && update({ goal: { ...goal, targetKg: fromDisplayWeight(n, units) } })} />
-                {weightUnit(units)}
+                <NumberInput aria-label="Target weight" value={target} onChange={(n) => n !== undefined && n > 0 && update({ goal: { ...goal, targetKg: n } })} />
+                kg
               </label>
             )}
           </div>
@@ -282,12 +270,12 @@ export function GoalFields({ draft, update, units, body, heightCm, adult }: Goal
                 min={range.min}
                 max={range.max}
                 step={0.5}
-                value={Math.min(Math.max(toDisplayWeight(target, units), range.min), range.max)}
-                onChange={(e) => update({ goal: { ...goal, targetKg: fromDisplayWeight(Number(e.target.value), units) } })}
+                value={Math.min(Math.max(target, range.min), range.max)}
+                onChange={(e) => update({ goal: { ...goal, targetKg: Number(e.target.value) } })}
               />
               <div className="slider-ends">
-                <span>{range.min} {weightUnit(units)}</span>
-                <span>{body.known ? `${now} ${weightUnit(units)} now` : ""}</span>
+                <span>{range.min} kg</span>
+                <span>{body.known ? `${now} kg now` : ""}</span>
               </div>
               <div className="slider-foot">
                 {heightCm && <BmiBadge bmi={target / (heightCm / 100) ** 2} withBand={adult} />}
@@ -303,9 +291,9 @@ export function GoalFields({ draft, update, units, body, heightCm, adult }: Goal
       <div className="field">
         <div className="slider-head">
           <h2 className="list-heading">Pace</h2>
-          <b>{losing ? `−${formatWeight(goal.kgPerWeek, units)} a week` : "Hold"}</b>
+          <b>{losing ? `−${formatWeight(goal.kgPerWeek)} a week` : "Hold"}</b>
         </div>
-        <input className="slider" type="range" aria-label="Pace per week" min={0} max={scale.max} step={scale.step} value={Math.min(pace, scale.max)} onChange={(e) => setPace(Number(e.target.value))} />
+        <input className="slider" type="range" aria-label="Pace per week" min={0} max={scale.max} step={scale.step} value={Math.min(goal.kgPerWeek, scale.max)} onChange={(e) => setPace(Number(e.target.value))} />
         <div className="slider-ticks">
           {scale.snaps.map((s) => (
             <button key={s} style={{ left: `${(s / scale.max) * 100}%` }} onClick={() => setPace(s)}>
@@ -324,17 +312,17 @@ export function GoalFields({ draft, update, units, body, heightCm, adult }: Goal
 }
 
 /** What the goal comes to: when you'd reach the target, or what the pace means without one. */
-function GoalHeadline({ goal, body, units }: { goal: Plan["goal"]; body: { kg: number; known: boolean }; units: UnitSystem }) {
+function GoalHeadline({ goal, body }: { goal: Plan["goal"]; body: { kg: number; known: boolean } }) {
   const [lead, big, sub] = ((): [string, string, string] => {
-    if (goal.kgPerWeek <= 0) return ["Holding your weight", body.known ? formatWeight(body.kg, units) : "Hold", "Your budget keeps it steady"];
-    const pace = `−${formatWeight(goal.kgPerWeek, units)} a week`;
+    if (goal.kgPerWeek <= 0) return ["Holding your weight", body.known ? formatWeight(body.kg) : "Hold", "Your budget keeps it steady"];
+    const pace = `−${formatWeight(goal.kgPerWeek)} a week`;
     if (goal.targetKg === undefined) return ["Losing", pace, "No end date; add a target to see when you'd get there"];
-    if (!body.known) return [`Aiming for ${formatWeight(goal.targetKg, units)}`, pace, "Weigh in to see when you'd get there"];
-    if (goal.targetKg >= body.kg) return [`Aiming for ${formatWeight(goal.targetKg, units)}`, "Already there", "Pick a target below your current weight"];
+    if (!body.known) return [`Aiming for ${formatWeight(goal.targetKg)}`, pace, "Weigh in to see when you'd get there"];
+    if (goal.targetKg >= body.kg) return [`Aiming for ${formatWeight(goal.targetKg)}`, "Already there", "Pick a target below your current weight"];
     const weeks = (body.kg - goal.targetKg) / goal.kgPerWeek;
     const finish = targetDate(body.kg, goal)!;
     const time = weeks < 9 ? `${Math.max(1, Math.round(weeks))} weeks` : `${Math.round(weeks / 4.345)} months`;
-    return [`You'd reach ${formatWeight(goal.targetKg, units)}`, finish.toLocaleDateString(undefined, { month: "long", year: "numeric" }), `in about ${time} · ${formatWeight(body.kg - goal.targetKg, units)} to go`];
+    return [`You'd reach ${formatWeight(goal.targetKg)}`, finish.toLocaleDateString(undefined, { month: "long", year: "numeric" }), `in about ${time} · ${formatWeight(body.kg - goal.targetKg)} to go`];
   })();
   return (
     <section className="goal-headline">
@@ -559,7 +547,7 @@ function MacroSlider({ name, tone, grams, min, max, onChange, note }: { name: st
 }
 
 /** One number, so the keyboard's Go saves; last week's drinking shows what the target asks of you. */
-export function FluidFields({ draft, update, units, onSubmit }: FieldsProps & { units: UnitSystem; onSubmit: () => void }) {
+export function FluidFields({ draft, update, onSubmit }: FieldsProps & { onSubmit: () => void }) {
   const today = todayKey();
   const logged = useGoalDays(shiftDate(today, -7), shiftDate(today, -1)).filter((d) => d.totals);
   const average = logged.length ? averageOf(logged, (d) => d.totals!.fluid.value) : undefined;
@@ -573,22 +561,22 @@ export function FluidFields({ draft, update, units, onSubmit }: FieldsProps & { 
     >
       <p className="big-entry-note">Your daily target</p>
       <label className="kcal-field">
-        <NumberInput key={units} integer enterKeyHint="go" value={toDisplayFluid(draft.fluidGoalMl, units)} onChange={(n) => n && n > 0 && update({ fluidGoalMl: fromDisplayFluid(n, units) })} />
-        <span>{fluidUnit(units)}</span>
+        <NumberInput integer enterKeyHint="go" value={Math.round(draft.fluidGoalMl)} onChange={(n) => n && n > 0 && update({ fluidGoalMl: n })} />
+        <span>ml</span>
       </label>
-      {average !== undefined && <p className="big-entry-note">You averaged {formatFluid(average, units)} a day over the last 7 days</p>}
+      {average !== undefined && <p className="big-entry-note">You averaged {formatFluid(average)} a day over the last 7 days</p>}
       <p className="hint">Drinks measured in ml count toward it. About 2 L a day is a common target; food covers some water too.</p>
     </form>
   );
 }
 
 /** Newest first; each start date lists only the areas that changed on it. */
-function planChanges(h: PlanAreas, units: UnitSystem) {
+function planChanges(h: PlanAreas) {
   const byFrom = new Map<string, string[]>();
   const add = (from: string, part: string) => byFrom.set(from, [...(byFrom.get(from) ?? []), part]);
-  for (const v of h.goal) add(v.from, v.value.goal.kgPerWeek > 0 ? `−${formatWeight(v.value.goal.kgPerWeek, units)}/week` : "Maintain");
+  for (const v of h.goal) add(v.from, v.value.goal.kgPerWeek > 0 ? `−${formatWeight(v.value.goal.kgPerWeek)}/week` : "Maintain");
   for (const v of h.macros) add(v.from, macroPresetLabel(v.value.macroPlan.preset));
   for (const v of h.metabolism) add(v.from, `× ${v.value.metabolismMultiplier}`);
-  for (const v of h.fluid) add(v.from, `💧 ${formatFluid(v.value.fluidGoalMl, units)}`);
+  for (const v of h.fluid) add(v.from, `💧 ${formatFluid(v.value.fluidGoalMl)}`);
   return [...byFrom].sort(([a], [b]) => b.localeCompare(a));
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BEGINNING, daysBetween, formatFluid, meanAndSpread, type PlanAreas, planAt, shiftDate, toDateKey, type WeighIn } from "@dash/core";
+import { BEGINNING, daysBetween, meanAndSpread, type PlanAreas, planAt, shiftDate, toDateKey, type WeighIn } from "@dash/core";
 import { Navigate, useParams } from "react-router";
 import { useMe } from "../../queries/me.queries";
 import { useWeighIns } from "../../queries/weighIns.queries";
@@ -95,26 +95,25 @@ function GoalChart({ area }: { area: ChartArea }) {
 }
 
 function FullWeightChart({ span, by }: { span: Span; by: Grouping }) {
-  const { profile, plan } = useMe();
+  const { plan } = useMe();
   const all = useWeighIns();
   const today = todayKey();
   const logged = useLoggedWeight(all, span.from, today)?.filter((p) => p.date <= span.to);
   return (
     <section className="goal-card">
-      <WeightStats weighIns={all.filter((w) => w.date >= span.from && w.date <= span.to)} logged={logged} goal={planAt(plan).goal} units={profile.units} />
-      <WeightChart weighIns={all} history={plan} units={profile.units} today={today} logged={logged} by={by} size="tall" {...span} />
+      <WeightStats weighIns={all.filter((w) => w.date >= span.from && w.date <= span.to)} logged={logged} goal={planAt(plan).goal} />
+      <WeightChart weighIns={all} history={plan} today={today} logged={logged} by={by} size="tall" {...span} />
     </section>
   );
 }
 
 function FullFluidChart({ span, by }: { span: Span; by: Grouping }) {
-  const { profile } = useMe();
   const today = todayKey();
   const days = useGoalDays(span.from, span.to);
   return (
     <section className="goal-card">
-      <AverageStats days={days} today={today} value={(d) => d.totals!.fluid.value} target={(d) => d.targets.fluidMl} format={(ml) => (profile.units === "metric" ? `${(ml / 1000).toFixed(1)} L` : formatFluid(ml, profile.units))} />
-      <FluidChart buckets={bucketsOf(days, by, today)} by={by} units={profile.units} size="tall" />
+      <AverageStats days={days} today={today} value={(d) => d.totals!.fluid.value} target={(d) => d.targets.fluidMl} format={(ml) => `${(ml / 1000).toFixed(1)} L`} />
+      <FluidChart buckets={bucketsOf(days, by, today)} by={by} size="tall" />
     </section>
   );
 }

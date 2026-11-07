@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { formatFluid, toDisplayFluid, type UnitSystem } from "@dash/core";
+import { formatFluid } from "@dash/core";
 import { useMe } from "../../queries/me.queries";
 import { useOpen } from "../ui/useSteps";
 import { averageOf, type Bucket, bucketLabels, chartFrame, type ChartSize, type Grouping, stepPath, useLastWeek } from "./goalDays";
@@ -7,8 +7,7 @@ import { averageOf, type Bucket, bucketLabels, chartFrame, type ChartSize, type 
 /** Fluid on Goals: the daily target, how the week went, today so far, and a bar per day. */
 export function FluidSection() {
   const open = useOpen();
-  const { profile, plan } = useMe();
-  const { units } = profile;
+  const { plan } = useMe();
   const fluidSet = plan.chosen.includes("fluid");
   const { days, today, buckets } = useLastWeek();
   const now = days.at(-1)!;
@@ -25,19 +24,19 @@ export function FluidSection() {
         <dl className="stat-row">
           <div className="stat-fluid">
             <dt>Target</dt>
-            <dd className={fluidSet ? undefined : "stat-unset"}>{fluidSet ? formatFluid(now.targets.fluidMl, units) : "Not set"}</dd>
-            <dd className="stat-sub">{fluidSet ? "a day" : `using ${formatFluid(now.targets.fluidMl, units)}`}</dd>
+            <dd className={fluidSet ? undefined : "stat-unset"}>{fluidSet ? formatFluid(now.targets.fluidMl) : "Not set"}</dd>
+            <dd className="stat-sub">{fluidSet ? "a day" : `using ${formatFluid(now.targets.fluidMl)}`}</dd>
           </div>
           <div>
             <dt>Week avg</dt>
-            <dd>{average !== undefined ? formatFluid(average, units) : "—"}</dd>
+            <dd>{average !== undefined ? formatFluid(average) : "—"}</dd>
             <dd className="stat-sub">{average !== undefined ? "a day" : " "}</dd>
           </div>
           <div>
             <dt>Today</dt>
             <dd>
               {sofar?.missing ? "≥ " : ""}
-              {formatFluid(sofar?.value ?? 0, units)}
+              {formatFluid(sofar?.value ?? 0)}
             </dd>
             <dd className="stat-sub">so far</dd>
           </div>
@@ -50,7 +49,7 @@ export function FluidSection() {
             Full chart
           </button>
         </div>
-        <FluidChart buckets={buckets} by="day" units={units} onOpen={openChart} />
+        <FluidChart buckets={buckets} by="day" onOpen={openChart} />
       </section>
     </>
   );
@@ -60,7 +59,7 @@ export function FluidSection() {
  * A bar a day or week (a week's is its daily average) against the target; hatched where some drinks
  * had no volume, so it's at least that much.
  */
-export function FluidChart({ buckets, by, units, size, onOpen }: { buckets: Bucket[]; by: Grouping; units: UnitSystem; size?: ChartSize; onOpen?: () => void }) {
+export function FluidChart({ buckets, by, size, onOpen }: { buckets: Bucket[]; by: Grouping; size?: ChartSize; onOpen?: () => void }) {
   const hatch = useId();
   const chart = chartFrame(size);
   const bars = buckets.map((b) => ({
@@ -96,7 +95,7 @@ export function FluidChart({ buckets, by, units, size, onOpen }: { buckets: Buck
           <g key={v}>
             <line x1={chart.left} x2={chart.right} y1={y(v)} y2={y(v)} style={{ stroke: "var(--line)" }} />
             <text x={chart.left - 6} y={y(v) + 4} textAnchor="end" className="chart-label">
-              {units === "metric" ? v / 1000 : toDisplayFluid(v, units)}
+              {v / 1000}
             </text>
           </g>
         ))}

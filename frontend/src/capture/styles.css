@@ -1747,12 +1747,6 @@ h1 {
   font-size: 2rem;
 }
 
-.height-imperial {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
 .birthday-sentence {
   display: flex;
   flex-wrap: wrap;

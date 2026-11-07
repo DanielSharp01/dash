@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ageOn, fromDisplayWeight, fromFeet, toDisplayWeight, toFeet, type UnitSystem, weightUnit } from "@dash/core";
+import { ageOn } from "@dash/core";
 import { ADULT_AGE, birthdayFrom } from "../body";
 import type { Choice } from "./Question";
 
@@ -15,9 +15,9 @@ const parse = (v: string) => {
   return v.trim() === "" || Number.isNaN(n) ? undefined : n;
 };
 
-/** Keeps the typed text so converting units doesn't fight the person mid-edit. */
-export function WeightInput({ kg, units, onChange, autoFocus, enterKeyHint }: { kg?: number; units: UnitSystem; onChange: (kg?: number) => void; autoFocus?: boolean; enterKeyHint?: "go" }) {
-  const [text, setText] = useState(kg === undefined ? "" : String(toDisplayWeight(kg, units)));
+/** Keeps the typed text, so "88," or "88.0" isn't rewritten mid-edit. */
+export function WeightInput({ kg, onChange, autoFocus, enterKeyHint }: { kg?: number; onChange: (kg?: number) => void; autoFocus?: boolean; enterKeyHint?: "go" }) {
+  const [text, setText] = useState(kg === undefined ? "" : String(kg));
   return (
     <label className="kcal-field big-number">
       <input
@@ -28,68 +28,29 @@ export function WeightInput({ kg, units, onChange, autoFocus, enterKeyHint }: { 
         value={text}
         onChange={(e) => {
           setText(e.target.value);
-          const n = parse(e.target.value);
-          onChange(n === undefined ? undefined : fromDisplayWeight(n, units));
+          onChange(parse(e.target.value));
         }}
       />
-      <span>{weightUnit(units)}</span>
+      <span>kg</span>
     </label>
   );
 }
 
-export function HeightInput({ cm, units, onChange }: { cm?: number; units: UnitSystem; onChange: (cm?: number) => void }) {
-  const feet = cm === undefined ? undefined : toFeet(cm);
-  const [ft, setFt] = useState(feet ? String(feet.ft) : "");
-  const [inch, setInch] = useState(feet ? String(feet.inch) : "");
-  const [metric, setMetric] = useState(cm === undefined ? "" : String(Math.round(cm)));
-
-  if (units === "metric")
-    return (
-      <label className="kcal-field">
-        <input
-          inputMode="numeric"
-          placeholder="–"
-          value={metric}
-          onChange={(e) => {
-            setMetric(e.target.value);
-            onChange(parse(e.target.value));
-          }}
-        />
-        <span>cm</span>
-      </label>
-    );
-
-  const update = (f: string, i: string) => {
-    const nf = parse(f);
-    onChange(nf === undefined ? undefined : fromFeet(nf, parse(i) ?? 0));
-  };
+export function HeightInput({ cm, onChange }: { cm?: number; onChange: (cm?: number) => void }) {
+  const [text, setText] = useState(cm === undefined ? "" : String(Math.round(cm)));
   return (
-    <div className="height-imperial">
-      <label className="kcal-field">
-        <input
-          inputMode="numeric"
-          placeholder="–"
-          value={ft}
-          onChange={(e) => {
-            setFt(e.target.value);
-            update(e.target.value, inch);
-          }}
-        />
-        <span>ft</span>
-      </label>
-      <label className="kcal-field">
-        <input
-          inputMode="numeric"
-          placeholder="0"
-          value={inch}
-          onChange={(e) => {
-            setInch(e.target.value);
-            update(ft, e.target.value);
-          }}
-        />
-        <span>in</span>
-      </label>
-    </div>
+    <label className="kcal-field">
+      <input
+        inputMode="numeric"
+        placeholder="–"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          onChange(parse(e.target.value));
+        }}
+      />
+      <span>cm</span>
+    </label>
   );
 }
 

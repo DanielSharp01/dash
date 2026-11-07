@@ -109,9 +109,9 @@ export function foodInput(f: Food): FoodInput {
   return recipe;
 }
 
-export function recipeUnits(r: Recipe, batchId: string | undefined, system: "metric" | "imperial", foods: FoodLookup) {
+export function recipeUnits(r: Recipe, batchId: string | undefined, foods: FoodLookup) {
   const batch = r.batches.find((b) => b.id === batchId) ?? currentBatch(r);
   const sized = batch && batchPerUnit(batch, foods);
   if (!sized) return ["g"];
-  return sized.unit === "portion" ? ["portion"] : system === "imperial" ? ["oz", "g"] : ["g"];
+  return sized.unit === "portion" ? ["portion"] : ["g"];
 }

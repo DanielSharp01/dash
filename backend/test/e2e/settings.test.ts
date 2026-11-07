@@ -20,7 +20,7 @@ describe("session", () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
       user: { id: u.id },
-      profile: { units: "metric", dayEndsAt: 0, clock: "24h", revision: 1 },
+      profile: { dayEndsAt: 0, clock: "24h", revision: 1 },
       plan: { ...splitPlanVersions([{ from: BEGINNING, plan: defaultPlan }]), revision: 1, chosen: [] },
       pots: [],
       setupOffered: false,
@@ -38,18 +38,18 @@ describe("profile", () => {
   it("saves with the revision it read and refuses a stale one", async () => {
     const u = await newUser();
     await u.get("/me");
-    const saved = await u.put("/profile", { units: "imperial", heightCm: 180, birthday: "1990-03-04", sex: "female", dayEndsAt: 3, clock: "12h", revision: 1 });
+    const saved = await u.put("/profile", { heightCm: 180, birthday: "1990-03-04", sex: "female", dayEndsAt: 3, clock: "12h", revision: 1 });
     expect(saved.status).toBe(200);
-    expect(saved.body).toEqual({ units: "imperial", heightCm: 180, birthday: "1990-03-04", sex: "female", dayEndsAt: 3, clock: "12h", autoRecap: true, revision: 2 });
+    expect(saved.body).toEqual({ heightCm: 180, birthday: "1990-03-04", sex: "female", dayEndsAt: 3, clock: "12h", autoRecap: true, revision: 2 });
 
-    const stale = await u.put("/profile", { units: "metric", dayEndsAt: 0, revision: 1 });
+    const stale = await u.put("/profile", { dayEndsAt: 0, revision: 1 });
     expect(stale.status).toBe(409);
-    expect(stale.body.current).toMatchObject({ units: "imperial", revision: 2 });
+    expect(stale.body.current).toMatchObject({ heightCm: 180, revision: 2 });
   });
 
   it("rejects an invalid body with the zod issues", async () => {
     const u = await newUser();
-    const res = await u.put("/profile", { units: "metric", dayEndsAt: 9, revision: 1 });
+    const res = await u.put("/profile", { dayEndsAt: 9, revision: 1 });
     expect(res.status).toBe(400);
     expect(res.body.issues[0].path).toEqual(["dayEndsAt"]);
   });

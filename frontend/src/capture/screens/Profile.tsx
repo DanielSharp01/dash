@@ -21,7 +21,7 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
   const values: Record<Setting, string> = {
     age: profile.birthday ? String(ageOn(profile.birthday)) : "Not set",
     sex: sexChoices.find((c) => c.value === profile.sex && c.value)?.label ?? "Not given",
-    height: profile.heightCm ? formatHeight(profile.heightCm, profile.units) : "Not set",
+    height: profile.heightCm ? formatHeight(profile.heightCm) : "Not set",
     "day-ends": hourLabel(profile.dayEndsAt),
     clock: uses12h() ? "12-hour" : "24-hour",
     recap: profile.autoRecap ? "Plays itself" : "From the strip",
@@ -113,7 +113,7 @@ function SettingPage({ setting }: { setting: Setting }) {
               close();
             }}
           >
-            <HeightInput key={profile.units} cm={profile.heightCm} units={profile.units} onChange={(heightCm) => void saveProfile({ heightCm })} />
+            <HeightInput cm={profile.heightCm} onChange={(heightCm) => void saveProfile({ heightCm })} />
           </form>
         </Question>
       )}

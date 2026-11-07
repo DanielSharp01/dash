@@ -34,7 +34,6 @@ users                      (exists)
 
 profiles                   one row per user, created at first sign-in
   user_id uuid pk → users
-  units           enum('metric','imperial') default 'metric'
   height_cm       double  null
   birthday        date    null
   sex             enum('male','female') null
@@ -426,7 +425,6 @@ type PlanVersion = { from: VersionStart; plan: Plan };
 type PlanHistory = { versions: PlanVersion[]; revision: number };   // oldest first
 
 type ProfileInput = {
-  units: "metric" | "imperial";
   heightCm?: number;
   birthday?: DateKey;
   sex?: "male" | "female";
@@ -750,8 +748,7 @@ These were agreed, but they belong with the switch from IndexedDB to the API:
 ### Decided in discussion, not written elsewhere
 
 - **Floats are `double precision`.** Revisit only if real data shows precision trouble. Never use `real`, and never use `numeric` with a fixed scale: `base` and factors like 0.005 need more than two decimals.
-- **Unit conversion.** Weight, height, fluid and yields are stored metric (kg, cm, ml, g) and converted only in the client. Forms send only fields the person changed, never values re-parsed from a rounded display, because re-saving a displayed value drifts it by up to half a display step. Charts do maths in metric and convert at the end.
-- **"Imperial" is really US customary.** Fluid ounces are US (29.5735 ml), and there's no stone. That's left as is until someone needs UK units.
+- **Metric only.** Weight, height, fluid and yields are stored and shown metric (kg, cm, ml, g). Forms send only fields the person changed, never values re-parsed from a rounded display, because re-saving a displayed value drifts it by up to half a display step. A typed oz or fl oz on a food still converts, and exercise entries keep their mi and lb choices.
 - **Exercise `kcal`** is a snapshot taken at save time. `kcalManual` means typed, which stops a measure edit from recalculating it.
 - **`foods` stays one table.** Item-only columns move to an `items` table keyed by `food_id` only if items gain many more of them.
 

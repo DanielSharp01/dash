@@ -9,13 +9,10 @@ import {
   type ExerciseEntryInput,
   formatWeight,
   type MeasureKey,
-  preferredDistance,
-  type UnitSystem,
   type When,
 } from "@dash/core";
 import { useActivityLookup, useActivityUsage } from "../../queries/activities.queries";
 import { deleteEntry, saveEntry } from "../../queries/entries.queries";
-import { useProfile } from "../../queries/me.queries";
 import { useWeighIns } from "../../queries/weighIns.queries";
 import { useListedActivities } from "../activities";
 import { initialWhen, nowWhen } from "../time";
@@ -53,7 +50,6 @@ export function ExerciseFlow({ date, mode = { kind: "new" }, onDone }: { date: s
   // Typed but not in the list: it becomes an activity when the entry is saved.
   const [newActivity, setNewActivity] = useState<ActivityInput>();
   const [measures, setMeasures] = useState<ExerciseEntry["measures"]>(source?.measures ?? {});
-  const { units } = useProfile();
   const body = bodyKgAt(useWeighIns(), when.date);
   const burn = estimateBurn(activity, measures, body.kg);
   const [kcal, setKcal] = useState(source?.kcal);
@@ -124,7 +120,6 @@ export function ExerciseFlow({ date, mode = { kind: "new" }, onDone }: { date: s
             key={key}
             measure={key}
             drivesBurn={activity?.burn?.basis === key}
-            units={units}
             value={measures[key]}
             onChange={(v) => setMeasures((m) => ({ ...m, [key]: v }))}
           />
@@ -138,7 +133,7 @@ export function ExerciseFlow({ date, mode = { kind: "new" }, onDone }: { date: s
                 <span>kcal</span>
               </div>
               <div className="burn-why">
-                {burn ? `From ${burn.from} at ${formatWeight(body.kg, units)}${body.known ? "" : " (no weigh-in yet)"}` : `Fill in ${activity.burn.basis} to work it out`}
+                {burn ? `From ${burn.from} at ${formatWeight(body.kg)}${body.known ? "" : " (no weigh-in yet)"}` : `Fill in ${activity.burn.basis} to work it out`}
                 <button
                   className="link-btn"
                   onClick={() => {
@@ -241,17 +236,14 @@ function MeasureField({
   value,
   onChange,
   drivesBurn = false,
-  units,
 }: {
-  units: UnitSystem;
   drivesBurn?: boolean;
   measure: MeasureKey;
   value?: { value: number; unit: string };
   onChange: (v?: { value: number; unit: string }) => void;
 }) {
   const spec = measureSpec[measure];
-  const preferred = measure === "distance" ? preferredDistance(units) : measure === "weight" ? (units === "metric" ? "kg" : "lb") : spec.units[0];
-  const [unit, setUnit] = useState(value?.unit ?? preferred);
+  const [unit, setUnit] = useState(value?.unit ?? spec.units[0]);
   const set = (n?: number, u = unit) => onChange(n === undefined ? undefined : { value: n, unit: u });
 
   return (

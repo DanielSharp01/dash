@@ -226,7 +226,7 @@ describe("plannedWeight", () => {
 });
 
 describe("loggedWeight", () => {
-  const profile = { units: "metric", heightCm: 180, birthday: "1990-01-01", sex: "male", dayEndsAt: 0, clock: "24h", autoRecap: true } as const;
+  const profile = { heightCm: 180, birthday: "1990-01-01", sex: "male", dayEndsAt: 0, clock: "24h", autoRecap: true } as const;
   const history = splitPlanVersions([{ from: BEGINNING, plan: defaultPlan }]);
   const maintenance = (kg: number) => restingBurn(kg, 180, 36, "male") * defaultPlan.metabolismMultiplier;
 
@@ -344,7 +344,7 @@ describe("schemas", () => {
 });
 
 describe("dailyTargets", () => {
-  const profile = { units: "metric", heightCm: 180, birthday: "1990-01-01", dayEndsAt: 0, clock: "24h", autoRecap: true } as const;
+  const profile = { heightCm: 180, birthday: "1990-01-01", dayEndsAt: 0, clock: "24h", autoRecap: true } as const;
   const weighIns = [{ id: uid(), date: "2026-01-01", kg: 110 }];
   const withPlan = (patch: Partial<typeof defaultPlan>) => splitPlanVersions([{ from: BEGINNING, plan: { ...defaultPlan, ...patch } }]);
 

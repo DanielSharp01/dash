@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { asItem, currentBatch, defaultAmount, displayName, type Food, formatAmount, type Portion, unitsFor, withBase } from "@dash/core";
 import { useFoodLookup } from "../../queries/foods.queries";
-import { useProfile } from "../../queries/me.queries";
 import { batchLabel, recipeUnits } from "../foods";
 import { AddFoodSheet } from "../ui/AddFoodSheet";
 import { AmountInput } from "../ui/AmountInput";
@@ -25,16 +24,15 @@ export function PortionList({
   onChange: (p: Portion[]) => void;
 }) {
   const foods = useFoodLookup();
-  const { units } = useProfile();
   const [open, setOpen] = useState<number>();
   const [adding, setAdding] = useState(false);
   const change = (i: number, patch: Partial<Portion>) => onChange(portions.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const portionOf = (f: Food): Portion => {
-    if (f.kind === "item") return { foodId: f.id, amount: defaultAmount(f, units) };
+    if (f.kind === "item") return { foodId: f.id, amount: defaultAmount(f) };
     if (!within || f.kind !== "recipe") return { foodId: f.id, amount: { value: 1, unit: "portion" } };
     const batchId = currentBatch(f)?.id;
     // How much of a coating or sauce went in is weighed each time, so it starts empty.
-    const unit = recipeUnits(f, batchId, units, foods)[0];
+    const unit = recipeUnits(f, batchId, foods)[0];
     return { foodId: f.id, ...(batchId ? { batchId } : {}), amount: unit === "portion" ? { value: 1, unit } : { unit } };
   };
 
@@ -69,10 +67,10 @@ export function PortionList({
                     units={
                       food?.kind === "item"
                         ? food.unsure
-                          ? [...new Set([...unitsFor(food, units), ...unitsFor(undefined, units)])]
-                          : unitsFor(food, units)
+                          ? [...new Set([...unitsFor(food), ...unitsFor(undefined)])]
+                          : unitsFor(food)
                         : within && food?.kind === "recipe"
-                          ? recipeUnits(food, p.batchId, units, foods)
+                          ? recipeUnits(food, p.batchId, foods)
                           : ["portion", "g"]
                     }
                     allowOther={food?.kind === "item" && food.unsure}

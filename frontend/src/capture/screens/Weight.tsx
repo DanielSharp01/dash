@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { ageOn, dayTotals, daysBetween, formatWeighIn, formatWeight, loggedWeight, metabolismPresets, type Plan, planAt, type PlanAreas, plannedWeight, projectedWeight, shiftDate, toDisplayWeight, type UnitSystem, type WeighIn, weeklyTrend, weeksBetween, weightUnit } from "@dash/core";
+import { ageOn, dayTotals, daysBetween, formatWeighIn, formatWeight, loggedWeight, metabolismPresets, type Plan, planAt, type PlanAreas, plannedWeight, projectedWeight, shiftDate, type WeighIn, weeklyTrend, weeksBetween } from "@dash/core";
 import { useEntriesBetween } from "../../queries/entries.queries";
 import { useFoodLookup } from "../../queries/foods.queries";
-import { useMe, useProfile } from "../../queries/me.queries";
+import { useMe } from "../../queries/me.queries";
 import { addWeighIn, removeWeighIn, useWeighIns } from "../../queries/weighIns.queries";
 import { ADULT_AGE, targetDate } from "../body";
 import { dayMs, todayKey } from "../time";
@@ -18,16 +18,16 @@ const DAY = 86_400_000;
 const CHART_DAYS = 90;
 
 const shortDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
-const signed = (n: number, units: UnitSystem) => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${Math.abs(n).toFixed(2)} ${weightUnit(units)}`;
+const signed = (kg: number) => `${kg > 0 ? "+" : kg < 0 ? "−" : "±"}${Math.abs(kg).toFixed(2)} kg`;
 
 /** The top of Goals: the latest weigh-in, what the plan says, the ways to change it, and the chart. */
 export function WeightSection() {
   const open = useOpen();
   const { profile, plan: history } = useMe();
-  const { units, heightCm, birthday } = profile;
+  const { heightCm, birthday } = profile;
   const all = useWeighIns();
   const latest = all.at(-1);
-  const change = trendChange(all, units);
+  const change = trendChange(all);
   const bmi = latest && heightCm ? latest.kg / (heightCm / 100) ** 2 : undefined;
   const today = todayKey();
   const plan = planAt(history);
@@ -40,7 +40,7 @@ export function WeightSection() {
   const preset = metabolismPresets.find((m) => m.value === plan.metabolismMultiplier);
   const goalSet = history.chosen.includes("goal");
   const metabolismSet = history.chosen.includes("metabolism");
-  const pace = losing ? `−${formatWeight(goal.kgPerWeek, units)}` : "Hold";
+  const pace = losing ? `−${formatWeight(goal.kgPerWeek)}` : "Hold";
 
   return (
     <>
@@ -50,15 +50,15 @@ export function WeightSection() {
           <>
             <div className="weigh-now">
               <div className="weigh-big">
-                <strong>{toDisplayWeight(latest.kg, units).toFixed(2)}</strong>
-                <span>{weightUnit(units)}</span>
+                <strong>{latest.kg.toFixed(2)}</strong>
+                <span>kg</span>
               </div>
               <span className="weigh-when">{latest.date === today ? "Today" : shortDate(latest.date)}</span>
             </div>
             <div className="weigh-meta">
               {change && (
                 <span>
-                  <b className="weigh-change">{signed(change.delta, units)}</b> {change.label}
+                  <b className="weigh-change">{signed(change.delta)}</b> {change.label}
                 </span>
               )}
               {bmi && <BmiBadge bmi={bmi} withBand={!birthday || ageOn(birthday) >= ADULT_AGE} />}
@@ -68,7 +68,7 @@ export function WeightSection() {
           <div className="weigh-now">
             <div className="weigh-big">
               <strong>—</strong>
-              <span>{weightUnit(units)}</span>
+              <span>kg</span>
             </div>
             <span className="weigh-when">No weigh-ins yet</span>
           </div>
@@ -82,7 +82,7 @@ export function WeightSection() {
           </div>
           <div>
             <dt>Target</dt>
-            <dd className={goalSet ? undefined : "stat-unset"}>{!goalSet ? "Not set" : losing && goal.targetKg !== undefined ? formatWeight(goal.targetKg, units) : "—"}</dd>
+            <dd className={goalSet ? undefined : "stat-unset"}>{!goalSet ? "Not set" : losing && goal.targetKg !== undefined ? formatWeight(goal.targetKg) : "—"}</dd>
             <dd className="stat-sub">{goalSet && losing && finish ? `by ${finish.toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : " "}</dd>
           </div>
           <div>
@@ -110,7 +110,7 @@ export function WeightSection() {
             Weigh in
           </button>
         </div>
-        {all.length > 0 && <WeightChart weighIns={all} history={history} units={units} today={today} logged={logged} by="day" onOpen={openChart} {...range} />}
+        {all.length > 0 && <WeightChart weighIns={all} history={history} today={today} logged={logged} by="day" onOpen={openChart} {...range} />}
       </section>
     </>
   );
@@ -154,14 +154,14 @@ export function BmiBadge({ bmi, withBand }: { bmi: number; withBand: boolean }) 
 }
 
 /** The card summarises a stretch of time; the per-weigh-in changes live in the history. */
-function trendChange(all: WeighIn[], units: UnitSystem) {
+function trendChange(all: WeighIn[]) {
   const latest = all.at(-1);
   if (!latest || all.length < 2) return undefined;
   const cutoff = dayMs(latest.date) - 30 * DAY;
   const ref = [...all].reverse().find((w) => dayMs(w.date) <= cutoff) ?? all[0]!;
   if (ref === latest) return undefined;
   const label = dayMs(ref.date) <= cutoff ? "in 30 days" : `since ${shortDate(ref.date)}`;
-  return { delta: toDisplayWeight(latest.kg - ref.kg, units), label };
+  return { delta: latest.kg - ref.kg, label };
 }
 
 /**
@@ -181,7 +181,6 @@ function chartRange(all: WeighIn[], today: string) {
 export function WeightChart({
   weighIns,
   history,
-  units,
   from,
   to,
   today,
@@ -192,7 +191,6 @@ export function WeightChart({
 }: {
   weighIns: WeighIn[];
   history: PlanAreas;
-  units: UnitSystem;
   from: string;
   to: string;
   today: string;
@@ -209,7 +207,7 @@ export function WeightChart({
   const latest = to > today ? weighIns.findLast((w) => w.date <= today) : undefined;
   const planned = latest && latest.date <= from ? [] : plannedWeight(history, weighIns, from, latest?.date ?? to);
   const projected = latest && projectedWeight(latest.date < from ? { date: from, kg: latest.kg } : latest, planAt(history).goal, to);
-  const shown = [...points, ...planned.flat(), ...(projected ?? []), ...(logged ?? [])].map((p) => toDisplayWeight(p.kg, units));
+  const shown = [...points, ...planned.flat(), ...(projected ?? []), ...(logged ?? [])].map((p) => p.kg);
   const lo = Math.floor(Math.min(...shown) - 0.3);
   const hi = Math.ceil(Math.max(...shown) + 0.3);
   const step = hi - lo > 6 ? 2 : 1;
@@ -217,7 +215,7 @@ export function WeightChart({
   const t0 = dayMs(from);
   const span = dayMs(to) - t0;
   const x = (date: string) => plot.left + ((dayMs(date) - t0) / span) * (plot.right - plot.left);
-  const y = (kg: number) => plot.bottom - ((toDisplayWeight(kg, units) - lo) / (hi - lo)) * (plot.bottom - plot.top);
+  const y = (kg: number) => plot.bottom - ((kg - lo) / (hi - lo)) * (plot.bottom - plot.top);
   // Weeks read better than one or two month names on a short window.
   const dateTicks = span / DAY <= 45 ? weekTicks(from, to) : monthStarts(from, to);
   const last = points.at(-1)!;
@@ -295,32 +293,31 @@ export function WeightChart({
  * The stretch's rates a week: the trend line through the weigh-ins, what logged eating implies, and
  * the plan's pace. Under them, how far weigh-ins scatter around the trend from day to day.
  */
-export function WeightStats({ weighIns, logged, goal, units }: { weighIns: WeighIn[]; logged: { date: string; kg: number }[] | undefined; goal: Plan["goal"]; units: UnitSystem }) {
+export function WeightStats({ weighIns, logged, goal }: { weighIns: WeighIn[]; logged: { date: string; kg: number }[] | undefined; goal: Plan["goal"] }) {
   const actual = weeklyTrend(weighIns);
   const fromLogged = logged && weeklyTrend(logged);
-  const perWeek = (kg: number) => signed(toDisplayWeight(kg, units), units);
   return (
     <>
       <dl className="stat-row">
         <div>
           <dt>Actual</dt>
-          <dd>{actual ? perWeek(actual.perWeek) : "—"}</dd>
+          <dd>{actual ? signed(actual.perWeek) : "—"}</dd>
           <dd className="stat-sub">a week</dd>
         </div>
         <div className="stat-logged">
           <dt>From logged</dt>
-          <dd>{fromLogged ? perWeek(fromLogged.perWeek) : "—"}</dd>
+          <dd>{fromLogged ? signed(fromLogged.perWeek) : "—"}</dd>
           <dd className="stat-sub">a week</dd>
         </div>
         <div>
           <dt>Planned</dt>
-          <dd>{goal.kgPerWeek === 0 ? "Hold" : perWeek(-goal.kgPerWeek)}</dd>
+          <dd>{goal.kgPerWeek === 0 ? "Hold" : signed(-goal.kgPerWeek)}</dd>
           <dd className="stat-sub">{goal.kgPerWeek === 0 ? " " : "a week"}</dd>
         </div>
       </dl>
       {actual && (
         <p className="hint stat-note">
-          Weigh-ins scatter ± {toDisplayWeight(actual.scatter, units).toFixed(2)} {weightUnit(units)} around the trend from day to day.
+          Weigh-ins scatter ± {actual.scatter.toFixed(2)} kg around the trend from day to day.
         </p>
       )}
     </>
@@ -364,8 +361,7 @@ const longDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateStri
  */
 export function WeighInRoute() {
   const { close } = useSteps<"weigh">("weigh", undefined, "/goal");
-  const { profile, plan } = useMe();
-  const { units } = profile;
+  const { plan } = useMe();
   const all = useWeighIns();
   const [kg, setKg] = useState<number>();
   const [date, setDate] = useState(todayKey);
@@ -377,7 +373,7 @@ export function WeighInRoute() {
     if (!kg) return;
     const added = { id: crypto.randomUUID(), date, kg };
     void addWeighIn(added);
-    notify(`Weighed in ${formatWeighIn(kg, units)}`, () => {
+    notify(`Weighed in ${formatWeighIn(kg)}`, () => {
       void removeWeighIn(added.id);
       // The server dropped the one it replaced, so it comes back as a new weigh-in.
       if (replaced) void addWeighIn({ ...replaced, id: crypto.randomUUID() });
@@ -404,32 +400,32 @@ export function WeighInRoute() {
           save();
         }}
       >
-        <p className="big-entry-note">{before ? `Last: ${formatWeighIn(before.kg, units)} · ${longDate(before.date)}` : "Your first weigh-in"}</p>
-        <WeightInput kg={kg} units={units} onChange={setKg} autoFocus enterKeyHint="go" />
-        <WeighInChange kg={kg} before={before} kgPerWeek={goal.kgPerWeek} units={units} />
-        <ToTarget kg={kg ?? before?.kg} targetKg={goal.targetKg} kgPerWeek={goal.kgPerWeek} units={units} />
+        <p className="big-entry-note">{before ? `Last: ${formatWeighIn(before.kg)} · ${longDate(before.date)}` : "Your first weigh-in"}</p>
+        <WeightInput kg={kg} onChange={setKg} autoFocus enterKeyHint="go" />
+        <WeighInChange kg={kg} before={before} kgPerWeek={goal.kgPerWeek} />
+        <ToTarget kg={kg ?? before?.kg} targetKg={goal.targetKg} kgPerWeek={goal.kgPerWeek} />
         <DateChip prefix="On" value={date} max={todayKey()} onChange={setDate} />
-        {replaced && <p className="hint">Replaces the {formatWeighIn(replaced.kg, units)} already on that day.</p>}
+        {replaced && <p className="hint">Replaces the {formatWeighIn(replaced.kg)} already on that day.</p>}
       </form>
     </FlowShell>
   );
 }
 
 /** Down reads as good while losing, up while gaining; holding steady has no direction to cheer. */
-function WeighInChange({ kg, before, kgPerWeek, units }: { kg?: number; before?: WeighIn; kgPerWeek: number; units: UnitSystem }) {
+function WeighInChange({ kg, before, kgPerWeek }: { kg?: number; before?: WeighIn; kgPerWeek: number }) {
   if (kg === undefined || !before) return <p className="weigh-change"> </p>;
   const delta = kg - before.kg;
   const tone = kgPerWeek === 0 || Math.abs(delta) < 0.005 ? "plain" : delta < 0 === kgPerWeek > 0 ? "good" : "warn";
-  return <p className={`weigh-change ${tone}`}>{signed(toDisplayWeight(delta, units), units)} since then</p>;
+  return <p className={`weigh-change ${tone}`}>{signed(delta)} since then</p>;
 }
 
-function ToTarget({ kg, targetKg, kgPerWeek, units }: { kg?: number; targetKg?: number; kgPerWeek: number; units: UnitSystem }) {
+function ToTarget({ kg, targetKg, kgPerWeek }: { kg?: number; targetKg?: number; kgPerWeek: number }) {
   if (kg === undefined || targetKg === undefined) return null;
   const reached = kgPerWeek >= 0 ? kg <= targetKg : kg >= targetKg;
-  if (reached) return <p className="big-entry-note">You've reached your {formatWeight(targetKg, units)} target</p>;
+  if (reached) return <p className="big-entry-note">You've reached your {formatWeight(targetKg)} target</p>;
   return (
     <p className="big-entry-note">
-      {Math.abs(toDisplayWeight(kg - targetKg, units)).toFixed(2)} {weightUnit(units)} to {formatWeight(targetKg, units)}
+      {Math.abs(kg - targetKg).toFixed(2)} kg to {formatWeight(targetKg)}
     </p>
   );
 }
@@ -438,7 +434,6 @@ function ToTarget({ kg, targetKg, kgPerWeek, units }: { kg?: number; targetKg?: 
 export function WeighInHistoryRoute() {
   const { close } = useSteps<"history">("history", undefined, "/goal");
   const open = useOpen();
-  const { units } = useProfile();
   const all = useWeighIns();
   const newest = [...all].reverse();
 
@@ -448,7 +443,7 @@ export function WeighInHistoryRoute() {
     const moved = { ...w, id: crypto.randomUUID(), date };
     void removeWeighIn(w.id);
     void addWeighIn(moved);
-    notify(replaced ? `Moved to ${shortDate(date)}, replacing ${formatWeighIn(replaced.kg, units)}` : `Moved to ${shortDate(date)}`, () => {
+    notify(replaced ? `Moved to ${shortDate(date)}, replacing ${formatWeighIn(replaced.kg)}` : `Moved to ${shortDate(date)}`, () => {
       void removeWeighIn(moved.id);
       void addWeighIn({ ...w, id: crypto.randomUUID() });
       if (replaced) void addWeighIn({ ...replaced, id: crypto.randomUUID() });
@@ -473,8 +468,8 @@ export function WeighInHistoryRoute() {
               <span className="weigh-date">
                 <DateChip prefix="" value={w.date} max={todayKey()} onChange={(date) => move(w, date)} />
               </span>
-              <b>{formatWeighIn(w.kg, units)}</b>
-              <span className="weigh-diff">{before ? signed(toDisplayWeight(w.kg - before.kg, units), units) : ""}</span>
+              <b>{formatWeighIn(w.kg)}</b>
+              <span className="weigh-diff">{before ? signed(w.kg - before.kg) : ""}</span>
               <button
                 className="icon-btn small"
                 aria-label="Delete weigh-in"

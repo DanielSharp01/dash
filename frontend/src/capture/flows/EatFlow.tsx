@@ -37,7 +37,6 @@ import {
   type Recipe,
   type Serving,
   unitDimension,
-  type UnitSystem,
   unitsFor,
   type When,
   withBase,
@@ -45,7 +44,6 @@ import {
 import { deleteEntry, saveEntry } from "../../queries/entries.queries";
 import { publishFood, saveBatch, saveFood, useFoodLookup, useFoodUsage } from "../../queries/foods.queries";
 import { lookupBarcode } from "../../queries/lookups.queries";
-import { useProfile } from "../../queries/me.queries";
 import { PortionList } from "../editors/PortionList";
 import { ItemEditor } from "../editors/ItemEditor";
 import { batchLabel, deletedFoods, foodInput, frequentDrinkIds, isDrink, leftovers, recentFoodIds, recipeUnits, useListedFoods, usualAmount, variantsOf } from "../foods";
@@ -100,10 +98,10 @@ function newFoodData(n: NewFood, amount: Amount): FoodData {
 }
 
 /** Without a label yet, the unit the label form starts on comes first, so a typed number lands in g or ml rather than pieces. */
-function newItemUnits(n: NewFood, amount: Amount, system: UnitSystem) {
-  if (labelFrom(n.draft)) return unitsFor(newFoodData(n, amount), system);
+function newItemUnits(n: NewFood, amount: Amount) {
+  if (labelFrom(n.draft)) return unitsFor(newFoodData(n, amount));
   const unit = unitOf(n.draft);
-  const all = unitsFor(undefined, system);
+  const all = unitsFor(undefined);
   return [...all.filter((u) => unitDimension(u) === unit), ...all.filter((u) => unitDimension(u) !== unit)];
 }
 
@@ -114,10 +112,10 @@ function lineFor(f: FoodItem | Recipe, amount: Amount): Line {
 }
 
 /** A batch yields either grams or portions, so an amount remembered from another batch is only kept when it can size this one. */
-function usualFor(f: FoodItem | Recipe, usage: Map<string, FoodUsage>, system: "metric" | "imperial", foods: FoodLookup, batchId?: string): Amount {
+function usualFor(f: FoodItem | Recipe, usage: Map<string, FoodUsage>, foods: FoodLookup, batchId?: string): Amount {
   const usual = usualAmount(usage, f.id);
-  if (f.kind === "item") return usual ?? defaultAmount(f, system);
-  const fitting = recipeUnits(f, batchId, system, foods);
+  if (f.kind === "item") return usual ?? defaultAmount(f);
+  const fitting = recipeUnits(f, batchId, foods);
   if (usual && fitting.includes(usual.unit ?? "")) return usual;
   return fitting[0] === "portion" ? { value: 1, unit: "portion" } : { value: 300, unit: "g" };
 }
@@ -151,8 +149,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
   const exit = useCallback(() => onDone(), [onDone]);
   const first: Step = source || starting ? "amount" : "cards";
   const { step, depth, go, back, replace, close } = useSteps<Step>(first, exit);
-  const { units } = useProfile();
-  const usual = (f: FoodItem | Recipe, batchId?: string) => usualFor(f, usage, units, foods, batchId);
+  const usual = (f: FoodItem | Recipe, batchId?: string) => usualFor(f, usage, foods, batchId);
 
   const [entryId] = useState(() => (mode.kind === "edit" ? mode.entry.id : newId()));
   const [when, setWhen] = useState<When>(() => (mode.kind === "edit" ? mode.entry.when : mode.kind === "duplicate" ? nowWhen() : initialWhen(date)));
@@ -229,7 +226,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
       return;
     }
     const kept = lines.length === 1 ? lines[0]!.amount : undefined;
-    const fits = kept && (f.kind === "item" ? quantity(f, kept) !== undefined : recipeUnits(f, undefined, units, foods).includes(kept.unit ?? ""));
+    const fits = kept && (f.kind === "item" ? quantity(f, kept) !== undefined : recipeUnits(f, undefined, foods).includes(kept.unit ?? ""));
     setComboId(undefined);
     const line = { ...lineFor(f, fits ? kept : usual(f)), id: lines[0]?.id ?? newId() };
     setLines([f.kind === "item" && f.barcode === barcode && barcode ? { ...line, barcode } : line]);
@@ -582,7 +579,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
               )}
             </div>
             {recipe && <BatchChoice recipe={recipe} batchId={line.batchId} onChange={(batchId) =>
-                  setLines([{ ...line, batchId, amount: recipeUnits(recipe, batchId, units, foods).includes(line.amount.unit ?? "") ? line.amount : usual(recipe, batchId) }])
+                  setLines([{ ...line, batchId, amount: recipeUnits(recipe, batchId, foods).includes(line.amount.unit ?? "") ? line.amount : usual(recipe, batchId) }])
                 } />}
             {item && changeable && (
               <VariationChoice
@@ -598,7 +595,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
             )}
             <AmountInput
               amount={line.amount}
-              units={newItem ? newItemUnits(newItem, line.amount, units) : recipe ? recipeUnits(recipe, line.batchId, units, foods) : unitsFor(item, units)}
+              units={newItem ? newItemUnits(newItem, line.amount) : recipe ? recipeUnits(recipe, line.batchId, foods) : unitsFor(item)}
               allowOther={!!newItem || !!item?.unsure}
               onChange={(amount) => setLines([withBase({ ...line, amount }, item)])}
             />
@@ -769,7 +766,6 @@ function VariationChoice({ item, onChange }: { item: FoodItem; onChange: (v: Foo
 
 /** A combo logs at its usual amounts; each part opens for a day with more milk. */
 function ComboLines({ lines, openId, onOpen, onChange }: { lines: Line[]; openId?: string; onOpen: (id?: string) => void; onChange: (l: Line[]) => void }) {
-  const { units } = useProfile();
   const foods = useFoodLookup();
   return (
     <ul className="list combo-lines">
@@ -795,10 +791,10 @@ function ComboLines({ lines, openId, onOpen, onChange }: { lines: Line[]; openId
                   amount={l.amount}
                   units={
                     food?.kind === "recipe"
-                      ? recipeUnits(food, l.batchId, units, foods)
+                      ? recipeUnits(food, l.batchId, foods)
                       : food?.kind === "item" && food.unsure
-                        ? [...new Set([...unitsFor(food, units), ...unitsFor(undefined, units)])]
-                        : unitsFor(asItem(food), units)
+                        ? [...new Set([...unitsFor(food), ...unitsFor(undefined)])]
+                        : unitsFor(asItem(food))
                   }
                   allowOther={food?.kind === "item" && food.unsure}
                   onChange={(amount) => onChange(lines.map((x) => (x.id === l.id ? withBase({ ...x, amount }, asItem(food)) : x)))}
@@ -905,7 +901,6 @@ export function MacroFields({ values, onChange }: { values: Nutrients; onChange:
  */
 function FoodCards({ via, onPick, onSearch, onScan }: { via: FoodEntry["via"]; onPick: (f: Food) => void; onSearch: (query: string) => void; onScan: () => void }) {
   const usage = useFoodUsage();
-  const { units } = useProfile();
   const foods = useFoodLookup();
   const listed = useListedFoods();
   const cards = useMemo(() => {
@@ -926,7 +921,7 @@ function FoodCards({ via, onPick, onSearch, onScan }: { via: FoodEntry["via"]; o
       const b = currentBatch(f);
       return b && !b.gone && !b.shared ? `${batchLabel(b)} batch` : "recipe";
     }
-    return formatAmount(usualAmount(usage, f.id) ?? defaultAmount(f, units));
+    return formatAmount(usualAmount(usage, f.id) ?? defaultAmount(f));
   };
 
   return (

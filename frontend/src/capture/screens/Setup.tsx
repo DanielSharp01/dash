@@ -125,7 +125,7 @@ function HeightStep({ shell, onNext }: { shell: ShellProps; onNext: () => void }
             if (profile.heightCm) onNext();
           }}
         >
-          <HeightInput key={profile.units} cm={profile.heightCm} units={profile.units} onChange={(heightCm) => void saveProfile({ heightCm })} />
+          <HeightInput cm={profile.heightCm} onChange={(heightCm) => void saveProfile({ heightCm })} />
         </form>
       </Question>
     </SetupShell>
@@ -153,7 +153,7 @@ function WeightStep({ shell, onNext }: { shell: ShellProps; onNext: () => void }
             save();
           }}
         >
-          <WeightInput kg={kg} units={profile.units} onChange={setKg} autoFocus enterKeyHint="go" />
+          <WeightInput kg={kg} onChange={setKg} autoFocus enterKeyHint="go" />
           {bmi && <BmiBadge bmi={bmi} withBand={!profile.birthday || ageOn(profile.birthday) >= ADULT_AGE} />}
         </form>
       </Question>
@@ -177,14 +177,14 @@ function PlanStep({ area, shell, onNext }: { area: PlanArea; shell: ShellProps; 
     <SetupShell shell={shell} next={{ onClick: save }}>
       {area === "goal" && (
         <>
-          <GoalFields draft={draft} update={update} units={profile.units} body={bodyKgAt(weighIns)} heightCm={profile.heightCm} adult={!profile.birthday || ageOn(profile.birthday) >= ADULT_AGE} />
+          <GoalFields draft={draft} update={update} body={bodyKgAt(weighIns)} heightCm={profile.heightCm} adult={!profile.birthday || ageOn(profile.birthday) >= ADULT_AGE} />
           <h2 className="list-heading budget-heading">Your daily budget</h2>
-          <Budget t={t} plan={draft} units={profile.units} />
+          <Budget t={t} plan={draft} />
         </>
       )}
       {area === "metabolism" && <DayFields draft={draft} update={update} />}
       {area === "macros" && <MacroFields draft={draft} update={update} t={t} />}
-      {area === "fluid" && <FluidFields draft={draft} update={update} units={profile.units} onSubmit={save} />}
+      {area === "fluid" && <FluidFields draft={draft} update={update} onSubmit={save} />}
     </SetupShell>
   );
 }

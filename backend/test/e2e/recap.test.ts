@@ -36,17 +36,17 @@ describe("recap", () => {
   it("plays by itself unless turned off, and older clients that don't send it leave it on", async () => {
     const u = await newUser();
     expect((await u.get("/me")).body.profile.autoRecap).toBe(true);
-    expect((await u.put("/profile", { units: "metric", dayEndsAt: 0, autoRecap: false, revision: 1 })).body.autoRecap).toBe(false);
-    expect((await u.put("/profile", { units: "metric", dayEndsAt: 0, revision: 2 })).body.autoRecap).toBe(true);
+    expect((await u.put("/profile", { dayEndsAt: 0, autoRecap: false, revision: 1 })).body.autoRecap).toBe(false);
+    expect((await u.put("/profile", { dayEndsAt: 0, revision: 2 })).body.autoRecap).toBe(true);
   });
 
   it("keeps the time zone a device sends with the profile", async () => {
     const u = await newUser();
     await u.get("/me");
-    const saved = await u.put("/profile", { units: "metric", dayEndsAt: 0, timeZone: "Europe/Budapest", revision: 1 });
+    const saved = await u.put("/profile", { dayEndsAt: 0, timeZone: "Europe/Budapest", revision: 1 });
     expect(saved.status).toBe(200);
     expect(saved.body.timeZone).toBe("Europe/Budapest");
-    expect((await u.put("/profile", { units: "metric", dayEndsAt: 0, timeZone: "Mars/Olympus", revision: 2 })).status).toBe(400);
+    expect((await u.put("/profile", { dayEndsAt: 0, timeZone: "Mars/Olympus", revision: 2 })).status).toBe(400);
   });
 });
 

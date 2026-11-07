@@ -301,11 +301,9 @@ export const planHistorySchema = planAreasSchema.extend({
   chosen: z.array(planAreaSchema),
 });
 
-export const unitSystemSchema = z.enum(["metric", "imperial"]);
 export const clockSchema = z.enum(["24h", "12h"]);
 
 export const profileInputSchema = z.object({
-  units: unitSystemSchema,
   heightCm: positive.optional(),
   birthday: dateKeySchema.optional(),
   /** Only for the resting-burn formula, which was fitted on male and female bodies. */
@@ -565,7 +563,6 @@ export type PlanAreas = z.infer<typeof planAreasSchema>;
 export type PlanArea = keyof PlanAreas;
 export type AreaValue<A extends PlanArea> = PlanAreas[A][number]["value"];
 export type PlanHistory = z.infer<typeof planHistorySchema>;
-export type UnitSystem = z.infer<typeof unitSystemSchema>;
 export type Clock = z.infer<typeof clockSchema>;
 export type ProfileInput = z.infer<typeof profileInputSchema>;
 export type Profile = z.infer<typeof profileSchema>;

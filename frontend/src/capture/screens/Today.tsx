@@ -3,7 +3,6 @@ import { asItem, asRecipe, bigDayLine, type Contents, dayTotals, displayName, ty
 import { useActivityLookup } from "../../queries/activities.queries";
 import { useDayEntries, useFollowUp, useFollowUpCount } from "../../queries/entries.queries";
 import { useFoodLookup } from "../../queries/foods.queries";
-import { useProfile } from "../../queries/me.queries";
 import { batchLabel, cookingNow, useListedFoods } from "../foods";
 import { useDailyTargets } from "../targets";
 import { dayHeading, dayParam, dayParts, formatTime, partOf, sortKey, todayKey, uses12h, whenLabel } from "../time";
@@ -100,7 +99,6 @@ export function Today({ day, setDay, onMenu, actions }: { day: string; setDay: (
 /** "≥" on what's eaten and "≤" on what's left whenever something logged has no value yet. */
 function DaySummary({ entries, day }: { entries: Entry[]; day: string }) {
   const goals = useDailyTargets(day);
-  const { units } = useProfile();
   const t = dayTotals(entries, useFoodLookup());
   const budget = goals.kcal + t.burned;
   const left = budget - t.kcal.value;
@@ -155,7 +153,7 @@ function DaySummary({ entries, day }: { entries: Entry[]; day: string }) {
         )}
         <RecapStrip day={day} />
       </div>
-      <FluidBar part={t.fluid} goalMl={goals.fluidMl} units={units} />
+      <FluidBar part={t.fluid} goalMl={goals.fluidMl} />
     </section>
   );
 }
@@ -213,10 +211,10 @@ function MacroRing({ part, goal, label, short }: { part: Part; goal: number; lab
   );
 }
 
-function FluidBar({ part, goalMl, units }: { part: Part; goalMl: number; units: "metric" | "imperial" }) {
+function FluidBar({ part, goalMl }: { part: Part; goalMl: number }) {
   const share = Math.min(part.value / goalMl, 1);
   return (
-    <div className="fluid-col" role="img" aria-label={`Fluid ${formatFluid(part.value, units)} of ${formatFluid(goalMl, units)}`}>
+    <div className="fluid-col" role="img" aria-label={`Fluid ${formatFluid(part.value)} of ${formatFluid(goalMl)}`}>
       <span className="fluid-icon" aria-hidden>
         💧
       </span>
@@ -225,8 +223,8 @@ function FluidBar({ part, goalMl, units }: { part: Part; goalMl: number; units: 
       </span>
       <span className="fluid-value">
         {part.missing ? "≥" : ""}
-        {formatFluid(part.value, units)}
-        <small>of {formatFluid(goalMl, units)}</small>
+        {formatFluid(part.value)}
+        <small>of {formatFluid(goalMl)}</small>
       </span>
     </div>
   );

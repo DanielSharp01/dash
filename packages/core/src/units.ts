@@ -1,43 +1,10 @@
-import type { UnitSystem } from "./schemas";
-
-const LB = 0.45359237;
-const INCH = 2.54;
-
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export const weightUnit = (u: UnitSystem) => (u === "metric" ? "kg" : "lb");
-export const toDisplayWeight = (kg: number, u: UnitSystem) => round2(u === "metric" ? kg : kg / LB);
-export const fromDisplayWeight = (n: number, u: UnitSystem) => (u === "metric" ? n : n * LB);
-export const formatWeight = (kg: number, u: UnitSystem) => `${toDisplayWeight(kg, u)} ${weightUnit(u)}`;
+export const formatWeight = (kg: number) => `${round2(kg)} kg`;
 /** Always two decimals, as scales show them, so a list of weigh-ins lines up. */
-export const formatWeighIn = (kg: number, u: UnitSystem) => `${toDisplayWeight(kg, u).toFixed(2)} ${weightUnit(u)}`;
-
-export function formatHeight(cm: number, u: UnitSystem) {
-  if (u === "metric") return `${Math.round(cm)} cm`;
-  const { ft, inch } = toFeet(cm);
-  return `${ft}′${inch}″`;
-}
-
-export function toFeet(cm: number) {
-  const total = Math.round(cm / INCH);
-  return { ft: Math.floor(total / 12), inch: total % 12 };
-}
-
-export const fromFeet = (ft: number, inch: number) => (ft * 12 + inch) * INCH;
-
-const FL_OZ = 29.5735;
-
-export function formatFluid(ml: number, u: UnitSystem) {
-  if (u === "imperial") return `${Math.round(ml / FL_OZ)} fl oz`;
-  return ml >= 1000 ? `${Math.round(ml / 100) / 10} L` : `${Math.round(ml)} ml`;
-}
-
-export const fluidUnit = (u: UnitSystem) => (u === "metric" ? "ml" : "fl oz");
-export const toDisplayFluid = (ml: number, u: UnitSystem) => (u === "metric" ? Math.round(ml) : Math.round(ml / FL_OZ));
-export const fromDisplayFluid = (n: number, u: UnitSystem) => (u === "metric" ? n : n * FL_OZ);
-
-/** Which unit a measure field starts on; the person can still switch per entry. */
-export const preferredDistance = (u: UnitSystem) => (u === "metric" ? "km" : "mi");
+export const formatWeighIn = (kg: number) => `${kg.toFixed(2)} kg`;
+export const formatHeight = (cm: number) => `${Math.round(cm)} cm`;
+export const formatFluid = (ml: number) => (ml >= 1000 ? `${Math.round(ml / 100) / 10} L` : `${Math.round(ml)} ml`);
 
 /** A quick amount button; named ones are sizes people recognise, like a glass or a tbsp. */
 export type QuickSize = { value: number; name?: string; plural?: string };
@@ -45,14 +12,13 @@ export type QuickSize = { value: number; name?: string; plural?: string };
 /**
  * Rows of quick sizes: spoons, then containers. Spoons are only offered in ml: a tbsp of a powder
  * weighs anything from 5 to 18 g depending on what it is, so weighed items need their own serving
- * for it. ½ fl oz is exactly a US tbsp.
+ * for it.
  */
 const quickSizes: Record<string, QuickSize[][]> = {
   g: [
     [100, 200, 300, 400, 500],
     [600, 700, 800, 900, 1000],
   ].map((row) => row.map((value) => ({ value }))),
-  oz: [[1, 2, 4, 8, 12, 16].map((value) => ({ value }))],
   ml: [
     [
       { value: 5, name: "tsp" },
@@ -67,20 +33,9 @@ const quickSizes: Record<string, QuickSize[][]> = {
       { value: 1000, name: "jug", plural: "jugs" },
     ],
   ],
-  "fl oz": [
-    [{ value: 0.5, name: "tbsp" }],
-    [
-      { value: 4, name: "small glass", plural: "small glasses" },
-      { value: 8, name: "cup", plural: "cups" },
-      { value: 12, name: "can", plural: "cans" },
-      { value: 16, name: "pint", plural: "pints" },
-      { value: 20, name: "large glass", plural: "large glasses" },
-      { value: 32, name: "quart", plural: "quarts" },
-    ],
-  ],
 };
 
-const fineSteps: Record<string, number[]> = { g: [1, 10, 100], ml: [1, 10, 100], oz: [0.5, 1, 10], "fl oz": [0.5, 1, 10] };
+const fineSteps: Record<string, number[]> = { g: [1, 10, 100], ml: [1, 10, 100] };
 
 /** Undefined for servings and pieces, which are counted rather than measured. */
 export const quickSizesFor = (unit?: string) => (unit ? quickSizes[unit] : undefined);
