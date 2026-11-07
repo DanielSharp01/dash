@@ -58,24 +58,24 @@ export function WeightSection() {
         ) : (
           <p className="hint weight-empty">No weigh-ins yet.</p>
         )}
-        <dl className="weight-stats">
+        <dl className="stat-row">
           <div>
             <dt>Pace</dt>
             <dd>{losing ? `−${formatWeight(goal.kgPerWeek, units)}` : "Hold"}</dd>
-            <dd className="weight-stat-sub">{losing ? "a week" : "maintain"}</dd>
+            <dd className="stat-sub">{losing ? "a week" : "maintain"}</dd>
           </div>
           <div>
             <dt>Target</dt>
             <dd>{losing && goal.targetKg !== undefined ? formatWeight(goal.targetKg, units) : "—"}</dd>
-            <dd className="weight-stat-sub">{losing && finish ? `by ${finish.toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : " "}</dd>
+            <dd className="stat-sub">{losing && finish ? `by ${finish.toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : " "}</dd>
           </div>
           <div>
             <dt>Metabolism</dt>
             <dd>× {plan.metabolismMultiplier}</dd>
-            <dd className="weight-stat-sub">{plan.calibratedFrom ? `from ${plan.calibratedFrom.maintenanceKcal.toLocaleString()} kcal` : (preset?.label ?? "custom")}</dd>
+            <dd className="stat-sub">{plan.calibratedFrom ? `from ${plan.calibratedFrom.maintenanceKcal.toLocaleString()} kcal` : (preset?.label ?? "custom")}</dd>
           </div>
         </dl>
-        <div className="weight-actions">
+        <div className="card-actions">
           <button className="chip" onClick={() => open("/goal/goal")}>
             Edit goal
           </button>

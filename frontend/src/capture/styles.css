@@ -1934,7 +1934,89 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
-.weight-stats {
+.goal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 8px;
+}
+
+.stat-protein dd:not(.stat-sub) {
+  color: var(--protein);
+}
+
+.stat-carbs dd:not(.stat-sub) {
+  color: var(--carbs);
+}
+
+.stat-fat dd:not(.stat-sub) {
+  color: var(--fat);
+}
+
+.chart-label-today {
+  font-weight: 700;
+  fill: var(--text);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.chart-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.chart-legend li::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.legend-protein::before {
+  background: var(--protein);
+}
+
+.legend-carbs::before {
+  background: var(--carbs);
+}
+
+.legend-fat::before {
+  background: var(--fat);
+}
+
+.legend-other::before {
+  background: var(--muted);
+  opacity: 0.45;
+}
+
+.chart-legend .legend-line::before {
+  width: 14px;
+  height: 0;
+  border-top: 2px solid var(--text);
+  border-radius: 0;
+}
+
+.chart-legend .legend-protein-line::before {
+  border-top-style: dashed;
+  border-top-color: var(--protein);
+}
+
+.stat-row {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1944,11 +2026,11 @@ h1 {
   border-block: 1px solid var(--line);
 }
 
-.weight-stats div {
+.stat-row div {
   min-width: 0;
 }
 
-.weight-stats dt {
+.stat-row dt {
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -1956,14 +2038,14 @@ h1 {
   color: var(--muted);
 }
 
-.weight-stats dd {
+.stat-row dd {
   margin: 2px 0 0;
   font-size: 1.05rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-.weight-stats .weight-stat-sub {
+.stat-row .stat-sub {
   margin: 0;
   font-size: 0.78rem;
   font-weight: 400;
@@ -1973,21 +2055,21 @@ h1 {
   text-overflow: ellipsis;
 }
 
-.weight-actions {
+.card-actions {
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.weight-actions .chip {
+.card-actions .chip {
   flex: 1 1 auto;
   min-height: 36px;
   padding: 0 10px;
   font-size: 0.82rem;
 }
 
-.weight-actions .primary {
+.card-actions .primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-text);

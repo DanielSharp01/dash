@@ -38,6 +38,7 @@ import { FlowShell } from "../ui/FlowShell";
 import { MissingDetails } from "../ui/MissingDetails";
 import { NumberInput } from "../ui/NumberInput";
 import { useOpen, useSteps } from "../ui/useSteps";
+import { MacrosSection } from "./Macros";
 import { BmiBadge, WeightSection } from "./Weight";
 
 type GoalArea = "goal" | "metabolism" | "macros" | "fluid";
@@ -58,30 +59,24 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
   const { profile, plan: history } = useMe();
   const { units } = profile;
   const plan = planAt(history);
-  const t = dailyTargets(profile, history, useWeighIns());
   const changes = planChanges(history, units);
-  const summaries = {
-    macros: `${macroPresets[plan.macroPlan.preset].label} · P ${t.protein} g · C ${t.carbs} g · F ${t.fat} g`,
-    fluid: `${formatFluid(plan.fluidGoalMl, units)} a day`,
-  };
 
   return (
     <FlowShell title="Goal" canGoBack={false} onBack={close} onClose={close} onMenu={onMenu}>
       <WeightSection />
+      <MacrosSection />
 
       <ul className="list">
-        {(["macros", "fluid"] as const).map((area) => (
-          <li key={area}>
-            <button className="row" onClick={() => open(`/goal/${area}`)}>
-              <span className="row-icon">{areas[area].icon}</span>
-              <span className="row-main">
-                <span className="row-title">{areas[area].title}</span>
-                <span className="row-sub">{summaries[area]}</span>
-              </span>
-              <span className="row-chevron">›</span>
-            </button>
-          </li>
-        ))}
+        <li>
+          <button className="row" onClick={() => open("/goal/fluid")}>
+            <span className="row-icon">{areas.fluid.icon}</span>
+            <span className="row-main">
+              <span className="row-title">{areas.fluid.title}</span>
+              <span className="row-sub">{formatFluid(plan.fluidGoalMl, units)} a day</span>
+            </span>
+            <span className="row-chevron">›</span>
+          </button>
+        </li>
       </ul>
 
       {changes.length > 1 && (
