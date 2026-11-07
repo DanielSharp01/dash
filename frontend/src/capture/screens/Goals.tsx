@@ -37,8 +37,10 @@ import { DateChip, tapCard } from "../ui/DateChip";
 import { FlowShell } from "../ui/FlowShell";
 import { MissingDetails } from "../ui/MissingDetails";
 import { NumberInput } from "../ui/NumberInput";
+import { Sheet } from "../ui/Sheet";
 import { useSteps } from "../ui/useSteps";
 import { FluidSection } from "./Fluid";
+import { averageOf, useGoalDays } from "./goalDays";
 import { MacrosSection } from "./Macros";
 import { BmiBadge, WeightSection } from "./Weight";
 
@@ -148,13 +150,25 @@ function SetGoalArea({ area }: { area: GoalArea }) {
   const [from, setFrom] = useState(todayKey);
   const since = changeStartsFrom(history, draft);
   const fromValid = !!from && from >= since;
+  const [asking, setAsking] = useState(false);
+  const changed = !samePlan(draft, current);
   const save = (change: "fix" | { from: string }) => {
     void savePlan(draft, change);
     close();
   };
 
   return (
-    <FlowShell title={areas[area].title} canGoBack onBack={close} onClose={close}>
+    <FlowShell
+      title={areas[area].title}
+      canGoBack
+      onBack={close}
+      onClose={close}
+      footer={
+        <button className="btn btn-primary btn-block" disabled={!changed} onClick={() => setAsking(true)}>
+          Save
+        </button>
+      }
+    >
       {area === "goal" && <GoalFields draft={draft} update={update} units={units} body={bodyKgAt(weighIns)} heightCm={profile.heightCm} adult={!profile.birthday || ageOn(profile.birthday) >= ADULT_AGE} />}
       {area === "goal" && (
         <>
@@ -164,11 +178,10 @@ function SetGoalArea({ area }: { area: GoalArea }) {
       )}
       {area === "metabolism" && <MetabolismFields draft={draft} update={update} bmr={t.calc?.bmr} />}
       {area === "macros" && <MacroFields draft={draft} update={update} t={t} />}
-      {area === "fluid" && <FluidFields draft={draft} update={update} units={units} />}
+      {area === "fluid" && <FluidFields draft={draft} update={update} units={units} onSubmit={() => changed && setAsking(true)} />}
 
-      {!samePlan(draft, current) && (
-        <div className="field">
-          <span className="field-label">Save</span>
+      {asking && (
+        <Sheet title="Save the change" onClose={() => setAsking(false)}>
           <button className="row row-choice" onClick={() => save("fix")}>
             <span className="row-main">
               <span className="row-title">Correct the current one</span>
@@ -182,7 +195,7 @@ function SetGoalArea({ area }: { area: GoalArea }) {
               <DateChip prefix="From" value={from} min={since === BEGINNING ? undefined : since} max={todayKey()} onChange={setFrom} />
             </span>
           </div>
-        </div>
+        </Sheet>
       )}
     </FlowShell>
   );
@@ -432,16 +445,27 @@ function MacroFields({ draft, update, t }: FieldsProps & { t: DailyTargets }) {
   );
 }
 
-function FluidFields({ draft, update, units }: FieldsProps & { units: UnitSystem }) {
+/** One number, so the keyboard's Go saves; last week's drinking shows what the target asks of you. */
+function FluidFields({ draft, update, units, onSubmit }: FieldsProps & { units: UnitSystem; onSubmit: () => void }) {
+  const today = todayKey();
+  const logged = useGoalDays(shiftDate(today, -7), shiftDate(today, -1)).filter((d) => d.totals);
+  const average = logged.length ? averageOf(logged, (d) => d.totals!.fluid.value) : undefined;
   return (
-    <div className="field">
-      <span className="field-label">Daily fluid</span>
+    <form
+      className="big-entry"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit();
+      }}
+    >
+      <p className="big-entry-note">Your daily target</p>
       <label className="kcal-field">
-        <NumberInput key={units} integer value={toDisplayFluid(draft.fluidGoalMl, units)} onChange={(n) => n && n > 0 && update({ fluidGoalMl: fromDisplayFluid(n, units) })} />
+        <NumberInput key={units} integer enterKeyHint="go" value={toDisplayFluid(draft.fluidGoalMl, units)} onChange={(n) => n && n > 0 && update({ fluidGoalMl: fromDisplayFluid(n, units) })} />
         <span>{fluidUnit(units)}</span>
       </label>
+      {average !== undefined && <p className="big-entry-note">You averaged {formatFluid(average, units)} a day over the last 7 days</p>}
       <p className="hint">Drinks measured in ml count toward it. About 2 L a day is a common target; food covers some water too.</p>
-    </div>
+    </form>
   );
 }
 

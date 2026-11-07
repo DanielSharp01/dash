@@ -1836,7 +1836,7 @@ h1 {
   color: var(--muted);
 }
 
-.weigh-form {
+.big-entry {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1845,22 +1845,21 @@ h1 {
   text-align: center;
 }
 
-.weigh-form .kcal-field input {
+.big-entry .kcal-field input {
   width: 5ch;
   font-size: 3.4rem;
   text-align: center;
 }
 
-.weigh-form .kcal-field span {
+.big-entry .kcal-field span {
   font-size: 1.2rem;
 }
 
-.weigh-form p {
+.big-entry p {
   margin: 0;
 }
 
-.weigh-before,
-.weigh-to-go {
+.big-entry-note {
   color: var(--muted);
 }
 
@@ -1877,12 +1876,8 @@ h1 {
   color: var(--warn);
 }
 
-.weigh-form .date-chip {
+.big-entry .date-chip {
   align-self: center;
-}
-
-.weigh-form .field {
-  margin-bottom: 0;
 }
 
 .weigh-row {

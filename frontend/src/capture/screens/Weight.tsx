@@ -337,13 +337,13 @@ export function WeighInRoute() {
       }
     >
       <form
-        className="weigh-form"
+        className="big-entry"
         onSubmit={(e) => {
           e.preventDefault();
           save();
         }}
       >
-        <p className="weigh-before">{before ? `Last: ${formatWeighIn(before.kg, units)} · ${longDate(before.date)}` : "Your first weigh-in"}</p>
+        <p className="big-entry-note">{before ? `Last: ${formatWeighIn(before.kg, units)} · ${longDate(before.date)}` : "Your first weigh-in"}</p>
         <WeightInput kg={kg} units={units} onChange={setKg} autoFocus enterKeyHint="go" />
         <WeighInChange kg={kg} before={before} kgPerWeek={goal.kgPerWeek} units={units} />
         <ToTarget kg={kg ?? before?.kg} targetKg={goal.targetKg} kgPerWeek={goal.kgPerWeek} units={units} />
@@ -365,9 +365,9 @@ function WeighInChange({ kg, before, kgPerWeek, units }: { kg?: number; before?:
 function ToTarget({ kg, targetKg, kgPerWeek, units }: { kg?: number; targetKg?: number; kgPerWeek: number; units: UnitSystem }) {
   if (kg === undefined || targetKg === undefined) return null;
   const reached = kgPerWeek >= 0 ? kg <= targetKg : kg >= targetKg;
-  if (reached) return <p className="weigh-to-go">You've reached your {formatWeight(targetKg, units)} target</p>;
+  if (reached) return <p className="big-entry-note">You've reached your {formatWeight(targetKg, units)} target</p>;
   return (
-    <p className="weigh-to-go">
+    <p className="big-entry-note">
       {Math.abs(toDisplayWeight(kg - targetKg, units)).toFixed(2)} {weightUnit(units)} to {formatWeight(targetKg, units)}
     </p>
   );
