@@ -48,7 +48,10 @@ function Login() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<Login />);
+const showLogin = () => createRoot(document.getElementById("root")!).render(<Login />);
+
+// Someone already signed in, say from an old bookmark, belongs in the app, not at the sign-in button.
+void fetch("/api/me").then((res) => (res.ok ? location.replace(safeReturnTo) : showLogin()), showLogin);
 
 // Browsers only offer to install the app once a service worker controls it.
 void navigator.serviceWorker?.register("/sw.js");
