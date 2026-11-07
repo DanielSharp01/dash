@@ -1983,11 +1983,17 @@ h1 {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 6px 16px;
+  gap: 14px 16px;
   background: var(--surface);
   border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-bottom: 8px;
+  padding: 18px 16px;
+  margin-bottom: 12px;
+}
+
+.weigh-latest > .bmi {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-block: -4px;
 }
 
 .weigh-big {
@@ -2006,10 +2012,14 @@ h1 {
   color: var(--muted);
 }
 
+/* As tall as the big number, so the change centres on it rather than on the number and date together. */
 .weigh-meta {
+  align-self: start;
+  min-height: 2.2rem;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  justify-content: center;
+  align-items: center;
   gap: 6px;
   font-size: 0.85rem;
   color: var(--muted);
@@ -2026,6 +2036,10 @@ h1 {
   color: var(--muted);
 }
 
+.weigh-since {
+  white-space: nowrap;
+}
+
 .weigh-change {
   color: var(--text);
   font-variant-numeric: tabular-nums;
@@ -2034,11 +2048,11 @@ h1 {
 .goal-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   background: var(--surface);
   border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-bottom: 8px;
+  padding: 14px 16px 18px;
+  margin-bottom: 12px;
 }
 
 .stat-protein dd:not(.stat-sub) {
@@ -2155,9 +2169,14 @@ h1 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin: 4px 0;
-  padding: 10px 0;
+  margin: 0;
+  padding: 14px 0;
   border-block: 1px solid var(--line);
+}
+
+.goal-card > .stat-row:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .stat-row div {
@@ -2194,7 +2213,7 @@ h1 {
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .card-actions .chip {
@@ -2271,6 +2290,7 @@ h1 {
   font-weight: 700;
   padding: 3px 9px;
   border-radius: 999px;
+  white-space: nowrap;
 }
 
 .bmi-under {

@@ -58,11 +58,11 @@ export function WeightSection() {
             <div className="weigh-meta">
               {change && (
                 <span>
-                  <b className="weigh-change">{signed(change.delta)}</b> {change.label}
+                  <b className="weigh-change">{signed(change.delta)}</b> <span className="nowrap">{change.label}</span>
                 </span>
               )}
-              {bmi && <BmiBadge bmi={bmi} withBand={!birthday || ageOn(birthday) >= ADULT_AGE} />}
             </div>
+            {bmi && <BmiBadge bmi={bmi} withBand={!birthday || ageOn(birthday) >= ADULT_AGE} />}
           </>
         ) : (
           <div className="weigh-now">
