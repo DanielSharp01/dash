@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { asItem, asRecipe, bigDayLine, type Contents, dayTotals, displayName, type Entry, entryContents, lineContents, entryNeedsFollowUp, type FoodLookup, formatAmount, formatFluid, type Line, type Part, recapWorthShowing, shiftDate } from "@dash/core";
+import { asItem, asRecipe, bigDayLine, type Contents, cookingTooLong, dayTotals, displayName, type Entry, entryContents, lineContents, entryNeedsFollowUp, type FoodLookup, formatAmount, formatFluid, type Line, type Part, recapWorthShowing, shiftDate } from "@dash/core";
 import { useActivityLookup } from "../../queries/activities.queries";
 import { useDayEntries, useFollowUp, useFollowUpCount } from "../../queries/entries.queries";
 import { deleteBatch, restoreBatch, useFoodLookup } from "../../queries/foods.queries";
@@ -63,10 +63,11 @@ export function Today({ day, setDay, onMenu, actions }: { day: string; setDay: (
         <div className="home-status">
           {cooking.map((r) => {
             const batch = unfinishedBatch(r)!;
+            const forgotten = cookingTooLong(batch, todayKey());
             return (
               <span key={r.id} className="status-group">
-                <button className="status-btn status-cooking" onClick={() => open(`/cook/${r.id}`)}>
-                  🔥 Cooking {r.name} ›
+                <button className={`status-btn ${forgotten ? "status-ask" : "status-cooking"}`} onClick={() => open(`/cook/${r.id}`)}>
+                  {forgotten ? `🔥 ${r.name}, cooking since ${batchLabel(batch)}: finish or discard? ›` : `🔥 Cooking ${r.name} ›`}
                 </button>
                 <button
                   className="icon-btn small"

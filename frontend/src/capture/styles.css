@@ -2982,6 +2982,12 @@ input[type="checkbox"]:focus-visible {
   border-radius: 10px;
 }
 
+.status-ask {
+  background: var(--warn-bg);
+  color: var(--warn);
+  text-align: left;
+}
+
 .status-inbox {
   background: var(--warn-bg);
   color: var(--warn);

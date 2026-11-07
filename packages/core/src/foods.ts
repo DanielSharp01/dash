@@ -1,4 +1,5 @@
 import type { Food, FoodItem, Recipe, ReferenceTable, StoredBatch } from "./schemas";
+import { daysBetween } from "./time";
 
 /** Every food lookup in core goes through one of these, so the caller decides where foods come from. */
 export type FoodLookup = (id: string | undefined) => Food | undefined;
@@ -45,6 +46,11 @@ export function cookingState(r: Recipe, today: string): CookingState {
   const finishedToday = own.find((b) => isFinished(b) && b.madeOn === today && !b.gone);
   return finishedToday ? { kind: "finished-today", batch: finishedToday } : { kind: "fresh" };
 }
+
+/** Still cooking this many days after it was started, a batch is probably forgotten, so Today asks about it. */
+export const COOKING_ASK_AFTER_DAYS = 3;
+
+export const cookingTooLong = (b: Pick<StoredBatch, "madeOn" | "yield">, today: string) => !isFinished(b) && daysBetween(b.madeOn, today) >= COOKING_ASK_AFTER_DAYS;
 
 /** A recipe is only offered for logging once at least one cooking is finished. */
 export const loggable = (f: Food) => f.kind !== "recipe" || !!latestBatch(f);

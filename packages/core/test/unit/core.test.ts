@@ -4,6 +4,7 @@ import {
   BEGINNING,
   comboAsLines,
   cookingState,
+  cookingTooLong,
   currentBatch,
   customMacroPlan,
   dailyTargets,
@@ -289,6 +290,15 @@ describe("cookingState", () => {
     const deletedCooking = batch(today, { yield: undefined, deleted: true });
     const shared = batch(today, { shared: true });
     expect(cookingState(recipe([deletedCooking, shared]), today)).toEqual({ kind: "fresh" });
+  });
+});
+
+describe("cookingTooLong", () => {
+  it("asks from the third day of cooking, and never about a finished batch", () => {
+    const today = "2026-11-07";
+    expect(cookingTooLong({ madeOn: "2026-11-05" }, today)).toBe(false);
+    expect(cookingTooLong({ madeOn: "2026-11-04" }, today)).toBe(true);
+    expect(cookingTooLong({ madeOn: "2026-10-01", yield: { grams: 800 } }, today)).toBe(false);
   });
 });
 
