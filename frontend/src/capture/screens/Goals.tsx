@@ -14,7 +14,9 @@ import {
   planAt,
   samePlan,
   toDisplayFluid,
+  toDisplayWeight,
   type UnitSystem,
+  weightUnit,
 } from "@dash/core";
 import { savePlan, useMe } from "../../queries/me.queries";
 import { useWeighIns } from "../../queries/weighIns.queries";
@@ -152,7 +154,20 @@ export function GoalsScreen({ onMenu }: { onMenu: () => void }) {
             );
           })}
         </div>
-        <p className="hint">Per week. Slower is easier to keep up; most guidance tops out around 1% of body weight a week.</p>
+        <label className="measure-def multiplier-custom">
+          Or exactly
+          <NumberInput
+            aria-label="Pace per week"
+            value={toDisplayWeight(goal.kgPerWeek, units)}
+            onChange={(n) => n !== undefined && updatePlan({ goal: { ...goal, kgPerWeek: fromDisplayWeight(n, units) } })}
+          />
+          {weightUnit(units)} a week
+        </label>
+        <p className="hint">
+          {t.calc && goal.kgPerWeek > t.calc.bodyKg * 0.01
+            ? "That's more than 1% of your body weight a week, faster than most guidance suggests."
+            : "Per week. Slower is easier to keep up; most guidance tops out around 1% of body weight a week."}
+        </p>
       </div>
 
       {goal.kgPerWeek > 0 && (
