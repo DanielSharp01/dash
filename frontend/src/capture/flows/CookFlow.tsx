@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { asRecipe, cookingState, type Recipe, type StoredBatch } from "@dash/core";
-import { useFoodLookup } from "../../queries/foods.queries";
+import { deleteBatch, restoreBatch, useFoodLookup } from "../../queries/foods.queries";
 import { BatchEditor, copySource, createRecipe, startBatch } from "../editors/RecipeEditors";
 import { batchLabel, unfinishedBatch } from "../foods";
 import { todayKey } from "../time";
@@ -94,9 +94,31 @@ export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (log
       </FlowShell>
     );
 
-  if (step === "batch" && recipe && batch)
+  if (step === "batch" && recipe && batch) {
+    const saved = recipe.batches.some((b) => b.id === batch.id);
+    // An unsaved draft has nothing to delete; leaving it is the discard.
+    const discard = () => {
+      if (saved) {
+        void deleteBatch(recipe.id, batch.id);
+        notify(`Discarded ${recipe.name}`, () => void restoreBatch(recipe.id, batch.id));
+      }
+      close();
+    };
     return (
-      <FlowShell title={recipe.name} subtitle={`${fixing ? "Batch" : "Cooking"} · ${batchLabel(batch)}`} canGoBack={depth > 1} onBack={back} onClose={close}>
+      <FlowShell
+        title={recipe.name}
+        subtitle={`${fixing ? "Batch" : "Cooking"} · ${batchLabel(batch)}`}
+        canGoBack={depth > 1}
+        onBack={back}
+        onClose={close}
+        actions={
+          !fixing && (
+            <button className="link-btn danger" onClick={discard}>
+              Discard
+            </button>
+          )
+        }
+      >
         {copiedFrom && batch.id === draft?.id && (
           <div className="notice">
             <span>Copied from {copiedFrom}, change what's different.</span>
@@ -114,6 +136,7 @@ export function CookFlow({ recipeId, onDone }: { recipeId?: string; onDone: (log
         />
       </FlowShell>
     );
+  }
 
   return (
     <FlowShell title="I cooked" canGoBack={false} onBack={back} onClose={close}>

@@ -2,8 +2,8 @@ import { useState } from "react";
 import { asItem, asRecipe, bigDayLine, type Contents, dayTotals, displayName, type Entry, entryContents, lineContents, entryNeedsFollowUp, type FoodLookup, formatAmount, formatFluid, type Line, type Part, recapWorthShowing, shiftDate } from "@dash/core";
 import { useActivityLookup } from "../../queries/activities.queries";
 import { useDayEntries, useFollowUp, useFollowUpCount } from "../../queries/entries.queries";
-import { useFoodLookup } from "../../queries/foods.queries";
-import { batchLabel, cookingNow, useListedFoods } from "../foods";
+import { deleteBatch, restoreBatch, useFoodLookup } from "../../queries/foods.queries";
+import { batchLabel, cookingNow, unfinishedBatch, useListedFoods } from "../foods";
 import { useDailyTargets } from "../targets";
 import { dayHeading, dayParam, dayParts, formatTime, partOf, sortKey, todayKey, uses12h, whenLabel } from "../time";
 import { FlowShell } from "../ui/FlowShell";
@@ -14,6 +14,7 @@ import { MiniMacros, macroMeta } from "../ui/MiniMacros";
 import { MissingDetails } from "../ui/MissingDetails";
 import { useOpen, useSteps } from "../ui/useSteps";
 import { stripEmoji, stripLabel } from "../ui/RecapOverlay";
+import { notify } from "../ui/notify";
 import { playRecap, useDayRecap } from "../recap";
 
 export interface EntryActions {
@@ -60,11 +61,26 @@ export function Today({ day, setDay, onMenu, actions }: { day: string; setDay: (
 
       {(inbox > 0 || cooking.length > 0) && (
         <div className="home-status">
-          {cooking.map((r) => (
-            <button key={r.id} className="status-btn status-cooking" onClick={() => open(`/cook/${r.id}`)}>
-              🔥 Cooking {r.name} ›
-            </button>
-          ))}
+          {cooking.map((r) => {
+            const batch = unfinishedBatch(r)!;
+            return (
+              <span key={r.id} className="status-group">
+                <button className="status-btn status-cooking" onClick={() => open(`/cook/${r.id}`)}>
+                  🔥 Cooking {r.name} ›
+                </button>
+                <button
+                  className="icon-btn small"
+                  aria-label={`Discard ${r.name}`}
+                  onClick={() => {
+                    void deleteBatch(r.id, batch.id);
+                    notify(`Discarded ${r.name}`, () => void restoreBatch(r.id, batch.id));
+                  }}
+                >
+                  ✕
+                </button>
+              </span>
+            );
+          })}
           {inbox > 0 && (
             <button className="status-btn status-inbox" onClick={() => open("/follow-up")}>
               📥 {inbox} to follow up ›

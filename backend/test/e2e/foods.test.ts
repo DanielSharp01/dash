@@ -314,7 +314,7 @@ describe("deleting", () => {
 });
 
 describe("batches", () => {
-  it("creates a draft with revision 0, finishes it, and guards later saves", async () => {
+  it("creates a draft with revision 0, finishes it, guards later saves, and restores it after a delete", async () => {
     const u = await newUser();
     const beans = item({ name: "Beans", unit: "g" });
     const chili = recipe();
@@ -333,6 +333,10 @@ describe("batches", () => {
     expect(listed.batches).toHaveLength(1);
     expect((await u.delete(`/foods/${chili.id}/batches/${batch.id}`)).status).toBe(204);
     expect((await u.get("/foods")).body.foods.find((f: any) => f.id === chili.id).batches[0].deleted).toBe(true);
+    const restored = await u.post(`/foods/${chili.id}/batches/${batch.id}/restore`);
+    expect(restored.status).toBe(200);
+    expect(restored.body).toMatchObject({ id: batch.id, deleted: false, yield: { portions: 4 } });
+    expect((await u.get("/foods")).body.foods.find((f: any) => f.id === chili.id).batches[0].deleted).toBe(false);
   });
 
   it("publishes a recipe with a copy of a finished batch as everyone's reference, and keeps each cook's batches their own", async () => {

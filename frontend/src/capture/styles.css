@@ -2969,6 +2969,12 @@ input[type="checkbox"]:focus-visible {
   justify-content: flex-start;
 }
 
+.status-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .status-btn {
   font-size: 0.8rem;
   font-weight: 600;
