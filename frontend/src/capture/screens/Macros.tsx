@@ -2,7 +2,7 @@ import { useId } from "react";
 import { macroPresets, planAt } from "@dash/core";
 import { useMe } from "../../queries/me.queries";
 import { useOpen } from "../ui/useSteps";
-import { averageOf, type Bucket, bucketLabels, chartFrame, type Grouping, stepPath, useLastWeek } from "./goalDays";
+import { averageOf, type Bucket, bucketLabels, chartFrame, type ChartSize, type Grouping, stepPath, useLastWeek } from "./goalDays";
 
 export type MacroView = "all" | "protein" | "carbs" | "fat";
 
@@ -56,9 +56,9 @@ const axisStep = (top: number) => (top <= 300 ? 50 : top <= 600 ? 100 : top <= 2
  * carbs, fat, then calories logged without macros, against the budget plus logged exercise and the
  * protein target. One macro: its grams against its target.
  */
-export function MacroChart({ buckets, by, view, tall, onOpen }: { buckets: Bucket[]; by: Grouping; view: MacroView; tall?: boolean; onOpen?: () => void }) {
+export function MacroChart({ buckets, by, view, size, onOpen }: { buckets: Bucket[]; by: Grouping; view: MacroView; size?: ChartSize; onOpen?: () => void }) {
   const hatch = useId();
-  const chart = chartFrame(tall);
+  const chart = chartFrame(size);
   const bars = buckets.map((b) => {
     const c = b.counted;
     // With nothing logged the bar is empty, but the target line still shows what applied.

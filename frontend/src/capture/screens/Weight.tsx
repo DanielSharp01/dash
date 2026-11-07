@@ -11,7 +11,7 @@ import { DateChip } from "../ui/DateChip";
 import { FlowShell } from "../ui/FlowShell";
 import { notify } from "../ui/notify";
 import { useOpen, useSteps } from "../ui/useSteps";
-import { chartFrame, type Grouping } from "./goalDays";
+import { chartFrame, type ChartSize, type Grouping } from "./goalDays";
 
 const DAY = 86_400_000;
 /** The overview's window; the full chart offers others. */
@@ -175,7 +175,7 @@ export function WeightChart({
   today,
   logged,
   by,
-  tall,
+  size,
   onOpen,
 }: {
   weighIns: WeighIn[];
@@ -186,10 +186,10 @@ export function WeightChart({
   today: string;
   logged: { date: string; kg: number }[] | undefined;
   by: Grouping;
-  tall?: boolean;
+  size?: ChartSize;
   onOpen?: () => void;
 }) {
-  const plot = chartFrame(tall);
+  const plot = chartFrame(size);
   const inView = weighIns.filter((w) => w.date >= from && w.date <= to);
   if (!inView.length) return <p className="hint weight-empty">No weigh-ins from {shortDate(from)} to {shortDate(to)}.</p>;
   const points = by === "day" ? inView : weeklyAverages(inView, from, to);

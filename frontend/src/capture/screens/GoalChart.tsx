@@ -24,13 +24,6 @@ const defaultPick: Record<ChartArea, string> = { weight: "3m", macros: "1m", flu
 // Daily bars over more than three months are too thin to read.
 const defaultGrouping = (span: Span): Grouping => (daysBetween(span.from, span.to) > 91 ? "week" : "day");
 
-const macroViews: { view: MacroView; label: string }[] = [
-  { view: "all", label: "All" },
-  { view: "protein", label: "Protein" },
-  { view: "carbs", label: "Carbs" },
-  { view: "fat", label: "Fat" },
-];
-
 /**
  * The past picks run to today, empty where nothing was logged yet. The current goal starts where it
  * was last set (or at the first weigh-in if it never was); only Until goal runs ahead, to the day the
@@ -65,7 +58,6 @@ function GoalChart({ area }: { area: ChartArea }) {
   const picks = quickPicks(area, plan, weighIns, today);
   const [span, setSpan] = useState(picks.find((p) => p.key === defaultPick[area])!.span);
   const [by, setBy] = useState(defaultGrouping(span));
-  const [view, setView] = useState<MacroView>("all");
   const show = (next: Span) => {
     setSpan(next);
     setBy(defaultGrouping(next));
@@ -94,17 +86,10 @@ function GoalChart({ area }: { area: ChartArea }) {
             </button>
           ))}
         </div>
-        {area === "macros" && (
-          <div className="segmented small" role="radiogroup" aria-label="Macros shown">
-            {macroViews.map((m) => (
-              <button key={m.view} role="radio" aria-selected={m.view === view} onClick={() => setView(m.view)}>
-                {m.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
-      <section className="goal-card">{area === "weight" ? <FullWeightChart span={span} by={by} /> : <FullBarChart area={area} span={span} by={by} view={view} />}</section>
+      {area === "weight" && <FullWeightChart span={span} by={by} />}
+      {area === "fluid" && <FullFluidChart span={span} by={by} />}
+      {area === "macros" && <FullMacroCharts span={span} by={by} />}
     </FlowShell>
   );
 }
@@ -115,40 +100,52 @@ function FullWeightChart({ span, by }: { span: Span; by: Grouping }) {
   const today = todayKey();
   const logged = useLoggedWeight(all, span.from, today)?.filter((p) => p.date <= span.to);
   return (
-    <>
+    <section className="goal-card">
       <WeightStats weighIns={all.filter((w) => w.date >= span.from && w.date <= span.to)} logged={logged} goal={planAt(plan).goal} units={profile.units} />
-      <WeightChart weighIns={all} history={plan} units={profile.units} today={today} logged={logged} by={by} tall {...span} />
-    </>
+      <WeightChart weighIns={all} history={plan} units={profile.units} today={today} logged={logged} by={by} size="tall" {...span} />
+    </section>
   );
 }
 
-function FullBarChart({ area, span, by, view }: { area: "macros" | "fluid"; span: Span; by: Grouping; view: MacroView }) {
+function FullFluidChart({ span, by }: { span: Span; by: Grouping }) {
   const { profile } = useMe();
   const today = todayKey();
   const days = useGoalDays(span.from, span.to);
-  const buckets = bucketsOf(days, by, today);
-  if (area === "fluid") {
-    return (
-      <>
-        <AverageStats days={days} today={today} value={(d) => d.totals!.fluid.value} target={(d) => d.targets.fluidMl} format={(ml) => (profile.units === "metric" ? `${(ml / 1000).toFixed(1)} L` : formatFluid(ml, profile.units))} />
-        <FluidChart buckets={buckets} by={by} units={profile.units} tall />
-      </>
-    );
-  }
   return (
-    <>
-      <MacroStats days={days} today={today} view={view} />
-      <MacroChart buckets={buckets} by={by} view={view} tall />
-    </>
+    <section className="goal-card">
+      <AverageStats days={days} today={today} value={(d) => d.totals!.fluid.value} target={(d) => d.targets.fluidMl} format={(ml) => (profile.units === "metric" ? `${(ml / 1000).toFixed(1)} L` : formatFluid(ml, profile.units))} />
+      <FluidChart buckets={bucketsOf(days, by, today)} by={by} units={profile.units} size="tall" />
+    </section>
   );
 }
 
-function MacroStats({ days, today, view }: { days: GoalDay[]; today: string; view: MacroView }) {
-  if (view === "all") {
-    const kcal = (n: number) => `${Math.round(n).toLocaleString()} kcal`;
-    return <AverageStats days={days} today={today} value={(d) => d.totals!.kcal.value} target={(d) => d.targets.kcal + (d.totals?.burned ?? 0)} format={kcal} targetLabel="Budget" />;
-  }
-  return <AverageStats days={days} today={today} value={(d) => d.totals![view].value} target={(d) => d.targets[view]} format={(g) => `${Math.round(g)} g`} />;
+const macroCharts: { view: MacroView; title: string }[] = [
+  { view: "all", title: "Calories by macro" },
+  { view: "protein", title: "Protein" },
+  { view: "carbs", title: "Carbs" },
+  { view: "fat", title: "Fat" },
+];
+
+/** Calories stacked by macro, then each macro on its own against its target, all over the same stretch. */
+function FullMacroCharts({ span, by }: { span: Span; by: Grouping }) {
+  const today = todayKey();
+  const days = useGoalDays(span.from, span.to);
+  const buckets = bucketsOf(days, by, today);
+  const kcal = (n: number) => `${Math.round(n).toLocaleString()} kcal`;
+  const grams = (n: number) => `${Math.round(n)} g`;
+  return macroCharts.map(({ view, title }) => (
+    <div key={view}>
+      <h2 className="list-heading">{title}</h2>
+      <section className="goal-card">
+        {view === "all" ? (
+          <AverageStats days={days} today={today} value={(d) => d.totals!.kcal.value} target={(d) => d.targets.kcal + (d.totals?.burned ?? 0)} format={kcal} targetLabel="Budget" />
+        ) : (
+          <AverageStats days={days} today={today} value={(d) => d.totals![view].value} target={(d) => d.targets[view]} format={grams} />
+        )}
+        <MacroChart buckets={buckets} by={by} view={view} size="medium" />
+      </section>
+    </div>
+  ));
 }
 
 /**

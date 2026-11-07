@@ -2,7 +2,7 @@ import { useId } from "react";
 import { formatFluid, toDisplayFluid, type UnitSystem } from "@dash/core";
 import { useProfile } from "../../queries/me.queries";
 import { useOpen } from "../ui/useSteps";
-import { averageOf, type Bucket, bucketLabels, chartFrame, type Grouping, stepPath, useLastWeek } from "./goalDays";
+import { averageOf, type Bucket, bucketLabels, chartFrame, type ChartSize, type Grouping, stepPath, useLastWeek } from "./goalDays";
 
 /** Fluid on Goals: the daily target, how the week went, today so far, and a bar per day. */
 export function FluidSection() {
@@ -58,9 +58,9 @@ export function FluidSection() {
  * A bar a day or week (a week's is its daily average) against the target; hatched where some drinks
  * had no volume, so it's at least that much.
  */
-export function FluidChart({ buckets, by, units, tall, onOpen }: { buckets: Bucket[]; by: Grouping; units: UnitSystem; tall?: boolean; onOpen?: () => void }) {
+export function FluidChart({ buckets, by, units, size, onOpen }: { buckets: Bucket[]; by: Grouping; units: UnitSystem; size?: ChartSize; onOpen?: () => void }) {
   const hatch = useId();
-  const chart = chartFrame(tall);
+  const chart = chartFrame(size);
   const bars = buckets.map((b) => ({
     b,
     ml: averageOf(b.counted, (d) => d.totals!.fluid.value),

@@ -49,9 +49,12 @@ export function bucketsOf(days: GoalDay[], by: Grouping, today: string): Bucket[
 /** A value averaged over days; nothing to average is 0. */
 export const averageOf = (days: GoalDay[], value: (d: GoalDay) => number) => (days.length ? days.reduce((sum, d) => sum + value(d), 0) / days.length : 0);
 
-/** The overview's charts are short; a full-page chart gets the room. */
-export const chartFrame = (tall?: boolean) => {
-  const height = tall ? 260 : 170;
+export type ChartSize = "short" | "medium" | "tall";
+const chartHeights: Record<ChartSize, number> = { short: 170, medium: 210, tall: 260 };
+
+/** The overview's charts are short; a full-page chart gets the room, a page of several a bit less. */
+export const chartFrame = (size: ChartSize = "short") => {
+  const height = chartHeights[size];
   return { width: 340, height, left: 34, right: 332, top: 8, bottom: height - 20 };
 };
 const chart = chartFrame();
