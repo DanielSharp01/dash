@@ -1,13 +1,15 @@
 import { useId } from "react";
 import { formatFluid, toDisplayFluid, type UnitSystem } from "@dash/core";
-import { useProfile } from "../../queries/me.queries";
+import { useMe } from "../../queries/me.queries";
 import { useOpen } from "../ui/useSteps";
 import { averageOf, type Bucket, bucketLabels, chartFrame, type ChartSize, type Grouping, stepPath, useLastWeek } from "./goalDays";
 
 /** Fluid on Goals: the daily target, how the week went, today so far, and a bar per day. */
 export function FluidSection() {
   const open = useOpen();
-  const { units } = useProfile();
+  const { profile, plan } = useMe();
+  const { units } = profile;
+  const fluidSet = plan.chosen.includes("fluid");
   const { days, today, buckets } = useLastWeek();
   const now = days.at(-1)!;
   // Today isn't over, so the average only counts finished days with something logged.
@@ -23,8 +25,8 @@ export function FluidSection() {
         <dl className="stat-row">
           <div className="stat-fluid">
             <dt>Target</dt>
-            <dd>{formatFluid(now.targets.fluidMl, units)}</dd>
-            <dd className="stat-sub">a day</dd>
+            <dd className={fluidSet ? undefined : "stat-unset"}>{fluidSet ? formatFluid(now.targets.fluidMl, units) : "Not set"}</dd>
+            <dd className="stat-sub">{fluidSet ? "a day" : `using ${formatFluid(now.targets.fluidMl, units)}`}</dd>
           </div>
           <div>
             <dt>Week avg</dt>

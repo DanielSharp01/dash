@@ -15,7 +15,9 @@ export function MacrosSection() {
   // Today isn't over, so the averages only count finished days with something logged.
   const finished = days.filter((d) => d.date < today && d.totals);
   const average = (key: "protein" | "carbs" | "fat") => (finished.length ? Math.round(averageOf(finished, (d) => d.totals![key].value)) : undefined);
-  const preset = macroPresetLabel(planAt(plan).macroPlan.preset);
+  const preset = plan.chosen.includes("macros") ? macroPresetLabel(planAt(plan).macroPlan.preset) : "Not set";
+  // Without weight, height and age the grams come from a fixed fallback, not from you.
+  const placeholder = current.missing.length > 0;
   const openChart = () => open("/goal/chart/macros");
 
   return (
@@ -26,8 +28,8 @@ export function MacrosSection() {
           {(["protein", "carbs", "fat"] as const).map((key) => (
             <div key={key} className={`stat-${key}`}>
               <dt>{key}</dt>
-              <dd>{current[key]} g</dd>
-              <dd className="stat-sub">{average(key) !== undefined ? `avg ${average(key)} g` : " "}</dd>
+              <dd className={placeholder ? "stat-placeholder" : undefined}>{current[key]} g</dd>
+              <dd className="stat-sub">{placeholder ? "placeholder" : average(key) !== undefined ? `avg ${average(key)} g` : " "}</dd>
             </div>
           ))}
         </dl>
@@ -82,6 +84,7 @@ export function MacroChart({ buckets, by, view, size, onOpen }: { buckets: Bucke
   const barWidth = Math.max(slot * 0.62, 1);
   const y = (v: number) => chart.bottom - (v / max) * (chart.bottom - chart.top);
   const colors = view === "all" ? ["var(--protein)", "var(--carbs)", "var(--fat)", "var(--muted)"] : [macroColor[view]];
+  const placeholder = buckets.some((b) => b.days.some((d) => d.targets.missing.length > 0));
   const labels = bucketLabels(buckets, by, slot);
   const unit = view === "all" ? "Calories by macro" : `${view[0]!.toUpperCase()}${view.slice(1)} in grams`;
 
@@ -142,7 +145,7 @@ export function MacroChart({ buckets, by, view, size, onOpen }: { buckets: Bucke
           <li className="legend-carbs">Carbs</li>
           <li className="legend-fat">Fat</li>
           <li className="legend-other">No macros</li>
-          <li className="legend-line">Budget + exercise</li>
+          <li className="legend-line">{placeholder ? "Budget (placeholder)" : "Budget + exercise"}</li>
           <li className="legend-line legend-protein-line">Protein target</li>
         </ul>
       ) : (

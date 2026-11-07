@@ -38,6 +38,9 @@ export function WeightSection() {
   const losing = goal.kgPerWeek > 0;
   const finish = latest && targetDate(latest.kg, goal);
   const preset = metabolismPresets.find((m) => m.value === plan.metabolismMultiplier);
+  const goalSet = history.chosen.includes("goal");
+  const metabolismSet = history.chosen.includes("metabolism");
+  const pace = losing ? `−${formatWeight(goal.kgPerWeek, units)}` : "Hold";
 
   return (
     <>
@@ -62,23 +65,32 @@ export function WeightSection() {
             </div>
           </>
         ) : (
-          <p className="hint weight-empty">No weigh-ins yet.</p>
+          <div className="weigh-now">
+            <div className="weigh-big">
+              <strong>—</strong>
+              <span>{weightUnit(units)}</span>
+            </div>
+            <span className="weigh-when">No weigh-ins yet</span>
+          </div>
         )}
+        {/* An area a new account hasn't set shows what the budget uses meanwhile, so the numbers on Today still make sense. */}
         <dl className="stat-row">
           <div>
             <dt>Pace</dt>
-            <dd>{losing ? `−${formatWeight(goal.kgPerWeek, units)}` : "Hold"}</dd>
-            <dd className="stat-sub">{losing ? "a week" : "maintain"}</dd>
+            <dd className={goalSet ? undefined : "stat-unset"}>{goalSet ? pace : "Not set"}</dd>
+            <dd className="stat-sub">{goalSet ? (losing ? "a week" : "maintain") : `using ${pace}`}</dd>
           </div>
           <div>
             <dt>Target</dt>
-            <dd>{losing && goal.targetKg !== undefined ? formatWeight(goal.targetKg, units) : "—"}</dd>
-            <dd className="stat-sub">{losing && finish ? `by ${finish.toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : " "}</dd>
+            <dd className={goalSet ? undefined : "stat-unset"}>{!goalSet ? "Not set" : losing && goal.targetKg !== undefined ? formatWeight(goal.targetKg, units) : "—"}</dd>
+            <dd className="stat-sub">{goalSet && losing && finish ? `by ${finish.toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : " "}</dd>
           </div>
           <div>
             <dt>Metabolism</dt>
-            <dd>× {plan.metabolismMultiplier}</dd>
-            <dd className="stat-sub">{plan.calibratedFrom ? `from ${plan.calibratedFrom.maintenanceKcal.toLocaleString()} kcal` : (preset?.label ?? "custom")}</dd>
+            <dd className={metabolismSet ? undefined : "stat-unset"}>{metabolismSet ? `× ${plan.metabolismMultiplier}` : "Not set"}</dd>
+            <dd className="stat-sub">
+              {!metabolismSet ? `using × ${plan.metabolismMultiplier}` : plan.calibratedFrom ? `from ${plan.calibratedFrom.maintenanceKcal.toLocaleString()} kcal` : (preset?.label ?? "custom")}
+            </dd>
           </div>
         </dl>
         <div className="card-actions">
@@ -98,7 +110,7 @@ export function WeightSection() {
             Weigh in
           </button>
         </div>
-        <WeightChart weighIns={all} history={history} units={units} today={today} logged={logged} by="day" onOpen={openChart} {...range} />
+        {all.length > 0 && <WeightChart weighIns={all} history={history} units={units} today={today} logged={logged} by="day" onOpen={openChart} {...range} />}
       </section>
     </>
   );
