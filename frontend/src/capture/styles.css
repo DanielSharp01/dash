@@ -1824,6 +1824,12 @@ h1 {
   align-self: center;
 }
 
+.question .name-entry {
+  height: 52px;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
 .choice-list {
   display: flex;
   flex-direction: column;
@@ -3681,23 +3687,6 @@ input[type="checkbox"]:focus-visible {
 
 .segmented.tabs button {
   font-size: 0.88rem;
-}
-
-.settings-group {
-  background: var(--surface);
-  border-radius: var(--radius);
-  padding: 4px 14px 10px;
-  margin-bottom: 14px;
-}
-
-.settings-group .list-heading {
-  margin: 12px 2px 14px;
-}
-
-.settings-group .row,
-.settings-group .tile,
-.settings-group .chip {
-  background: var(--bg);
 }
 
 .dev-backup {

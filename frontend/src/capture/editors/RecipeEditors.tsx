@@ -134,7 +134,7 @@ export function BatchEditor({ recipeId, batchId, onFinished }: { recipeId: strin
             )}
             <p className="hint">
               {pot && grams !== undefined ? `${grams.toLocaleString()} g of food. ` : ""}
-              {pots.length === 0 && "Add your pots' weights in Settings to weigh it in the pot. "}
+              {pots.length === 0 && "Add your pots' weights in Containers to weigh it in the pot. "}
               Weighing the result takes care of water boiled off or soaked up.
             </p>
           </>

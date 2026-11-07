@@ -8,7 +8,7 @@ import { CookFlow } from "./flows/CookFlow";
 import { EatFlow } from "./flows/EatFlow";
 import { ExerciseFlow } from "./flows/ExerciseFlow";
 import { ActivityRoute, BatchRoute, CatalogueScreen, type CatalogueTab, ComboRoute, ItemRoute, RecipeRoute } from "./screens/Catalogue";
-import { ContainersScreen } from "./screens/Containers";
+import { ContainersScreen, NewPotRoute, PotRoute } from "./screens/Containers";
 import { GoalChartRoute } from "./screens/GoalChart";
 import { GoalAreaRoute, GoalsScreen } from "./screens/Goals";
 import { SettingRoute, SettingsScreen } from "./screens/Profile";
@@ -121,6 +121,8 @@ export function App() {
         <Route path="/goal/setup" element={<SetupRoute />} />
         <Route path="/goal/:area" element={<GoalAreaRoute />} />
         <Route path="/containers" element={<ContainersScreen onMenu={openMenu} />} />
+        <Route path="/containers/new" element={<NewPotRoute />} />
+        <Route path="/containers/:id" element={<PotRoute />} />
         <Route path="/settings" element={<SettingsScreen onMenu={openMenu} />} />
         <Route path="/settings/:setting" element={<SettingRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />

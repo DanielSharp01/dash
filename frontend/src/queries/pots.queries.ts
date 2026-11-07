@@ -15,6 +15,16 @@ export function addPot(pot: Pot) {
   });
 }
 
+export function updatePot(pot: Pot) {
+  const before = qc.getQueryData<MeResponse>(keys.me)?.pots.find((p) => p.id === pot.id);
+  return run({
+    scope: { id: `pot:${pot.id}` },
+    onMutate: () => setPots((pots) => pots.map((p) => (p.id === pot.id ? pot : p))),
+    mutationFn: () => potsApi.putPot(pot),
+    onError: () => before && setPots((pots) => pots.map((p) => (p.id === pot.id ? before : p))),
+  });
+}
+
 export function removePot(pot: Pot) {
   return run({
     scope: { id: `pot:${pot.id}` },
