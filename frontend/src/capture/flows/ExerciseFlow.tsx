@@ -272,9 +272,9 @@ function MeasureField({
           <span className="unit">{unit}</span>
         )}
       </div>
-      <div className="chip-row">
+      <div className="option-row">
         {spec.quick.map((n) => (
-          <button key={n} className="chip chip-ghost" aria-pressed={value?.value === n} onClick={() => set(n)}>
+          <button key={n} className="option option-ghost" aria-pressed={value?.value === n} onClick={() => set(n)}>
             {n}
           </button>
         ))}

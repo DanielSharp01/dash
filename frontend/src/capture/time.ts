@@ -74,7 +74,7 @@ export function dayHeading(key: string) {
 
 /**
  * "Now" is only true while logging; a saved entry, or one reopened later, shows its time.
- * Within a few minutes it still reads as now, so the chip doesn't flip while you type.
+ * Within a few minutes it still reads as now, so the button doesn't flip while you type.
  */
 function isLiveNow(w: When) {
   if (w.kind !== "now" || w.date !== todayKey()) return false;

@@ -51,9 +51,9 @@ export function ActivityEditor({ activity, onSave }: { activity: Activity; onSav
 
       <div className="field">
         <span className="field-label">What you track</span>
-        <div className="chip-row">
+        <div className="option-row">
           {(Object.keys(measureLabels) as MeasureKey[]).map((key) => (
-            <button key={key} className="chip" aria-pressed={measures.includes(key)} onClick={() => toggle(key)}>
+            <button key={key} className="option" aria-pressed={measures.includes(key)} onClick={() => toggle(key)}>
               {measures.includes(key) ? "✓ " : ""}
               {measureLabels[key]}
             </button>

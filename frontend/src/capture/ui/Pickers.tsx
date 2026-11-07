@@ -91,7 +91,7 @@ export function ProvenanceField({ value, onChange, complete }: { value: Provenan
   const checkable = checkableOrigins.includes(value.origin) && value.origin !== undefined;
   return (
     <>
-      <button className="value-chip" onClick={() => setOpen(true)}>
+      <button className="value-btn" onClick={() => setOpen(true)}>
         <small>Source</small> {provenanceChips(value).join(" · ")} ▾
       </button>
       {checkable && (

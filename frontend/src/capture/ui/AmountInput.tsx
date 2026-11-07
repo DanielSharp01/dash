@@ -134,9 +134,9 @@ export function AmountInput({ amount, units, onChange, allowOther = false, hints
       )}
       {sizes ? (
         sizes.map((row) => (
-          <div key={row[0]!.value} className="chip-row size-row" style={{ "--cols": row.length > 4 ? Math.ceil(row.length / 2) : row.length } as CSSProperties}>
+          <div key={row[0]!.value} className="option-row size-row" style={{ "--cols": row.length > 4 ? Math.ceil(row.length / 2) : row.length } as CSSProperties}>
             {row.map((s) => (
-              <button key={s.value} className={`chip chip-ghost ${s.name ? "chip-size" : ""}`} aria-pressed={size?.value === s.value} onClick={() => tapSize(s)}>
+              <button key={s.value} className={`option option-ghost ${s.name ? "option-size" : ""}`} aria-pressed={size?.value === s.value} onClick={() => tapSize(s)}>
                 <span>
                   {formatCount(s.value)}
                   <small> {amount.unit}</small>
@@ -147,9 +147,9 @@ export function AmountInput({ amount, units, onChange, allowOther = false, hints
           </div>
         ))
       ) : (
-        <div className="chip-row center">
+        <div className="option-row center">
           {counts.map((n) => (
-            <button key={n} className="chip chip-ghost" aria-pressed={amount.value === n} onClick={() => set(n)}>
+            <button key={n} className="option option-ghost" aria-pressed={amount.value === n} onClick={() => set(n)}>
               {n}
             </button>
           ))}

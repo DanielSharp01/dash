@@ -121,12 +121,12 @@ export function BatchEditor({ recipeId, batchId, onFinished }: { recipeId: strin
               <span>g on the scale</span>
             </label>
             {pots.length > 0 && (
-              <div className="chip-row" role="radiogroup" aria-label="Pot">
-                <button className="chip" role="radio" aria-checked={!pot} onClick={() => setPotId(undefined)}>
+              <div className="option-row" role="radiogroup" aria-label="Pot">
+                <button className="option" role="radio" aria-checked={!pot} onClick={() => setPotId(undefined)}>
                   No pot
                 </button>
                 {pots.map((p) => (
-                  <button key={p.id} className="chip" role="radio" aria-checked={pot?.id === p.id} onClick={() => setPotId(p.id)}>
+                  <button key={p.id} className="option" role="radio" aria-checked={pot?.id === p.id} onClick={() => setPotId(p.id)}>
                     − {p.name} <small>{p.grams} g</small>
                   </button>
                 ))}

@@ -252,7 +252,7 @@ h1 {
   color: var(--muted);
 }
 
-.home-chips {
+.home-status {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -260,29 +260,11 @@ h1 {
   margin-bottom: 8px;
 }
 
-.home-chips .chip {
-  min-height: 32px;
-  font-size: 0.85rem;
-}
-
-.home-chips .inbox-pill {
-  margin-left: auto;
-}
-
 .demo-reset {
   display: block;
   margin: 24px auto 0;
   font-size: 0.85rem;
   color: var(--muted);
-}
-
-.inbox-pill {
-  font-size: 0.8rem;
-  font-weight: 600;
-  background: var(--warn-bg);
-  color: var(--warn);
-  padding: 6px 12px;
-  border-radius: 999px;
 }
 
 .summary {
@@ -694,10 +676,10 @@ h1 {
   background: var(--bg);
 }
 
-.when-chip {
+.when-btn {
   min-height: 36px;
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: 10px;
   background: var(--surface);
   border: 1px solid var(--line);
   font-size: 0.9rem;
@@ -912,21 +894,21 @@ h1 {
   padding: 0 10px;
 }
 
-.chip-row {
+.option-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin: 10px 0;
 }
 
-.chip-row.center {
+.option-row.center {
   justify-content: center;
 }
 
-.chip {
+.option {
   min-height: 40px;
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: 10px;
   border: 1px solid var(--line);
   background: var(--surface);
   font-weight: 600;
@@ -934,24 +916,24 @@ h1 {
   white-space: nowrap;
 }
 
-.chip small {
+.option small {
   font-weight: 400;
   color: var(--muted);
 }
 
-.chip[aria-checked="true"],
-.chip[aria-pressed="true"] {
+.option[aria-checked="true"],
+.option[aria-pressed="true"] {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-text);
 }
 
-.chip[aria-checked="true"] small {
+.option[aria-checked="true"] small {
   color: inherit;
   opacity: 0.8;
 }
 
-.chip-ghost {
+.option-ghost {
   background: transparent;
 }
 
@@ -1318,7 +1300,7 @@ h1 {
   color: var(--muted);
 }
 
-.measure .chip-row {
+.measure .option-row {
   margin-bottom: 0;
 }
 
@@ -1512,10 +1494,6 @@ h1 {
   border-radius: var(--radius);
   padding: 12px 14px;
   margin-bottom: 10px;
-}
-
-.import-options .chip-row {
-  margin: 6px 0 0;
 }
 
 .selected > div {
@@ -1941,7 +1919,7 @@ h1 {
   color: var(--warn);
 }
 
-.big-entry .date-chip {
+.big-entry .date-btn {
   align-self: center;
 }
 
@@ -2212,7 +2190,7 @@ h1 {
   gap: 8px;
 }
 
-.card-actions .chip {
+.card-actions .option {
   flex: 1 1 auto;
   min-height: 36px;
   padding: 0 10px;
@@ -2253,21 +2231,22 @@ h1 {
   margin-bottom: 12px;
 }
 
-.chart-span .date-chip {
+.chart-span .date-btn {
   display: flex;
   flex: 1;
   align-self: stretch;
   margin-top: 0;
 }
 
-.segmented.chart-span .value-chip {
+.segmented.chart-span .value-btn {
+  min-height: 0;
   width: 100%;
   background: none;
   border: none;
   font-size: inherit;
 }
 
-.segmented.chart-span.custom .value-chip {
+.segmented.chart-span.custom .value-btn {
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
@@ -2970,24 +2949,24 @@ input[type="checkbox"]:focus-visible {
   --qa: var(--cook);
 }
 
-.home-chips {
+.home-status {
   flex-wrap: wrap;
   justify-content: flex-start;
 }
 
-.pill {
+.status-btn {
   font-size: 0.8rem;
   font-weight: 600;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: 10px;
 }
 
-.pill-inbox {
+.status-inbox {
   background: var(--warn-bg);
   color: var(--warn);
 }
 
-.pill-cooking {
+.status-cooking {
   background: var(--info-bg);
   color: var(--info);
 }
@@ -3241,27 +3220,27 @@ input[type="checkbox"]:focus-visible {
   opacity: 0.6;
 }
 
-.date-chip {
+.date-btn {
   position: relative;
   align-self: flex-start;
   margin-top: 8px;
 }
 
-.date-chip .value-chip {
+.date-btn .value-btn {
   background: var(--bg);
 }
 
-.weigh-row .date-chip {
+.weigh-row .date-btn {
   margin-top: 0;
 }
 
-.weigh-row .value-chip,
+.weigh-row .value-btn,
 .weigh-row b {
   white-space: nowrap;
 }
 
-/* Only there for showPicker; the chip is what people see and tap. */
-.date-chip input {
+/* Only there for showPicker; the button is what people see and tap. */
+.date-btn input {
   position: absolute;
   inset: 0;
   opacity: 0;
@@ -3309,17 +3288,17 @@ input[type="checkbox"]:focus-visible {
   margin-top: 3px;
 }
 
-.value-chip {
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
+.value-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
   background: var(--surface);
   border: 1px solid var(--line);
   font-size: 0.85rem;
   font-weight: 600;
 }
 
-.value-chip small {
+.value-btn small {
   color: var(--muted);
   font-weight: 400;
   margin-right: 4px;
@@ -3455,7 +3434,7 @@ input[type="checkbox"]:focus-visible {
   margin: 0;
 }
 
-/* Beside the source chip, a checkbox line centres on it instead of sitting below a field. */
+/* Beside the source button, a checkbox line centres on it instead of sitting below a field. */
 .label-meta .check-line {
   margin-top: 0;
   min-height: 0;
@@ -3496,12 +3475,6 @@ input[type="checkbox"]:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.chip-input {
-  width: 120px;
-  outline: none;
-  border-color: var(--accent);
 }
 
 .selected-links {
@@ -3579,7 +3552,7 @@ input[type="checkbox"]:focus-visible {
   color: var(--accent);
 }
 
-.chip-ghost[aria-pressed="true"] {
+.option-ghost[aria-pressed="true"] {
   background: transparent;
   border-color: var(--accent);
   color: var(--accent);
@@ -4606,7 +4579,7 @@ a.btn {
   justify-content: center;
 }
 
-.chip-size {
+.option-size {
   display: inline-flex;
   flex-direction: column;
   justify-content: center;
@@ -4616,14 +4589,14 @@ a.btn {
   min-height: 52px;
   min-width: 64px;
   padding: 8px 12px;
-  border-radius: 16px;
+  border-radius: 10px;
 }
 
-.chip-size > small {
+.option-size > small {
   font-size: 0.74rem;
 }
 
-.chip[aria-pressed="true"] small {
+.option[aria-pressed="true"] small {
   color: inherit;
   opacity: 0.8;
 }

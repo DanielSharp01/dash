@@ -5,9 +5,9 @@ export function BatchChoice({ recipe, batchId, onChange }: { recipe: Recipe; bat
   const batches = finishedBatches(recipe).reverse();
   if (batches.length < 2) return null;
   return (
-    <div className="chip-row" role="radiogroup" aria-label="Batch">
+    <div className="option-row" role="radiogroup" aria-label="Batch">
       {batches.slice(0, 4).map((b) => (
-        <button key={b.id} role="radio" aria-checked={b.id === batchId} className="chip" onClick={() => onChange(b.id)}>
+        <button key={b.id} role="radio" aria-checked={b.id === batchId} className="option" onClick={() => onChange(b.id)}>
           {b.shared ? "Shared" : batchLabel(b)}
         </button>
       ))}

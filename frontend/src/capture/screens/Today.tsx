@@ -50,7 +50,7 @@ export function Today({ day, setDay, onMenu, actions }: { day: string; setDay: (
           ›
         </button>
         {day !== todayKey() ? (
-          <button className="chip today-btn" onClick={() => setDay(todayKey())}>
+          <button className="option today-btn" onClick={() => setDay(todayKey())}>
             Today
           </button>
         ) : (
@@ -59,14 +59,14 @@ export function Today({ day, setDay, onMenu, actions }: { day: string; setDay: (
       </header>
 
       {(inbox > 0 || cooking.length > 0) && (
-        <div className="home-chips">
+        <div className="home-status">
           {cooking.map((r) => (
-            <button key={r.id} className="pill pill-cooking" onClick={() => open(`/cook/${r.id}`)}>
+            <button key={r.id} className="status-btn status-cooking" onClick={() => open(`/cook/${r.id}`)}>
               🔥 Cooking {r.name} ›
             </button>
           ))}
           {inbox > 0 && (
-            <button className="pill pill-inbox" onClick={() => open("/follow-up")}>
+            <button className="status-btn status-inbox" onClick={() => open("/follow-up")}>
               📥 {inbox} to follow up ›
             </button>
           )}

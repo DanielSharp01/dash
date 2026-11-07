@@ -745,7 +745,7 @@ function VariationChoice({ item, onChange }: { item: FoodItem; onChange: (v: Foo
 
   return (
     <>
-      <button className="value-chip variation-choice" onClick={() => setOpen(true)}>
+      <button className="value-btn variation-choice" onClick={() => setOpen(true)}>
         <small>Variation</small> {label(item)} ▾
       </button>
       {open && (

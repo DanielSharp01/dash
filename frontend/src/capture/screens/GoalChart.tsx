@@ -5,7 +5,7 @@ import { useMe } from "../../queries/me.queries";
 import { useWeighIns } from "../../queries/weighIns.queries";
 import { targetDate } from "../body";
 import { todayKey } from "../time";
-import { DateChip } from "../ui/DateChip";
+import { DateButton } from "../ui/DateButton";
 import { FlowShell } from "../ui/FlowShell";
 import { useSteps } from "../ui/useSteps";
 import { FluidChart } from "./Fluid";
@@ -76,8 +76,8 @@ function GoalChart({ area }: { area: ChartArea }) {
           </div>
         ))}
         <div className={`segmented small chart-span${picks.some((p) => sameSpan(p.span, span)) ? "" : " custom"}`} role="group" aria-label="Dates">
-          <DateChip prefix="From" value={span.from} max={span.to} onChange={(from) => show({ ...span, from })} />
-          <DateChip prefix="to" value={span.to} min={span.from} max={area === "weight" ? undefined : today} onChange={(to) => show({ ...span, to })} />
+          <DateButton prefix="From" value={span.from} max={span.to} onChange={(from) => show({ ...span, from })} />
+          <DateButton prefix="to" value={span.to} min={span.from} max={area === "weight" ? undefined : today} onChange={(to) => show({ ...span, to })} />
         </div>
         <div className="segmented small" role="radiogroup" aria-label="Each point is">
           {(["day", "week"] as const).map((g) => (

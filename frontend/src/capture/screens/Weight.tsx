@@ -7,7 +7,7 @@ import { addWeighIn, removeWeighIn, useWeighIns } from "../../queries/weighIns.q
 import { ADULT_AGE, targetDate } from "../body";
 import { dayMs, todayKey } from "../time";
 import { WeightInput } from "../ui/BodyInputs";
-import { DateChip } from "../ui/DateChip";
+import { DateButton } from "../ui/DateButton";
 import { FlowShell } from "../ui/FlowShell";
 import { notify } from "../ui/notify";
 import { useOpen, useSteps } from "../ui/useSteps";
@@ -94,19 +94,19 @@ export function WeightSection() {
           </div>
         </dl>
         <div className="card-actions">
-          <button className="chip" onClick={() => open("/progress/goal")}>
+          <button className="option" onClick={() => open("/progress/goal")}>
             Edit goal
           </button>
-          <button className="chip" onClick={() => open("/progress/metabolism")}>
+          <button className="option" onClick={() => open("/progress/metabolism")}>
             Metabolism
           </button>
-          <button className="chip" onClick={() => open("/progress/weigh-ins")}>
+          <button className="option" onClick={() => open("/progress/weigh-ins")}>
             History
           </button>
-          <button className="chip" onClick={openChart}>
+          <button className="option" onClick={openChart}>
             Full chart
           </button>
-          <button className="chip primary" onClick={() => open("/progress/weigh-in")}>
+          <button className="option primary" onClick={() => open("/progress/weigh-in")}>
             Weigh in
           </button>
         </div>
@@ -404,7 +404,7 @@ export function WeighInRoute() {
         <WeightInput kg={kg} onChange={setKg} autoFocus enterKeyHint="go" />
         <WeighInChange kg={kg} before={before} kgPerWeek={goal.kgPerWeek} />
         <ToTarget kg={kg ?? before?.kg} targetKg={goal.targetKg} kgPerWeek={goal.kgPerWeek} />
-        <DateChip prefix="On" value={date} max={todayKey()} onChange={setDate} />
+        <DateButton prefix="On" value={date} max={todayKey()} onChange={setDate} />
         {replaced && <p className="hint">Replaces the {formatWeighIn(replaced.kg)} already on that day.</p>}
       </form>
     </FlowShell>
@@ -466,7 +466,7 @@ export function WeighInHistoryRoute() {
           return (
             <li key={w.id} className="weigh-row">
               <span className="weigh-date">
-                <DateChip prefix="" value={w.date} max={todayKey()} onChange={(date) => move(w, date)} />
+                <DateButton prefix="" value={w.date} max={todayKey()} onChange={(date) => move(w, date)} />
               </span>
               <b>{formatWeighIn(w.kg)}</b>
               <span className="weigh-diff">{before ? signed(w.kg - before.kg) : ""}</span>

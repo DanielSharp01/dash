@@ -42,10 +42,10 @@ export function FluidSection() {
           </div>
         </dl>
         <div className="card-actions">
-          <button className="chip" onClick={() => open("/progress/fluid")}>
+          <button className="option" onClick={() => open("/progress/fluid")}>
             Edit fluid
           </button>
-          <button className="chip" onClick={openChart}>
+          <button className="option" onClick={openChart}>
             Full chart
           </button>
         </div>

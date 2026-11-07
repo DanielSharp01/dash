@@ -40,7 +40,7 @@ export function FlowShell({ title, subtitle, canGoBack, onBack, onClose, onMenu,
           {subtitle && <span>{subtitle}</span>}
         </div>
         {when && onWhen && (
-          <button className="when-chip" onClick={onWhen}>
+          <button className="when-btn" onClick={onWhen}>
             {whenIcon(when, true)} {whenLabel(when, true, true)}
           </button>
         )}

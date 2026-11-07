@@ -8,7 +8,7 @@ import { useListedFoods, usesOf, variantsOf } from "../foods";
 import { todayKey } from "../time";
 import { PortionList } from "./PortionList";
 import { FoodSearch } from "../ui/FoodSearch";
-import { DateChip, tapCard } from "../ui/DateChip";
+import { DateButton, tapCard } from "../ui/DateButton";
 import { draftFrom, hasValues, LabelForm, labelFrom, unitOf } from "../ui/LabelForm";
 import { NumberInput } from "../ui/NumberInput";
 import { PublishButton } from "../ui/PublishButton";
@@ -493,7 +493,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
                   <span className="row-main">
                     <span className="row-title">Publish with its history</span>
                     <span className="row-sub">Everyone gets the old label before the date too, e.g. after a recipe change</span>
-                    <DateChip prefix="New values from" value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
+                    <DateButton prefix="New values from" value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
                   </span>
                 </div>
               )}
@@ -518,7 +518,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
                 <span className="row-main">
                   <span className="row-title">The product changed</span>
                   <span className="row-sub">Past days keep the old values</span>
-                  <DateChip prefix="New values from" value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
+                  <DateButton prefix="New values from" value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
                 </span>
               </div>
             </>

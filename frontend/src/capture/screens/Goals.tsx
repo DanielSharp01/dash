@@ -27,7 +27,7 @@ import { savePlan, useMe } from "../../queries/me.queries";
 import { useWeighIns } from "../../queries/weighIns.queries";
 import { ADULT_AGE, targetDate } from "../body";
 import { dayMs, todayKey } from "../time";
-import { DateChip, tapCard } from "../ui/DateChip";
+import { DateButton, tapCard } from "../ui/DateButton";
 import { FlowShell } from "../ui/FlowShell";
 import { MissingDetails } from "../ui/MissingDetails";
 import { NumberInput } from "../ui/NumberInput";
@@ -207,7 +207,7 @@ function SetGoalArea({ area }: { area: GoalArea }) {
             <span className="row-main">
               <span className="row-title">Start a new one</span>
               <span className="row-sub">{fromValid ? "Earlier days keep the old one" : "Pick a day on or after the current one started"}</span>
-              <DateChip prefix="From" value={from} min={since === BEGINNING ? undefined : since} max={todayKey()} onChange={setFrom} />
+              <DateButton prefix="From" value={from} min={since === BEGINNING ? undefined : since} max={todayKey()} onChange={setFrom} />
             </span>
           </div>
         </Sheet>
@@ -445,15 +445,15 @@ type Preset = keyof typeof macroPresets;
  */
 export function MacroFields({ draft, update, t }: FieldsProps & { t: DailyTargets }) {
   const preset = draft.macroPlan.preset;
-  const chips = (
-    <div className="chip-row" role="radiogroup" aria-label="Macro split">
+  const presets = (
+    <div className="option-row" role="radiogroup" aria-label="Macro split">
       {(Object.keys(macroPresets) as Preset[]).map((key) => (
-        <button key={key} role="radio" aria-checked={preset === key} className="chip" onClick={() => update({ macroPlan: macroPresets[key].plan })}>
+        <button key={key} role="radio" aria-checked={preset === key} className="option" onClick={() => update({ macroPlan: macroPresets[key].plan })}>
           {macroPresets[key].label}
         </button>
       ))}
       {preset === "custom" && (
-        <button role="radio" aria-checked className="chip">
+        <button role="radio" aria-checked className="option">
           Custom
         </button>
       )}
@@ -462,7 +462,7 @@ export function MacroFields({ draft, update, t }: FieldsProps & { t: DailyTarget
   if (!t.calc) {
     return (
       <div className="field">
-        {chips}
+        {presets}
         <MissingDetails missing={t.missing} lead="Grams follow your budget, so they need your" />
       </div>
     );
@@ -477,7 +477,7 @@ export function MacroFields({ draft, update, t }: FieldsProps & { t: DailyTarget
 
   return (
     <>
-      {chips}
+      {presets}
       <MacroSlider
         name="Protein"
         tone="protein"
