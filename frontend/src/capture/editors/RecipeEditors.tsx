@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { asItem, asRecipe, autoFoodIcon, type Batch, displayName, batchPerUnit, batchTotal, type ComboInput, currentBatch, type FoodLookup, isFinished, type Portion, type Recipe, type RecipeInput, round, withBase } from "@dash/core";
+import { asItem, asRecipe, autoFoodIcon, type Batch, displayName, batchPerUnit, batchTotal, type ComboInput, currentBatch, type FoodLookup, isFinished, type Portion, type Pot, type Recipe, type RecipeInput, round, withBase } from "@dash/core";
 import { publishFood, saveBatch, saveFood, useFoodLookup } from "../../queries/foods.queries";
 import { useMe } from "../../queries/me.queries";
 import { batchLabel, finishedBatches } from "../foods";
@@ -63,7 +63,7 @@ export const recipeToCombo = (r: Recipe, b: Batch): ComboInput => ({
  */
 export function BatchEditor({ recipeId, batchId, onFinished }: { recipeId: string; batchId: string; onFinished: (b: Batch) => void }) {
   const foods = useFoodLookup();
-  const { pots } = useMe();
+  const pots = useMe().containers.filter((c): c is Pot => c.kind === "pot");
   const recipe = asRecipe(foods(recipeId));
   const batch = recipe?.batches.find((b) => b.id === batchId && !b.deleted);
   const [mode, setMode] = useState<"weighed" | "portions">(() => (batch?.yield && "portions" in batch.yield ? "portions" : "weighed"));

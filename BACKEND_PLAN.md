@@ -64,12 +64,16 @@ weigh_ins
   deleted_at      timestamptz null
   unique (user_id, date) where deleted_at is null   a second weigh-in on a day replaces the first
 
-pots
+containers                 pots and pans, mugs and glasses
   id              uuid pk
   user_id         uuid not null → users on delete cascade
+  kind            enum('pot','glass') not null default 'pot'
   name            text not null
-  grams           double not null
+  grams           double null      empty weight; a pot always has one
+  capacity_ml     double null      how much a mug or glass holds as usually filled
   deleted_at      timestamptz null
+  check (kind <> 'pot' or grams is not null)
+  check (grams is not null or capacity_ml is not null)
 ```
 
 The prototype keeps the current plan as fields on the profile and history beside it. Here the history is the only copy, so the two can't drift. `savePlan(next, "fix" | {from})` in core already describes the write: "fix" updates the newest row, a date inserts one and deletes later rows.
@@ -244,7 +248,7 @@ Follow-up stays derived, as in the prototype. Nothing stores "needs follow-up". 
 
 ### Deleting
 
-Nothing a person deletes is removed from the database. Foods, activities, batches, entries, weigh-ins and pots all have `deleted_at`, and a delete sets it. A deleted row disappears from lists, search and cards, while past entries that point at it keep showing it. With two people the space doesn't matter, undo is just clearing `deleted_at`, and offline sync will need these markers anyway to tell other devices what was deleted.
+Nothing a person deletes is removed from the database. Foods, activities, batches, entries, weigh-ins and containers all have `deleted_at`, and a delete sets it. A deleted row disappears from lists, search and cards, while past entries that point at it keep showing it. With two people the space doesn't matter, undo is just clearing `deleted_at`, and offline sync will need these markers anyway to tell other devices what was deleted.
 
 Rows inside an aggregate are different: labels, servings, entry lines, exercise measures, batch ingredients, combo parts and plan versions. A whole-aggregate `PUT` replaces them, and the older ones are gone. That isn't lost history: label and plan versions already are the history, and an entry's lines are its current content. The exception is batches. A batch removed from a recipe is soft-deleted like any other row, because entries point at it.
 
@@ -432,7 +436,9 @@ type ProfileInput = {
 };
 type Profile = ProfileInput & { revision: number };
 
-type Pot = { id: Id; name: string; grams: number };
+type Container =
+  | { id: Id; kind: "pot"; name: string; grams: number }
+  | { id: Id; kind: "glass"; name: string; grams?: number; capacityMl?: number }; // at least one of the two
 type WeighIn = { id: Id; date: DateKey; kg: number };
 
 type Part = { value: number; missing: number };
@@ -454,7 +460,7 @@ type Response = {
   user: { id: Id; email: string | null; name: string | null };
   profile: Profile;
   plan: PlanHistory;
-  pots: Pot[];
+  containers: Container[];
 };
 ```
 
@@ -472,11 +478,11 @@ type Request = { plan: Plan; change: "fix" | { from: DateKey }; revision: number
 type Response = PlanHistory;
 ```
 
-**`POST /api/pots`, `PUT /api/pots/:id`, `DELETE /api/pots/:id`**
+**`POST /api/containers`, `PUT /api/containers/:id`, `DELETE /api/containers/:id`.** A `PUT` can't change `kind` (422).
 
 ```ts
-type Request = Pot;
-type Response = Pot;
+type Request = Container;
+type Response = Container;
 ```
 
 **`GET /api/weigh-ins`.** All of them, oldest first. Two people weighing in daily for years is a few thousand rows.

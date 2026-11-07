@@ -1,8 +1,8 @@
 import { resEnd, validateBody, validateParams } from "@danielsharp/typeline-http";
 import {
+  containerSchema,
   meResponseSchema,
   planHistorySchema,
-  potSchema,
   profileSchema,
   savePlanRequestSchema,
   updateProfileRequestSchema,
@@ -37,28 +37,28 @@ export function settingsController() {
       .pipe(jsonSend(planHistorySchema, 200)),
   );
 
-  r.post("/pots", (line) =>
+  r.post("/containers", (line) =>
     line
-      .pipe(validateBody(potSchema))
+      .pipe(validateBody(containerSchema))
       .pipe(async ({ auth, body }) => {
-        const { isNew, body: pot } = await settings.createPot(auth.userId, body);
-        return created(pot, isNew);
+        const { isNew, body: container } = await settings.createContainer(auth.userId, body);
+        return created(container, isNew);
       })
-      .pipe(jsonSend(potSchema, 201, 200)),
+      .pipe(jsonSend(containerSchema, 201, 200)),
   );
 
-  r.put("/pots/:id", (line) =>
+  r.put("/containers/:id", (line) =>
     line
       .pipe(validateParams(idParams))
-      .pipe(validateBody(potSchema))
-      .pipe(async ({ auth, params, body }) => ok(await settings.updatePot(auth.userId, params.id, body)))
-      .pipe(jsonSend(potSchema, 200)),
+      .pipe(validateBody(containerSchema))
+      .pipe(async ({ auth, params, body }) => ok(await settings.updateContainer(auth.userId, params.id, body)))
+      .pipe(jsonSend(containerSchema, 200)),
   );
 
-  r.delete("/pots/:id", (line) =>
+  r.delete("/containers/:id", (line) =>
     line
       .pipe(validateParams(idParams))
-      .pipe(async ({ auth, params }) => settings.deletePot(auth.userId, params.id))
+      .pipe(async ({ auth, params }) => settings.deleteContainer(auth.userId, params.id))
       .pipe(resEnd(204)),
   );
 

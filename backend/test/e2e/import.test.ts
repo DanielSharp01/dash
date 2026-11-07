@@ -82,7 +82,7 @@ describe("import", () => {
     expect(me.profile).toMatchObject({ heightCm: 175, dayEndsAt: 2 });
     expect(me.plan.goal.map((v: { from: string }) => v.from)).toEqual([BEGINNING, "2026-09-01"]);
     expect(me.plan.fluid.map((v: { from: string }) => v.from)).toEqual([BEGINNING]);
-    expect(me.pots[0].name).toBe("Big pot");
+    expect(me.containers).toEqual([expect.objectContaining({ kind: "pot", name: "Big pot", grams: 1400 })]);
   });
 
   it("refuses an account that already has data, and an unreadable export", async () => {

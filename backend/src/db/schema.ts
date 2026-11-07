@@ -130,16 +130,24 @@ export const weighInsTable = pgTable(
   (t) => [uniqueIndex("weigh_ins_user_date_live").on(t.userId, t.date).where(sql`${t.deletedAt} is null`)],
 );
 
-export const potsTable = pgTable(
-  "pots",
+export const containerKindEnum = pgEnum("container_kind", ["pot", "glass"]);
+
+export const containersTable = pgTable(
+  "containers",
   {
     id: uuid().primaryKey(),
     userId: owner(),
+    kind: containerKindEnum().notNull().default("pot"),
     name: text().notNull(),
-    grams: doublePrecision().notNull(),
+    grams: doublePrecision(),
+    capacityMl: doublePrecision(),
     deletedAt: deletedAt(),
   },
-  (t) => [index().on(t.userId)],
+  (t) => [
+    index().on(t.userId),
+    check("containers_pot_weighed", sql`${t.kind} <> 'pot' or ${t.grams} is not null`),
+    check("containers_weight_or_capacity", sql`${t.grams} is not null or ${t.capacityMl} is not null`),
+  ],
 );
 
 /** Items, recipes and combos share one id space, so lines, parts and recents can point at any kind. */

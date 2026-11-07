@@ -22,7 +22,7 @@ describe("session", () => {
       user: { id: u.id },
       profile: { dayEndsAt: 0, clock: "24h", revision: 1 },
       plan: { ...splitPlanVersions([{ from: BEGINNING, plan: defaultPlan }]), revision: 1, chosen: [] },
-      pots: [],
+      containers: [],
       setupOffered: false,
     });
   });
@@ -123,14 +123,33 @@ describe("weigh-ins", () => {
   });
 });
 
-describe("pots", () => {
-  it("creates, renames and deletes", async () => {
+describe("containers", () => {
+  it("creates, renames and deletes a pot", async () => {
     const u = await newUser();
-    const pot = { id: uuid(), name: "Big pot", grams: 1450 };
-    expect((await u.post("/pots", pot)).status).toBe(201);
-    expect((await u.put(`/pots/${pot.id}`, { ...pot, name: "Le Creuset" })).body.name).toBe("Le Creuset");
-    expect((await u.get("/me")).body.pots).toEqual([{ ...pot, name: "Le Creuset" }]);
-    expect((await u.delete(`/pots/${pot.id}`)).status).toBe(204);
-    expect((await u.get("/me")).body.pots).toEqual([]);
+    const pot = { id: uuid(), kind: "pot", name: "Big pot", grams: 1450 };
+    expect((await u.post("/containers", pot)).status).toBe(201);
+    expect((await u.put(`/containers/${pot.id}`, { ...pot, name: "Le Creuset" })).body.name).toBe("Le Creuset");
+    expect((await u.get("/me")).body.containers).toEqual([{ ...pot, name: "Le Creuset" }]);
+    expect((await u.delete(`/containers/${pot.id}`)).status).toBe(204);
+    expect((await u.get("/me")).body.containers).toEqual([]);
+  });
+
+  it("keeps a mug with only its capacity, and lets its weight be added and cleared later", async () => {
+    const u = await newUser();
+    const mug = { id: uuid(), kind: "glass", name: "Mug", capacityMl: 300 };
+    expect((await u.post("/containers", mug)).status).toBe(201);
+    await u.put(`/containers/${mug.id}`, { ...mug, grams: 280 });
+    expect((await u.get("/me")).body.containers).toEqual([{ ...mug, grams: 280 }]);
+    await u.put(`/containers/${mug.id}`, mug);
+    expect((await u.get("/me")).body.containers).toEqual([mug]);
+  });
+
+  it("refuses a pot without its weight, a mug with neither number, and a pot turning into a mug", async () => {
+    const u = await newUser();
+    expect((await u.post("/containers", { id: uuid(), kind: "pot", name: "Pot" })).status).toBe(400);
+    expect((await u.post("/containers", { id: uuid(), kind: "glass", name: "Mug" })).status).toBe(400);
+    const pot = { id: uuid(), kind: "pot", name: "Pot", grams: 900 };
+    await u.post("/containers", pot);
+    expect((await u.put(`/containers/${pot.id}`, { id: pot.id, kind: "glass", name: "Pot", grams: 900 })).status).toBe(422);
   });
 });

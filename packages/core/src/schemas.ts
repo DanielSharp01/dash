@@ -321,8 +321,13 @@ export const profileInputSchema = z.object({
 });
 export const profileSchema = profileInputSchema.extend({ revision: z.number().int().min(1) });
 
-/** Weighed once, so a finished dish can be weighed in its pot. */
-export const potSchema = z.object({ id: idSchema, name, grams: positive });
+/** Weighed once while empty, so a finished dish can be weighed in it. */
+const potSchema = z.object({ id: idSchema, kind: z.literal("pot"), name, grams: positive });
+/** Either number is enough; capacity is how much it holds as you usually fill it. */
+const glassSchema = z
+  .object({ id: idSchema, kind: z.literal("glass"), name, grams: positive.optional(), capacityMl: positive.optional() })
+  .refine((g) => g.grams !== undefined || g.capacityMl !== undefined, { message: "A mug or glass needs its empty weight or its capacity" });
+export const containerSchema = z.discriminatedUnion("kind", [potSchema, glassSchema]);
 export const weighInSchema = z.object({ id: idSchema, date: dateKeySchema, kg: positive });
 
 export const partSchema = z.object({
@@ -353,7 +358,7 @@ export const meResponseSchema = z.object({
   user: z.object({ id: idSchema, email: z.string().nullable(), name: z.string().nullable() }),
   profile: profileSchema,
   plan: planHistorySchema,
-  pots: z.array(potSchema),
+  containers: z.array(containerSchema),
   /** The last day whose recap was seen, on any device. */
   recapSeenOn: dateKeySchema.optional(),
   /** Whether the goal setup has opened by itself yet; it does once, on a new account's first visit. */
@@ -566,7 +571,9 @@ export type PlanHistory = z.infer<typeof planHistorySchema>;
 export type Clock = z.infer<typeof clockSchema>;
 export type ProfileInput = z.infer<typeof profileInputSchema>;
 export type Profile = z.infer<typeof profileSchema>;
-export type Pot = z.infer<typeof potSchema>;
+export type Container = z.infer<typeof containerSchema>;
+export type ContainerKind = Container["kind"];
+export type Pot = Extract<Container, { kind: "pot" }>;
 export type WeighIn = z.infer<typeof weighInSchema>;
 export type Part = z.infer<typeof partSchema>;
 export type DayTotals = z.infer<typeof dayTotalsSchema>;

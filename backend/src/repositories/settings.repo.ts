@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
-import { BEGINNING, defaultPlan, type PlanArea, type PlanAreas, type Pot, type Profile, type ProfileInput, splitPlanVersions, type WeighIn } from "@dash/core";
-import { fluidVersionsTable, goalVersionsTable, macroVersionsTable, metabolismVersionsTable, potsTable, profilesTable, weighInsTable } from "../db/schema";
+import { BEGINNING, type Container, defaultPlan, type PlanArea, type PlanAreas, type Profile, type ProfileInput, splitPlanVersions, type WeighIn } from "@dash/core";
+import { containersTable, fluidVersionsTable, goalVersionsTable, macroVersionsTable, metabolismVersionsTable, profilesTable, weighInsTable } from "../db/schema";
 import type { Executor } from "../providers/db";
 import { opt } from "./mapping";
 
@@ -155,27 +155,37 @@ export async function findWeighIn(ex: Executor, id: string) {
   return row;
 }
 
-export async function listPots(ex: Executor, userId: string): Promise<Pot[]> {
-  return ex
-    .select({ id: potsTable.id, name: potsTable.name, grams: potsTable.grams })
-    .from(potsTable)
-    .where(and(eq(potsTable.userId, userId), isNull(potsTable.deletedAt)))
-    .orderBy(asc(potsTable.name));
+type ContainerRow = typeof containersTable.$inferSelect;
+
+export function toContainer(row: ContainerRow): Container {
+  const base = { id: row.id, name: row.name };
+  return row.kind === "pot" ? { ...base, kind: "pot", grams: row.grams! } : { ...base, kind: "glass", ...opt("grams", row.grams), ...opt("capacityMl", row.capacityMl) };
 }
 
-export async function findPot(ex: Executor, id: string) {
-  const [row] = await ex.select().from(potsTable).where(eq(potsTable.id, id));
+const containerColumns = (c: Container) => ({ kind: c.kind, name: c.name, grams: c.grams ?? null, capacityMl: c.kind === "glass" ? (c.capacityMl ?? null) : null });
+
+export async function listContainers(ex: Executor, userId: string): Promise<Container[]> {
+  const rows = await ex
+    .select()
+    .from(containersTable)
+    .where(and(eq(containersTable.userId, userId), isNull(containersTable.deletedAt)))
+    .orderBy(asc(containersTable.name));
+  return rows.map(toContainer);
+}
+
+export async function findContainer(ex: Executor, id: string) {
+  const [row] = await ex.select().from(containersTable).where(eq(containersTable.id, id));
   return row;
 }
 
-export async function insertPot(ex: Executor, userId: string, pot: Pot) {
-  await ex.insert(potsTable).values({ id: pot.id, userId, name: pot.name, grams: pot.grams });
+export async function insertContainer(ex: Executor, userId: string, container: Container) {
+  await ex.insert(containersTable).values({ id: container.id, userId, ...containerColumns(container) });
 }
 
-export async function updatePotRow(ex: Executor, pot: Pot) {
-  await ex.update(potsTable).set({ name: pot.name, grams: pot.grams }).where(eq(potsTable.id, pot.id));
+export async function updateContainerRow(ex: Executor, container: Container) {
+  await ex.update(containersTable).set(containerColumns(container)).where(eq(containersTable.id, container.id));
 }
 
-export async function deletePotRow(ex: Executor, id: string) {
-  await ex.update(potsTable).set({ deletedAt: new Date() }).where(eq(potsTable.id, id));
+export async function deleteContainerRow(ex: Executor, id: string) {
+  await ex.update(containersTable).set({ deletedAt: new Date() }).where(eq(containersTable.id, id));
 }

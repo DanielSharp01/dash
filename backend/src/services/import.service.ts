@@ -21,7 +21,7 @@ import {
   type Line,
   type MeasureKey,
 } from "@dash/core";
-import { activitiesTable, entriesTable, foodsTable, potsTable, weighInsTable } from "../db/schema";
+import { activitiesTable, containersTable, entriesTable, foodsTable, weighInsTable } from "../db/schema";
 import { db, type Tx } from "../providers/db";
 import { insertActivity } from "../repositories/activity.repo";
 import { insertEntry } from "../repositories/entry.repo";
@@ -185,7 +185,7 @@ async function accountIsEmpty(tx: Tx, userId: string) {
     await tx.select({ n: count() }).from(entriesTable).where(eq(entriesTable.userId, userId)),
     await tx.select({ n: count() }).from(activitiesTable).where(eq(activitiesTable.userId, userId)),
     await tx.select({ n: count() }).from(weighInsTable).where(eq(weighInsTable.userId, userId)),
-    await tx.select({ n: count() }).from(potsTable).where(eq(potsTable.userId, userId)),
+    await tx.select({ n: count() }).from(containersTable).where(eq(containersTable.userId, userId)),
   ];
   return counts.every(([row]) => row!.n === 0);
 }
@@ -305,7 +305,7 @@ export async function importExport(userId: string, req: ImportRequest) {
 
     const p = data["dash.profile.v1"];
     const pots = p.pots ?? [];
-    if (pots.length) await tx.insert(potsTable).values(pots.map((pot) => ({ id: idFor(pot.id), userId, name: pot.name, grams: pot.grams })));
+    if (pots.length) await tx.insert(containersTable).values(pots.map((pot) => ({ id: idFor(pot.id), userId, kind: "pot" as const, name: pot.name, grams: pot.grams })));
 
     await ensureProfile(tx, userId);
     const row = (await getProfileRow(tx, userId, { lock: true }))!;
