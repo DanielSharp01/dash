@@ -702,6 +702,12 @@ h1 {
   background: linear-gradient(transparent, var(--bg) 25%);
 }
 
+.flow-footer .nutrition {
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+}
+
 .search-bar {
   position: sticky;
   top: calc(var(--header-h) + var(--update-bar-h));

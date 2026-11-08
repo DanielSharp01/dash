@@ -512,7 +512,6 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     const alreadyLogged = new Set(mode.kind === "edit" ? mode.entry.lines.map((l) => l.foodId) : []);
     const gone = deletedFoods(lines.filter((l) => !alreadyLogged.has(l.foodId)).map((l) => l.foodId), foods);
     const preview = newItem ? previewNew(newItem, line.amount, when.date) : lines.reduce<Contents>((sum, l) => mergeContents(sum, lineContents(l, when.date, foods)), {});
-    const changeable = mode.kind !== "edit" || single;
 
     return (
       <FlowShell
@@ -532,56 +531,56 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
         }
         {...header}
         footer={
-          buildingCombo ? (
-            <div className="save-choices">
-              <button className="btn btn-primary btn-block" onClick={() => saveNewCombo(true)}>
-                Save combo and log
+          <>
+            <NutritionPreview contents={preview} />
+            {buildingCombo ? (
+              <div className="save-choices">
+                <button className="btn btn-primary btn-block" onClick={() => saveNewCombo(true)}>
+                  Save combo and log
+                </button>
+                <button className="btn btn-block" onClick={() => saveNewCombo(false)}>
+                  Just log it
+                </button>
+              </div>
+            ) : newItem ? (
+              <NewFoodChoices
+                canComplete={!!labelFrom(newItem.draft)?.values.kcal || labelFrom(newItem.draft)?.values.kcal === 0}
+                blockers={publishBlockers({ labels: [labelFrom(newItem.draft)].filter((l) => !!l), barcode: newItem.barcode, brand: newItem.brand.trim() || undefined })}
+                refusals={[
+                  ...(variantsOf(listed, { id: newItem.existing?.id ?? "", name: newItem.name }).some((t) => t.public && sameItem(t, newItem)) ? ["The same item is already shared"] : []),
+                  ...(energyImpossible(labelFrom(newItem.draft)?.values ?? {}) ? ["The macros need more kcal than the label says"] : []),
+                ]}
+                onSave={saveNew}
+              />
+            ) : (
+              <button className="btn btn-primary btn-block" disabled={gone.length > 0} onClick={() => commit(lines)}>
+                Save
               </button>
-              <button className="btn btn-block" onClick={() => saveNewCombo(false)}>
-                Just log it
-              </button>
-            </div>
-          ) : newItem ? (
-            <NewFoodChoices
-              canComplete={!!labelFrom(newItem.draft)?.values.kcal || labelFrom(newItem.draft)?.values.kcal === 0}
-              blockers={publishBlockers({ labels: [labelFrom(newItem.draft)].filter((l) => !!l), barcode: newItem.barcode, brand: newItem.brand.trim() || undefined })}
-              refusals={[
-                ...(variantsOf(listed, { id: newItem.existing?.id ?? "", name: newItem.name }).some((t) => t.public && sameItem(t, newItem)) ? ["The same item is already shared"] : []),
-                ...(energyImpossible(labelFrom(newItem.draft)?.values ?? {}) ? ["The macros need more kcal than the label says"] : []),
-              ]}
-              onSave={saveNew}
-            />
-          ) : (
-            <button className="btn btn-primary btn-block" disabled={gone.length > 0} onClick={() => commit(lines)}>
-              Save
-            </button>
-          )
+            )}
+          </>
         }
       >
         <DeletedHint gone={gone} advice={single ? "It can't be logged unless it's restored." : "Restore or leave it out to save."} />
         {single || newItem ? (
           <>
-            <div className="selected-links">
-              {changeable && (
-                <button className="link-btn" onClick={() => go("what")}>
-                  Change
-                </button>
-              )}
-              {newItem && (
-                <button className="link-btn" onClick={() => go("new")}>
-                  {hasValues(newItem.draft) ? "Edit label" : "Add label"}
-                </button>
-              )}
-              {item && (
-                <button className="link-btn" onClick={() => go("item")}>
-                  {item.unsure ? "Complete item" : "Edit item"}
-                </button>
-              )}
-            </div>
+            {(newItem || item) && (
+              <div className="selected-links">
+                {newItem && (
+                  <button className="link-btn" onClick={() => go("new")}>
+                    {hasValues(newItem.draft) ? "Edit label" : "Add label"}
+                  </button>
+                )}
+                {item && (
+                  <button className="link-btn" onClick={() => go("item")}>
+                    {item.unsure ? "Complete item" : "Edit item"}
+                  </button>
+                )}
+              </div>
+            )}
             {recipe && <BatchChoice recipe={recipe} batchId={line.batchId} onChange={(batchId) =>
                   setLines([{ ...line, batchId, amount: recipeUnits(recipe, batchId, foods).includes(line.amount.unit ?? "") ? line.amount : usual(recipe, batchId) }])
                 } />}
-            {item && changeable && (
+            {item && (
               <VariationChoice
                 item={item}
                 onChange={(v) => setLines([{ ...lineFor(v, quantity(v, line.amount) !== undefined ? line.amount : usual(v)), id: line.id }])}
@@ -603,7 +602,6 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
         ) : (
           <ComboLines lines={lines} openId={openLine} onOpen={setOpenLine} onChange={setLines} />
         )}
-        <NutritionPreview contents={preview} />
         {single && recipe && <RecipeIngredients recipe={recipe} line={line} foods={foods} />}
       </FlowShell>
     );
@@ -948,7 +946,6 @@ function FoodCards({ via, onPick, onSearch, onScan }: { via: FoodEntry["via"]; o
       ) : (
         <p className="empty">Nothing logged yet. Search above, scan a barcode, or add something new.</p>
       )}
-      {cards.length > 0 && <p className="hint center">Tap to pick an amount.</p>}
     </>
   );
 }
