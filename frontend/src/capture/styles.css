@@ -499,7 +499,7 @@ h1 {
   vertical-align: 1px;
 }
 
-.badge-source {
+.badge-estimate {
   background: transparent;
   box-shadow: inset 0 0 0 1px var(--info);
   color: var(--info);

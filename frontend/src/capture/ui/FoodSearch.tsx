@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { basisLabel, batchPerUnit, displayName, originLabels, foldText, matchesQuery, type Food, type FoodLookup, labelAt, latestBatch, loggable, round } from "@dash/core";
+import { basisLabel, batchPerUnit, displayName, foldText, matchesQuery, type Food, type FoodLookup, labelAt, latestBatch, loggable, round } from "@dash/core";
 import { rememberFoods, useCatalogueSearch, useFoodLookup } from "../../queries/foods.queries";
 import { batchLabel, useListedFoods } from "../foods";
 import { canScan } from "./Scanner";
@@ -25,11 +25,8 @@ export function foodSummary(f: Food, foods: FoodLookup): string {
 /** With `open` set, tapping toggles the row and `open` holds what shows under it. */
 export function FoodRow({ food, onPick, sub, open }: { food: Food; onPick: (f: Food) => void; sub?: string; open?: ReactNode }) {
   const foods = useFoodLookup();
-  // The current label decides: checked against the pack, and where it came from; editing it away
-  // from a source takes that badge away.
+  // The current label decides: checked against the pack, or only an estimate.
   const label = food.kind === "item" ? labelAt(food) : undefined;
-  const origin = label?.origin;
-  const source = origin === "usda" || origin === "ciqual" || origin === "open-food-facts" ? origin : undefined;
   return (
     <li>
       <button className="row" onClick={() => onPick(food)} aria-expanded={open === undefined ? undefined : !!open}>
@@ -40,7 +37,7 @@ export function FoodRow({ food, onPick, sub, open }: { food: Food; onPick: (f: F
             {food.kind === "item" && food.brand && <span className="badge badge-brand">{food.brand}</span>}
             {!food.public && <span className="badge badge-yours">Yours</span>}
             {label?.verified && <span className="badge badge-verified">Verified</span>}
-            {source && <span className="badge badge-source">{originLabels[source]}</span>}
+            {label?.origin === "estimate" && <span className="badge badge-estimate">Estimate</span>}
             {food.kind === "combo" && <span className="badge badge-muted">combo</span>}
             {food.kind === "recipe" && <span className="badge badge-muted">recipe</span>}
             {food.kind === "item" && food.unsure && <span className="badge badge-warn">Unsure</span>}
