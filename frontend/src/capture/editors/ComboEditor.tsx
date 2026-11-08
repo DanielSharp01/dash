@@ -6,7 +6,7 @@ import { deletedFoods } from "../foods";
 import { DeletedHint } from "../ui/DeletedHint";
 import { todayKey } from "../time";
 import { IconField } from "../ui/Pickers";
-import { PublishButton } from "../ui/PublishButton";
+import { SharingControl } from "../ui/SharingControl";
 import { PortionList } from "./PortionList";
 
 /** A combo becomes a recipe still being made, so its cooked weight or portions can be filled in. */
@@ -58,11 +58,13 @@ export function ComboEditor({
     parts,
   };
 
-  // Everyone must be able to see every part, so private ones have to be published first.
+  // Everyone must be able to see every part, so private ones have to be shared first.
   const privateParts = parts.map((p) => foods(p.foodId)).filter((f) => f && !f.public).map((f) => displayName(f!));
-  const save = (publish: boolean) => {
+  const sharingBlocked = privateParts.length ? [`Share ${privateParts.join(", ")} first.`] : [];
+  const [sharing, setSharing] = useState(false);
+  const save = () => {
     const saved = saveFood(draft);
-    onSaved({ ...combo, ...draft }, publish ? saved.then(async (r) => (await publishFood(combo.id), r)) : saved);
+    onSaved({ ...combo, ...draft }, sharing && sharingBlocked.length === 0 ? saved.then(async (r) => (await publishFood(combo.id), r)) : saved);
   };
   // The copy starts as the shared combo, with the edits made here on top.
   const makeOwn = () => onSaved({ ...combo, ...draft }, copyFood(combo.id).then(({ food }) => saveFood({ ...draft, id: food.id, originId: combo.id })));
@@ -98,6 +100,8 @@ export function ComboEditor({
         )}
       </div>
 
+      {combo.catalogued && <SharingControl isPublic={sharing && sharingBlocked.length === 0} shared={combo.public} blockers={sharingBlocked} onChange={setSharing} />}
+
       <div className="flow-footer">
         {combo.public && myVersion && onOpen ? (
           <button className="btn btn-primary btn-block" onClick={() => onOpen(myVersion)}>
@@ -107,22 +111,10 @@ export function ComboEditor({
           <button className="btn btn-primary btn-block" disabled={!name.trim() || parts.length === 0} onClick={makeOwn}>
             Make my own version
           </button>
-        ) : !combo.catalogued ? (
-          <button className="btn btn-primary btn-block" disabled={!name.trim() || parts.length === 0} onClick={() => save(false)}>
+        ) : (
+          <button className="btn btn-primary btn-block" disabled={!name.trim() || parts.length === 0} onClick={save}>
             Save
           </button>
-        ) : (
-          <div className="save-choices">
-            <PublishButton
-              refusals={privateParts.length ? [`Publish ${privateParts.join(", ")} first`] : []}
-              label="Save and publish"
-              disabled={!name.trim() || parts.length === 0}
-              onClick={() => save(true)}
-            />
-            <button className={`btn btn-block ${privateParts.length ? "btn-primary" : ""}`} disabled={!name.trim() || parts.length === 0} onClick={() => save(false)}>
-              Save privately
-            </button>
-          </div>
         )}
       </div>
     </div>

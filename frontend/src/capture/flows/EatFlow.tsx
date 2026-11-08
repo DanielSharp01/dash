@@ -13,9 +13,8 @@ import {
   defaultAmount,
   displayName,
   estimated,
-  publishBlockers,
+  sharingBlockers,
   sameItem,
-  energyImpossible,
   type Food,
   type FoodData,
   type FoodEntry,
@@ -43,6 +42,7 @@ import {
 } from "@dash/core";
 import { deleteEntry, saveEntry } from "../../queries/entries.queries";
 import { publishFood, saveBatch, saveFood, useFoodLookup, useFoodUsage } from "../../queries/foods.queries";
+import { useMe } from "../../queries/me.queries";
 import { lookupBarcode } from "../../queries/lookups.queries";
 import { PortionList } from "../editors/PortionList";
 import { ItemEditor } from "../editors/ItemEditor";
@@ -53,7 +53,8 @@ import { BatchChoice } from "../ui/BatchChoice";
 import { Breakdown, ingredientRows } from "../ui/Breakdown";
 import { DeletedHint } from "../ui/DeletedHint";
 import { FlowShell } from "../ui/FlowShell";
-import { PublishButton } from "../ui/PublishButton";
+import { SaveButton } from "../ui/SaveButton";
+import { SharingControl } from "../ui/SharingControl";
 import { Sheet } from "../ui/Sheet";
 import { BarcodeIcon, FoodSearch } from "../ui/FoodSearch";
 import { canScan } from "../ui/Scanner";
@@ -82,6 +83,8 @@ interface NewFood {
   servings: Serving[];
   /** The entry-only item being edited, which is saved in place instead of created. */
   existing?: FoodItem;
+  /** Undefined until the person picks: a verified label starts Public, if their setting says so. */
+  sharing?: boolean;
 }
 
 const newId = () => crypto.randomUUID();
@@ -150,6 +153,22 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
   const first: Step = source || starting ? "amount" : "cards";
   const { step, depth, go, back, replace, close } = useSteps<Step>(first, exit);
   const usual = (f: FoodItem | Recipe, batchId?: string) => usualFor(f, usage, foods, batchId);
+  const { profile } = useMe();
+
+  /** A combo can be Public once every part is; an item once its label and brand allow it. */
+  const sharingOf = (n: NewFood): { isPublic: boolean; blockers: string[] } => {
+    if (n.kind === "combo") {
+      const privateParts = n.parts.map((p) => foods(p.foodId)).filter((f) => f && !f.public).map((f) => displayName(f!));
+      const blockers = privateParts.length ? [`Share ${privateParts.join(", ")} first.`] : [];
+      return { isPublic: (n.sharing ?? false) && blockers.length === 0, blockers };
+    }
+    const label = labelFrom(n.draft);
+    const blockers = [
+      ...sharingBlockers({ labels: label ? [label] : [], barcode: n.barcode, brand: n.brand.trim() || undefined }),
+      ...(variantsOf(listed, { id: n.existing?.id ?? "", name: n.name }).some((t) => t.public && sameItem(t, n)) ? ["The same item is already shared."] : []),
+    ];
+    return { isPublic: (n.sharing ?? (!!label?.verified && profile.shareVerified)) && blockers.length === 0, blockers };
+  };
 
   const [entryId] = useState(() => (mode.kind === "edit" ? mode.entry.id : newId()));
   const [when, setWhen] = useState<When>(() => (mode.kind === "edit" ? mode.entry.when : mode.kind === "duplicate" ? nowWhen() : initialWhen(date)));
@@ -282,17 +301,13 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     go("scan");
   };
 
-  /** Saves the new food as asked, then the entry with one line pointing at it, or a bare name with no label. */
-  const saveNew = (as: "completed" | "unsure" | "entry", publish = false) => {
+  /** Saves the new food, as unsure without kcal, then the entry with one line pointing at it. */
+  const saveNew = () => {
     if (!newFood) return;
     const line = lines[0]!;
     const data = newFoodData(newFood, line.amount);
     const name = newFood.name.trim() || "Something";
     const scanned = newFood.barcode ? { barcode: newFood.barcode } : {};
-    if (as === "entry" && !data.labels.length && !newFood.existing) {
-      commit([{ id: line.id, rawName: name, ...scanned, amount: line.amount }], { comboId: undefined });
-      return;
-    }
     const item: FoodItemInput = {
       id: newFood.existing?.id ?? newId(),
       kind: "item",
@@ -301,16 +316,16 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
       ...(newFood.brand.trim() ? { brand: newFood.brand.trim() } : {}),
       icon: newFood.icon ?? autoFoodIcon(name, "item", data.unit),
       iconAuto: newFood.icon === undefined,
-      catalogued: as !== "entry",
+      catalogued: true,
       ...scanned,
       unit: data.unit,
       notFluid: false,
-      unsure: as === "unsure",
+      unsure: data.labels.at(-1)?.values.kcal === undefined,
       labels: data.labels,
       servings: data.servings,
     };
     // Publishing waits for the item to exist on the server, which the entry or the save creates.
-    const share = publish && as === "completed" ? () => void publishFood(item.id).catch(() => {}) : undefined;
+    const share = sharingOf(newFood).isPublic ? () => void publishFood(item.id).catch(() => {}) : undefined;
     if (newFood.existing) void saveFood(item).then(share, () => {});
     commit([{ id: line.id, foodId: item.id, rawName: name, ...scanned, amount: line.amount }], { comboId: undefined }, newFood.existing ? [] : [item], newFood.existing ? undefined : share);
   };
@@ -333,10 +348,9 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
     go("amount");
   };
 
-  /** Logs the parts as a combo; kept, it shows up next time as one tap, otherwise only on this entry. */
-  const saveNewCombo = (keep: boolean) => {
-    const combo = newCombo(keep);
-    if (combo) commit(lines, { comboId: combo.id }, [combo]);
+  const saveNewCombo = () => {
+    const combo = newCombo(true);
+    if (combo) commit(lines, { comboId: combo.id }, [combo], sharingOf(newFood!).isPublic ? () => void publishFood(combo.id).catch(() => {}) : undefined);
   };
 
   const header = { canGoBack: depth > 1, onBack: back, onClose: close, when, onWhen: () => go("when") };
@@ -497,6 +511,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
         ) : (
           <LabelForm draft={newFood.draft} onChange={(draft) => setNewFood({ ...newFood, draft })} />
         )}
+        <SharingControl isPublic={sharingOf(newFood).isPublic} blockers={sharingOf(newFood).blockers} onChange={(sharing) => setNewFood({ ...newFood, sharing })} />
       </FlowShell>
     );
   }
@@ -534,24 +549,11 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
           <>
             <NutritionPreview contents={preview} />
             {buildingCombo ? (
-              <div className="save-choices">
-                <button className="btn btn-primary btn-block" onClick={() => saveNewCombo(true)}>
-                  Save combo and log
-                </button>
-                <button className="btn btn-block" onClick={() => saveNewCombo(false)}>
-                  Just log it
-                </button>
-              </div>
+              <button className="btn btn-primary btn-block" onClick={saveNewCombo}>
+                Add
+              </button>
             ) : newItem ? (
-              <NewFoodChoices
-                canComplete={!!labelFrom(newItem.draft)?.values.kcal || labelFrom(newItem.draft)?.values.kcal === 0}
-                blockers={publishBlockers({ labels: [labelFrom(newItem.draft)].filter((l) => !!l), barcode: newItem.barcode, brand: newItem.brand.trim() || undefined })}
-                refusals={[
-                  ...(variantsOf(listed, { id: newItem.existing?.id ?? "", name: newItem.name }).some((t) => t.public && sameItem(t, newItem)) ? ["The same item is already shared"] : []),
-                  ...(energyImpossible(labelFrom(newItem.draft)?.values ?? {}) ? ["The macros need more kcal than the label says"] : []),
-                ]}
-                onSave={saveNew}
-              />
+              <SaveButton label="Add" note={labelFrom(newItem.draft)?.values.kcal === undefined ? "No kcal yet, so it's added as unsure and waits in To follow up on Today." : undefined} onClick={saveNew} />
             ) : (
               <button className="btn btn-primary btn-block" disabled={gone.length > 0} onClick={() => commit(lines)}>
                 Save
@@ -692,36 +694,6 @@ function NewFoodHead({ value, onChange, twins, onUse }: { value: NewFood; onChan
   );
 }
 
-function NewFoodChoices({
-  canComplete,
-  blockers,
-  refusals,
-  onSave,
-}: {
-  canComplete: boolean;
-  blockers: string[];
-  refusals: string[];
-  onSave: (as: "completed" | "unsure" | "entry", publish?: boolean) => void;
-}) {
-  const suggestPublish = blockers.length === 0 && refusals.length === 0;
-  return (
-    <div className="save-choices">
-      <PublishButton blockers={canComplete ? blockers : []} refusals={canComplete ? refusals : []} label="Add and publish" disabled={!canComplete} onClick={() => onSave("completed", true)} />
-      <button className={`btn btn-block ${suggestPublish ? "" : "btn-primary"}`} disabled={!canComplete} onClick={() => onSave("completed")}>
-        Add privately
-      </button>
-      <div className="footer-row">
-        <button className="btn" onClick={() => onSave("unsure")}>
-          Add as unsure
-        </button>
-        <button className="btn" onClick={() => onSave("entry")}>
-          Entry only
-        </button>
-      </div>
-      {!canComplete && <p className="hint">A complete item needs at least its calories. Unsure ones wait in To follow up on Today.</p>}
-    </div>
-  );
-}
 
 /** Other flavours or packs of the item, by its name; the amount carries over where it fits. */
 /**

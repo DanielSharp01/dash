@@ -7,7 +7,7 @@ import { NutritionPreview } from "../flows/EatFlow";
 import { todayKey } from "../time";
 import { NumberInput } from "../ui/NumberInput";
 import { IconField } from "../ui/Pickers";
-import { PublishButton } from "../ui/PublishButton";
+import { SharingControl } from "../ui/SharingControl";
 import { Sheet } from "../ui/Sheet";
 import { PortionList } from "./PortionList";
 
@@ -202,11 +202,14 @@ export function RecipeEditor({
   const cooking = unfinishedBatch(current);
   const batchCount = current.batches.filter((b) => !b.deleted).length;
   const [confirming, setConfirming] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [reference, setReference] = useState(latest?.id);
-  const chosen = finishedBatches(current).find((b) => b.id === reference);
-  // Everyone must be able to see every ingredient of the batch they start from.
-  const privateIngredients = (chosen?.ingredients ?? []).map((i) => foods(i.foodId)).filter((f) => f && !f.public).map((f) => displayName(f!));
+  const [confirmingShare, setConfirmingShare] = useState(false);
+  // Everyone starts their batches from the latest finished one, so they must see every ingredient.
+  const privateIngredients = (latest?.ingredients ?? []).map((i) => foods(i.foodId)).filter((f) => f && !f.public).map((f) => displayName(f!));
+  const sharingBlocked = [
+    ...(latest ? [] : ["Public needs a finished batch."]),
+    ...(privateIngredients.length ? [`Share ${privateIngredients.join(", ")} first.`] : []),
+    ...(latest?.ingredients.some((i) => i.batchId) ? ["A recipe with another recipe in it can't be shared yet."] : []),
+  ];
 
   return (
     <div className="item-editor">
@@ -275,12 +278,9 @@ export function RecipeEditor({
         </button>
       </div>
 
+      <SharingControl isPublic={false} shared={current.public} blockers={sharingBlocked} onChange={(isPublic) => isPublic && setConfirmingShare(true)} />
+
       <div className="editor-links">
-        {!current.public && latest && (
-          <button className="btn btn-block" onClick={() => setPublishing(true)}>
-            Publish recipe
-          </button>
-        )}
         {!current.public && latest && (
           <button className="btn btn-block" onClick={() => onToCombo(recipeToCombo(current, latest))}>
             Turn into a combo
@@ -293,32 +293,20 @@ export function RecipeEditor({
         )}
       </div>
 
-      {publishing && (
-        <Sheet title={`Publish ${current.name}`} onClose={() => setPublishing(false)}>
-          <p className="hint">Everyone can log it and cook it in their own batches. They start from the batch you pick here; your batches stay yours.</p>
-          {finishedBatches(current)
-            .reverse()
-            .map((b) => (
-              <button key={b.id} className={`row ${b.id === reference ? "row-selected" : ""}`} onClick={() => setReference(b.id)}>
-                <span className="row-main">
-                  <span className="row-title">{batchLabel(b)}</span>
-                  <span className="row-sub">{b.ingredients.length} ingredients</span>
-                </span>
-                {b.id === reference && <span className="row-check">✓</span>}
-              </button>
-            ))}
-          <PublishButton
-            refusals={[
-              ...(privateIngredients.length ? [`Publish ${privateIngredients.join(", ")} first`] : []),
-              ...(chosen?.ingredients.some((i) => i.batchId) ? ["A recipe with another recipe in it can't be published yet"] : []),
-            ]}
-            label="Publish recipe"
-            disabled={!chosen}
+      {confirmingShare && latest && (
+        <Sheet title={`Share ${current.name} with everyone?`} onClose={() => setConfirmingShare(false)}>
+          <p className="hint">Everyone can log it and cook it in their own batches.</p>
+          <p className="hint">They start from your {batchLabel(latest)} batch; your batches stay yours.</p>
+          <p className="hint">Shared recipes stay shared.</p>
+          <button
+            className="btn btn-primary btn-block"
             onClick={() => {
-              setPublishing(false);
-              void publishFood(current.id, reference);
+              setConfirmingShare(false);
+              void publishFood(current.id, latest.id);
             }}
-          />
+          >
+            Share it
+          </button>
         </Sheet>
       )}
 

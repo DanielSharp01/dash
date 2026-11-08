@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { asItem, autoFoodIcon, basisLabel, displayName, sameItem, BEGINNING, type Combo, energyImpossible, energyMismatch, publishBlockers, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
+import { asItem, autoFoodIcon, basisLabel, displayName, sameItem, BEGINNING, type Combo, energyImpossible, energyMismatch, sharingBlockers, type OpenFoodFactsResult, type ComboInput, type Food, type FoodItem, type FoodItemInput, type Label, labelAt, offThePackage, estimated, type Portion, round, sameValues, type Serving } from "@dash/core";
 import { completeAsCombo, mergeFood } from "../../queries/commands.queries";
-import { copyFood, deleteFood, publishFood, saveFood, useFoodUsage, useFoods } from "../../queries/foods.queries";
+import { copyFood, publishFood, saveFood, useFoodUsage, useFoods } from "../../queries/foods.queries";
+import { useMe } from "../../queries/me.queries";
 import { productForBarcode } from "../../queries/lookups.queries";
 import { undoBy } from "../errors";
 import { useListedFoods, usesOf, variantsOf } from "../foods";
@@ -11,7 +12,8 @@ import { FoodSearch } from "../ui/FoodSearch";
 import { DateButton, tapCard } from "../ui/DateButton";
 import { draftFrom, hasValues, LabelForm, labelFrom, unitOf } from "../ui/LabelForm";
 import { NumberInput } from "../ui/NumberInput";
-import { PublishButton } from "../ui/PublishButton";
+import { SaveButton } from "../ui/SaveButton";
+import { SharingControl } from "../ui/SharingControl";
 import { IconField } from "../ui/Pickers";
 import { Scanner } from "../ui/Scanner";
 import { Sheet } from "../ui/Sheet";
@@ -64,39 +66,34 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   const [busy, setBusy] = useState(false);
   const [lookedUp, setLookedUp] = useState(item.barcode ?? "");
   const [offer, setOffer] = useState<OpenFoodFactsResult>();
-  // Who a save is for: the person's own item, everyone (fixing a public item, or publishing one's
-  // own), or a copy of a public item that becomes theirs.
+  // Who a save is for: the person's own item, everyone (fixing a public item, or making one's own
+  // public), or a copy of a public item that becomes theirs.
   const [scope, setScope] = useState<"mine" | "everyone" | "copy">("mine");
   const [doubtful, setDoubtful] = useState(false);
-  // No public version exists yet, so the label question is about the person's own past days.
-  const firstPublish = !item.public && scope === "everyone";
+  // Undefined until the person picks, so the default follows the label as it's filled in.
+  const [sharing, setSharing] = useState<boolean>();
+  const { profile } = useMe();
+  const isNew = !allFoods.some((f) => f.id === item.id);
   const sharedOrigin = !item.public && item.originId ? asItem(allFoods.find((f) => f.id === item.originId)) : undefined;
   const myVersion = item.public ? asItem(allFoods.find((f) => !f.public && !f.deleted && f.originId === item.id)) : undefined;
 
   const next = labelFrom(draft);
-  // A finished item needs a label: saving without one would keep the old label, or none, silently.
-  const emptiedLabel = !item.unsure && !next;
-  const noLabel = emptiedLabel ? [latest ? "The label is empty" : "No label yet"] : [];
-  // An item that never had a label is what "unsure" means, so saving it privately makes it one.
-  const savesAsUnsure = emptiedLabel && !latest;
+  const canComplete = next?.values.kcal !== undefined;
+  // No kcal means not finished: an unsure item stays one, and an item that never had a label becomes one.
+  const staysUnsure = item.unsure ? !canComplete : !latest && !next;
+  // Emptying the label of a finished item would keep the old label, or none, silently.
+  const noLabel = !item.unsure && latest && !next ? ["The label is empty"] : [];
   // Macros that need more energy than stated can't be right, so they never reach everyone.
   const impossible = next && energyImpossible(next.values) ? ["The macros need more kcal than the label says"] : [];
-  /** Refused saves are red with the reason; otherwise a plain button. */
-  const saveButton = (label: string, onClick: () => void, primary: boolean, extra: string[] = []) =>
-    noLabel.length || extra.length ? (
-      <PublishButton refusals={[...noLabel, ...extra]} label={label} onClick={onClick} />
-    ) : (
-      <button className={`btn btn-block ${primary ? "btn-primary" : ""}`} disabled={!name.trim()} onClick={onClick}>
-        {label}
-      </button>
-    );
-  const blockers = publishBlockers({ labels: next ? [next] : item.labels, barcode: barcode.trim() || undefined, brand: brand.trim() || undefined });
   const unit = next ? unitOf(draft) : item.unit;
   const changed = !!latest && !!next && (!sameValues(latest.values, next.values) || !sameBasis(latest, next) || unit !== item.unit);
   const siblings = variantsOf(listed, { id: item.id, name });
   const twin = siblings.find((s) => sameItem(s, { name, variant, brand }));
-  const refusals = twin?.public ? ["The same item is already shared"] : [];
-  const canComplete = next?.values.kcal !== undefined;
+  const sharingBlocked = [
+    ...sharingBlockers({ labels: next ? [next] : item.labels, barcode: barcode.trim() || undefined, brand: brand.trim() || undefined }),
+    ...(twin?.public ? ["The same item is already shared."] : []),
+  ];
+  const goesPublic = (sharing ?? (isNew && !!next?.verified && profile.shareVerified)) && sharingBlocked.length === 0 && !staysUnsure;
 
   const build = (labels: Label[], unsure: boolean): FoodItemInput => ({
     id: item.id,
@@ -137,23 +134,14 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
   };
 
   /** A public item is changed just for the person, or for everyone; their own items as they are. */
-  /**
-   * A first publish either makes this item public with its current label (past entries follow),
-   * publishes the form as a new item and archives this one untouched (past entries keep their
-   * values), or publishes it with every label version it has.
-   */
-  const save = (unsure: boolean, change: "fix" | "changed" = "fix", to = scope, publish: "update" | "new" | "history" = "update") => {
+  const save = (unsure: boolean, change: "fix" | "changed" = "fix", to = scope) => {
     const input = build(labelsFor(change), unsure);
     if (item.public && to === "copy") {
       // The copy starts as the shared item, with the edits made here on top.
       onSaved({ ...item, ...input }, copyFood(item.id).then(({ food }) => saveFood({ ...input, id: food.id, originId: item.id })));
-    } else if (!item.public && to === "everyone" && publish === "new") {
-      const fresh = { ...input, id: crypto.randomUUID(), labels: next ? [{ ...next, from: BEGINNING }] : [] };
-      onSaved({ ...item, ...fresh }, saveFood(fresh).then(async (r) => (await publishFood(fresh.id), deleteFood(item.id), r)));
     } else if (!item.public && to === "everyone") {
-      const current = input.labels.at(-1);
-      const shared = current && publish === "update" ? { ...input, labels: [{ ...current, from: BEGINNING }] } : input;
-      onSaved({ ...item, ...shared }, saveFood(shared).then(async (r) => (await publishFood(item.id), r)));
+      // Shared with every label version it has, so past days keep their values for everyone.
+      onSaved({ ...item, ...input }, saveFood(input).then(async (r) => (await publishFood(item.id), r)));
     } else onSaved({ ...item, ...input }, saveFood(input));
   };
 
@@ -194,13 +182,12 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
     else if (product.label) setOffer(product);
   };
 
-  const trySave = (unsure: boolean, to: "mine" | "everyone" | "copy" = "mine", sharingChecked = false) => {
+  const trySave = (to: "mine" | "everyone" | "copy" = goesPublic ? "everyone" : "mine", sharingChecked = false) => {
     setScope(to);
     // Sharing a label whose macros don't add up asks first; a typo shouldn't reach everyone.
     if (to === "everyone" && !sharingChecked && next && energyMismatch(next.values) !== undefined) setDoubtful(true);
-    // A first publish also asks when older label versions would otherwise change past days.
-    else if (used && !item.unsure && (changed || (to === "everyone" && !item.public && item.labels.length > 1))) setAsking(true);
-    else save(unsure, "fix", to);
+    else if (used && !item.unsure && changed) setAsking(true);
+    else save(staysUnsure, "fix", to);
   };
 
   return (
@@ -219,7 +206,6 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           </button>
         </div>
       )}
-      {item.public && <p className="hint">Shared with everyone. Fix it for everyone, or make your own version of it.</p>}
       {sharedOrigin && <p className="hint own-version">Your own version of {displayName(sharedOrigin)}. Fixes to the shared one don't reach it.</p>}
       {item.unsure && onMerged && (
         <button className="link-btn" onClick={() => setMerging(true)}>
@@ -347,7 +333,29 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
         </div>
       )}
 
-      <div className="flow-footer">
+      {!asCombo && item.catalogued && (
+        <SharingControl isPublic={goesPublic} shared={item.public} blockers={staysUnsure ? ["Public needs kcal, protein, carbs and fat."] : sharingBlocked} onChange={setSharing}>
+          {item.public &&
+            (myVersion ? (
+              onOpenItem ? (
+                <button className="link-btn" onClick={() => onOpenItem(myVersion)}>
+                  Open my version
+                </button>
+              ) : (
+                <p className="hint own-version">You already have your own version of this, {displayName(myVersion)}.</p>
+              )
+            ) : (
+              <>
+                <button className="link-btn" disabled={!name.trim()} onClick={() => trySave("copy")}>
+                  Make my own version
+                </button>
+                <p className="hint">A private copy: your entries move to it, and fixes to the shared one won't reach it.</p>
+              </>
+            ))}
+        </SharingControl>
+      )}
+
+      <div className="flow-footer at-end">
         {asCombo ? (
           <button
             className="btn btn-primary btn-block"
@@ -356,44 +364,14 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           >
             Save as combo
           </button>
-        ) : item.unsure ? (
-          <div className="save-choices">
-            <button className="btn btn-primary btn-block" disabled={!name.trim() || !canComplete} onClick={() => trySave(false)}>
-              Save as complete
-            </button>
-            <button className="btn btn-block" disabled={!name.trim()} onClick={() => trySave(true)}>
-              Keep unsure
-            </button>
-          </div>
-        ) : !item.public && item.catalogued ? (
-          <div className="save-choices">
-            <PublishButton blockers={blockers} refusals={[...noLabel, ...impossible, ...refusals]} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
-            {savesAsUnsure ? (
-              <PublishButton blockers={["No label yet, so it's saved as unsure and waits in To follow up on Today"]} label="Save privately" disabled={!name.trim()} onClick={() => trySave(true, "mine")} />
-            ) : (
-              saveButton("Save privately", () => trySave(false, "mine"), blockers.length > 0 || refusals.length > 0)
-            )}
-          </div>
-        ) : item.public ? (
-          <div className="save-choices">
-            {saveButton("Fix it for everyone", () => trySave(false, "everyone"), true, impossible)}
-            {myVersion ? (
-              onOpenItem ? (
-                <button className="btn btn-block" onClick={() => onOpenItem(myVersion)}>
-                  Open my version
-                </button>
-              ) : (
-                <p className="hint own-version">You already have your own version of this, {displayName(myVersion)}.</p>
-              )
-            ) : (
-              <>
-                {saveButton("Make my own version", () => trySave(false, "copy"), false)}
-                <p className="hint">Your own version is a private copy: your entries move to it, and fixes to the shared one won't reach it.</p>
-              </>
-            )}
-          </div>
         ) : (
-          saveButton("Save", () => trySave(false), true)
+          <SaveButton
+            label={item.public ? "Save for everyone" : "Save"}
+            note={staysUnsure ? "No kcal yet, so it's saved as unsure and waits in To follow up on Today." : undefined}
+            refusals={[...noLabel, ...(item.public || goesPublic ? impossible : [])]}
+            disabled={!name.trim()}
+            onClick={() => trySave(item.public ? "everyone" : undefined)}
+          />
         )}
       </div>
 
@@ -436,7 +414,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
             className="row row-choice"
             onClick={() => {
               setDoubtful(false);
-              trySave(false, "everyone", true);
+              trySave("everyone", true);
             }}
           >
             <span className="row-main">
@@ -448,11 +426,11 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
             className="row row-choice"
             onClick={() => {
               setDoubtful(false);
-              trySave(false, item.public ? "copy" : "mine");
+              trySave(item.public ? "copy" : "mine");
             }}
           >
             <span className="row-main">
-              <span className="row-title">{item.public ? "Make my own version" : "Save privately"}</span>
+              <span className="row-title">{item.public ? "Make my own version" : "Keep it private"}</span>
             </span>
           </button>
           <button className="row row-choice" onClick={() => setDoubtful(false)}>
@@ -464,65 +442,27 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
       )}
 
       {asking && latest && next && (
-        <Sheet title={firstPublish ? "Publish with its labels" : "The label changed"} onClose={() => setAsking(false)}>
-          {changed && (
-            <p className="hint">
-              It said {latest.values.kcal ?? "?"} kcal {basisLabel(latest, item.unit)}, now {next.values.kcal ?? "?"} kcal {basisLabel(next, unit)}. Entries already logged
-              use the old label.
-            </p>
-          )}
-          {changed && next.values.kcal !== undefined && latest.values.kcal !== undefined && next.values.kcal !== latest.values.kcal && sameBasis(latest, next) && (
+        <Sheet title="The label changed" onClose={() => setAsking(false)}>
+          <p className="hint">
+            It said {latest.values.kcal ?? "?"} kcal {basisLabel(latest, item.unit)}, now {next.values.kcal ?? "?"} kcal {basisLabel(next, unit)}. Entries already logged use
+            the old label.
+          </p>
+          {next.values.kcal !== undefined && latest.values.kcal !== undefined && next.values.kcal !== latest.values.kcal && sameBasis(latest, next) && (
             <p className="hint">That's {round(((next.values.kcal - latest.values.kcal) / (latest.values.kcal || 1)) * 100, 0)}% different.</p>
           )}
-          {firstPublish ? (
-            <>
-              <button className="row row-choice" onClick={() => save(false, "fix", "everyone", "update")}>
-                <span className="row-main">
-                  <span className="row-title">Publish and update my entries</span>
-                  <span className="row-sub">Everyone gets the label you see; your past days use it too</span>
-                </span>
-              </button>
-              <button className="row row-choice" onClick={() => save(false, "fix", "everyone", "new")}>
-                <span className="row-main">
-                  <span className="row-title">Publish as a new item</span>
-                  <span className="row-sub">Yours is archived with your entries as they were; you log the new one from now on</span>
-                </span>
-              </button>
-              {changed && (
-                <div className="row row-choice" {...tapCard(() => save(false, "changed", "everyone", "history"))}>
-                  <span className="row-main">
-                    <span className="row-title">Publish with its history</span>
-                    <span className="row-sub">Everyone gets the old label before the date too, e.g. after a recipe change</span>
-                    <DateButton prefix="New values from" value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
-                  </span>
-                </div>
-              )}
-              {!changed && (
-                <button className="row row-choice" onClick={() => save(false, "fix", "everyone", "history")}>
-                  <span className="row-main">
-                    <span className="row-title">Publish with its history</span>
-                    <span className="row-sub">Everyone gets all {item.labels.length} label versions, e.g. after a recipe change</span>
-                  </span>
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <button className="row row-choice" onClick={() => save(false, "fix")}>
-                <span className="row-main">
-                  <span className="row-title">It was wrong</span>
-                  <span className="row-sub">Fix it everywhere, including past days</span>
-                </span>
-              </button>
-              <div className="row row-choice" {...tapCard(() => save(false, "changed"))}>
-                <span className="row-main">
-                  <span className="row-title">The product changed</span>
-                  <span className="row-sub">Past days keep the old values</span>
-                  <DateButton prefix="New values from" value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
-                </span>
-              </div>
-            </>
-          )}
+          <button className="row row-choice" onClick={() => save(staysUnsure, "fix")}>
+            <span className="row-main">
+              <span className="row-title">It was wrong</span>
+              <span className="row-sub">Fix it everywhere, including past days</span>
+            </span>
+          </button>
+          <div className="row row-choice" {...tapCard(() => save(staysUnsure, "changed"))}>
+            <span className="row-main">
+              <span className="row-title">The product changed</span>
+              <span className="row-sub">Past days keep the old values</span>
+              <DateButton prefix="New values from" value={changedFrom} min={latest.from === BEGINNING ? undefined : latest.from} max={todayKey()} onChange={setChangedFrom} />
+            </span>
+          </div>
         </Sheet>
       )}
     </div>

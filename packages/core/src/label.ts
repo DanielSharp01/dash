@@ -161,19 +161,14 @@ export function energyMismatch(values: Nutrients): number | undefined {
   return Math.abs(kcal - fromMacros) > Math.max(15, 0.15 * Math.max(kcal, fromMacros)) ? Math.round(fromMacros) : undefined;
 }
 
-/**
- * Why an item isn't ready to share yet; empty when it is. Publishing still works below the bar,
- * it just isn't what the app suggests.
- */
-export function publishBlockers(item: Pick<FoodItemInput, "labels" | "barcode" | "brand">): string[] {
+/** Why an item can't be Public yet, as sentences; empty when it can. */
+export function sharingBlockers(item: Pick<FoodItemInput, "labels" | "barcode" | "brand">): string[] {
   const label = item.labels.at(-1);
-  if (!label) return ["No label yet"];
-  const { kcal, protein, carbs, fat } = label.values;
+  const values = label?.values ?? {};
   const reasons: string[] = [];
-  if ([kcal, protein, carbs, fat].some((v) => v === undefined)) reasons.push("Kcal and all three macros aren't filled in");
-  else if (!energyImpossible(label.values) && energyMismatch(label.values) !== undefined) reasons.push("The macros don't add up to the kcal");
-  if (label.origin === "estimate") reasons.push("It's an estimate");
-  const generic = label.origin === "usda" || label.origin === "ciqual";
-  if (!generic && !item.barcode && !item.brand) reasons.push("A packaged product needs a barcode or a brand");
+  if ([values.kcal, values.protein, values.carbs, values.fat].some((v) => v === undefined)) reasons.push("Public needs kcal, protein, carbs and fat.");
+  else if (energyImpossible(values)) reasons.push("The macros need more kcal than the label says.");
+  const generic = label?.origin === "usda" || label?.origin === "ciqual";
+  if (!generic && !item.barcode && !item.brand) reasons.push("Public needs a brand or a barcode.");
   return reasons;
 }
