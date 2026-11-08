@@ -164,9 +164,16 @@ export function restoreBatch(recipeId: string, batchId: string) {
   });
 }
 
-/** The shared catalogue beyond the person's own foods, searched on the server. */
+/** Shared foods beyond the person's own, searched on the server. */
 export const useCatalogueSearch = (query: string) =>
   useQuery({ queryKey: keys.foodSearch(query), queryFn: () => foodsApi.searchFoods(query).then((r) => r.foods), enabled: query.length >= 2, staleTime: 60_000 });
 
-/** A food picked from search or a scan, with what it points at, joins the person's foods. */
-export const rememberFoods = (foods: Food[]) => putFoods(qc, foods);
+/**
+ * A food picked from search, with what it points at, joins the person's foods. One they removed
+ * from their items comes back.
+ */
+export function rememberPick(results: Food[], picked: Food) {
+  putFoods(qc, results.map((f) => (f.id === picked.id ? { ...f, deleted: false } : f)));
+  if (picked.deleted) void restoreFood(picked.id).catch(() => {});
+  return { ...picked, deleted: false };
+}

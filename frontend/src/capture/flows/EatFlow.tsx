@@ -680,7 +680,7 @@ function NewFoodHead({ value, onChange, twins, onUse }: { value: NewFood; onChan
       {twin ? (
         <p className="hint warn-hint">
           There's already {displayName(twin)}
-          {twin.public ? " in the shared catalogue" : ""}. Give this one a different variant or brand.{" "}
+          {twin.public ? ", shared" : ""}. Give this one a different variant or brand.{" "}
           <button className="link-btn" onClick={() => onUse(twin)}>
             Log that one instead
           </button>

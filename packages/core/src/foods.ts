@@ -1,4 +1,4 @@
-import type { Food, FoodItem, Recipe, ReferenceTable, StoredBatch } from "./schemas";
+import type { Food, FoodItem, Recipe, StoredBatch } from "./schemas";
 import { daysBetween } from "./time";
 
 /** Every food lookup in core goes through one of these, so the caller decides where foods come from. */
@@ -89,9 +89,4 @@ export const searchWords = (query: string) => foldText(query).split(/\s+/).filte
 export function matchesQuery(text: string, query: string) {
   const folded = foldText(text);
   return searchWords(query).every((w) => folded.includes(w));
-}
-
-/** USDA's values match what's sold in the Americas; Ciqual is the broadest open table elsewhere. */
-export function genericSourceOf(settings: { genericSource?: ReferenceTable; timeZone?: string }): ReferenceTable {
-  return settings.genericSource ?? (settings.timeZone?.startsWith("America/") ? "usda" : "ciqual");
 }

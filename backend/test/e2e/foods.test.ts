@@ -237,7 +237,7 @@ describe("publishing", () => {
     expect((await u.post(`/foods/${own.id}/publish`)).status).toBe(403);
   });
 
-  it("lets anyone retire a public item for everyone, softly", async () => {
+  it("takes a public item out of one person's lists only, keeps it findable, and gives it back on restore", async () => {
     const u = await newUser();
     const other = await newUser();
     const own = item({ name: "Retired milk" });
@@ -245,8 +245,9 @@ describe("publishing", () => {
     await u.post(`/foods/${own.id}/publish`);
 
     expect((await other.delete(`/foods/${own.id}`)).status).toBe(204);
-    expect((await u.get("/foods")).body.foods.find((f: any) => f.id === own.id)).toMatchObject({ public: true, deleted: true });
-    expect((await u.post(`/foods/${own.id}/restore`)).body).toMatchObject({ deleted: false });
+    expect((await other.get("/foods/search?q=retired milk")).body.foods.find((f: any) => f.id === own.id)).toMatchObject({ deleted: true });
+    expect((await u.get("/foods")).body.foods.find((f: any) => f.id === own.id)).toMatchObject({ public: true, deleted: false });
+    expect((await other.post(`/foods/${own.id}/restore`)).body).toMatchObject({ public: true, deleted: false });
   });
 
   it("publishes a combo once all its parts are public", async () => {

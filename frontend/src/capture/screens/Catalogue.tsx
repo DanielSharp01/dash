@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router";
 import { type Activity, asItem, asRecipe, autoActivityIcon, autoFoodIcon, type Combo, defaultBurn, displayName, foldText, matchesQuery, type Food, type FoodItem } from "@dash/core";
 import { deleteActivity, restoreActivity, saveActivity, useActivityLookup } from "../../queries/activities.queries";
-import { asNewFood, deleteBatch, deleteFood, restoreBatch, rememberFoods, restoreFood, saveBatch, saveFood, useCatalogueSearch, useFoodLookup, useFoodUsage } from "../../queries/foods.queries";
+import { asNewFood, deleteBatch, deleteFood, restoreBatch, rememberPick, restoreFood, saveBatch, saveFood, useCatalogueSearch, useFoodLookup, useFoodUsage } from "../../queries/foods.queries";
 import { useListedActivities } from "../activities";
 import { undoBy } from "../errors";
 import { ActivityEditor } from "../editors/ActivityEditor";
@@ -14,7 +14,6 @@ import { FlowShell } from "../ui/FlowShell";
 import { useDebounced } from "../ui/useDebounced";
 import { FoodRow } from "../ui/FoodSearch";
 import { notify } from "../ui/notify";
-import { Sheet } from "../ui/Sheet";
 import { TrashIcon } from "../ui/TrashIcon";
 import { useOpen, useSteps } from "../ui/useSteps";
 
@@ -42,10 +41,10 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
   const foods = listed.filter((f) => f.kind === meta.kind && matches(displayName(f)));
   const lookup = useFoodLookup();
   const shared = useCatalogueSearch(useDebounced(q, 250)).data ?? [];
-  // The rest of the shared catalogue, reachable by searching; opening one keeps it for this session.
-  const fromCatalogue = q && meta.kind ? shared.filter((f) => f.kind === meta.kind && !f.deleted && !lookup(f.id) && matches(displayName(f))) : [];
+  // Shared foods beyond the person's own, reachable by searching; one they removed shows again, and opening it brings it back.
+  const fromCatalogue = q && meta.kind ? shared.filter((f) => f.kind === meta.kind && !(lookup(f.id) && !lookup(f.id)!.deleted) && matches(displayName(f))) : [];
   const openShared = (f: Food) => {
-    rememberFoods(shared);
+    rememberPick(shared, f);
     open(`/${tab}/${f.id}`);
   };
   const uses = (id: string) => usesOf(usage, id);
@@ -140,7 +139,7 @@ export function CatalogueScreen({ tab, onMenu }: { tab: CatalogueTab; onMenu: ()
           </ul>
           {fromCatalogue.length > 0 && (
             <>
-              <h2 className="list-heading">From the shared catalogue</h2>
+              <h2 className="list-heading">Shared</h2>
               <ul className="list">
                 {fromCatalogue.map((f) => (
                   <FoodRow key={f.id} food={f} onPick={() => openShared(f)} />
@@ -162,54 +161,27 @@ function useResolved<T>(resolve: (id: string, state: { name?: string; copyOf?: s
   return useMemo(() => resolve(id!, (location.state as { name?: string; copyOf?: string } | null) ?? {}), [location.key]);
 }
 
-function DeleteButton({ onDelete, label }: { onDelete: () => void; label: string }) {
+function DeleteButton({ onDelete, label, action = "Delete" }: { onDelete: () => void; label: string; action?: string }) {
   return (
-    <button className="icon-btn trash-btn" onClick={onDelete} aria-label={`Delete ${label}`} title="Delete">
+    <button className="icon-btn trash-btn" onClick={onDelete} aria-label={`${action} ${label}`} title={action}>
       <TrashIcon />
     </button>
   );
 }
 
-/** Retiring a public item affects everyone, so it asks first; one's own is a tap with undo. */
+/** One's own goes softly with undo; a public one only leaves one's own lists, since others may log it. */
 function FoodDeleteButton({ food, onDeleted }: { food: Food; onDeleted?: () => void }) {
-  const [asking, setAsking] = useState(false);
   const remove = () => {
     removeFood(food);
     onDeleted?.();
   };
-  if (!food.public) return <DeleteButton label={food.name} onDelete={remove} />;
-  return (
-    <>
-      <DeleteButton label={food.name} onDelete={() => setAsking(true)} />
-      {asking && (
-        <Sheet title={`Remove ${displayName(food)} for everyone?`} onClose={() => setAsking(false)}>
-          <p className="hint">It disappears from everyone's lists and search. Past entries keep showing it, and it can be restored.</p>
-          <button
-            className="row row-choice danger"
-            onClick={() => {
-              setAsking(false);
-              remove();
-            }}
-          >
-            <span className="row-main">
-              <span className="row-title">Remove for everyone</span>
-            </span>
-          </button>
-          <button className="row row-choice" onClick={() => setAsking(false)}>
-            <span className="row-main">
-              <span className="row-title">Keep it</span>
-            </span>
-          </button>
-        </Sheet>
-      )}
-    </>
-  );
+  return <DeleteButton label={food.name} action={food.public ? "Remove from my items" : "Delete"} onDelete={remove} />;
 }
 
-/** Soft, so past entries keep showing it; for a public item, for everyone. */
+/** Soft, so past entries keep showing it. */
 function removeFood(food: Food) {
   void deleteFood(food.id);
-  notify(`Deleted ${food.name}`, () => void restoreFood(food.id));
+  notify(food.public ? `Removed ${food.name} from your items` : `Deleted ${food.name}`, () => void restoreFood(food.id));
 }
 
 const liveOwn = (f: Food | undefined) => (f && !f.deleted ? f : undefined);

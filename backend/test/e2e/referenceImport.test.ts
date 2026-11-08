@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { applyImport, planImport, referenceId } from "../../src/importers/apply";
 import { readUsda } from "../../src/importers/usda";
 import { db } from "../../src/providers/db";
+import { loadFood } from "../../src/repositories/food.repo";
 import { newUser } from "../support/helpers";
 
 const fixtures = join(import.meta.dirname, "../fixtures/usda");
@@ -17,15 +18,11 @@ describe("importing a reference table", () => {
 
     const changed = foods.map((f) => (f.ref === "900001" ? { ...f, values: { ...f.values, kcal: 358 } } : f));
     await db.transaction(async (tx) => applyImport(tx, "usda", await planImport(tx, "usda", changed), "2026-10-20"));
-    const u = await newUser();
-    await u.put("/profile", { ...(await u.get("/me")).body.profile, genericSource: "usda" });
-    const found = (await u.get("/foods/search?q=rice")).body.foods.find((f: any) => f.id === rice);
-    expect(found).toMatchObject({ public: true, name: "Rice", labels: [{ values: { kcal: 360 } }, { from: "2026-10-20", values: { kcal: 358 }, origin: "usda" }] });
+    expect(await loadFood(db, rice)).toMatchObject({ public: true, name: "Rice", labels: [{ values: { kcal: 360 } }, { from: "2026-10-20", values: { kcal: 358 }, origin: "usda" }] });
   });
 
-  it("only searches the person's own reference table", async () => {
+  it("keeps imported reference rows out of search", async () => {
     const u = await newUser();
-    await u.put("/profile", { ...(await u.get("/me")).body.profile, genericSource: "ciqual" });
     expect((await u.get("/foods/search?q=rice")).body.foods.some((f: any) => f.id === rice)).toBe(false);
   });
 });

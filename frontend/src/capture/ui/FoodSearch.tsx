@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { basisLabel, batchPerUnit, displayName, foldText, matchesQuery, type Food, type FoodLookup, labelAt, latestBatch, loggable, round } from "@dash/core";
-import { rememberFoods, useCatalogueSearch, useFoodLookup } from "../../queries/foods.queries";
+import { rememberPick, useCatalogueSearch, useFoodLookup } from "../../queries/foods.queries";
 import { batchLabel, useListedFoods } from "../foods";
 import { canScan } from "./Scanner";
 import { useDebounced } from "./useDebounced";
@@ -35,7 +35,7 @@ export function FoodRow({ food, onPick, sub, open }: { food: Food; onPick: (f: F
           <span className="row-title">
             {food.name} {food.kind === "item" && food.variant && <span className="badge badge-variant">{food.variant}</span>}
             {food.kind === "item" && food.brand && <span className="badge badge-brand">{food.brand}</span>}
-            {!food.public && <span className="badge badge-yours">Yours</span>}
+            {food.public ? <span className="badge badge-info">Shared</span> : <span className="badge badge-yours">Yours</span>}
             {label?.verified && <span className="badge badge-verified">Verified</span>}
             {label?.origin === "estimate" && <span className="badge badge-estimate">Estimate</span>}
             {food.kind === "combo" && <span className="badge badge-muted">combo</span>}
@@ -81,12 +81,10 @@ export function FoodSearch({ query, onQuery, kinds, recentIds, onPick, onNew, on
   const matches = q ? foods.filter((f) => matchesQuery(displayName(f), q)) : [];
   const searched = useDebounced(q, 250);
   const catalogue = useCatalogueSearch(searched).data ?? [];
-  // The server also sends what results point at; only the matches themselves are offered.
-  const fromCatalogue = q ? catalogue.filter((f) => offered(f) && !lookup(f.id) && matchesQuery(displayName(f), q)) : [];
-  const pickShared = (f: Food) => {
-    rememberFoods(catalogue);
-    onPick(f);
-  };
+  // The server also sends what results point at; only the matches themselves are offered. A shared
+  // food the person removed from their items shows here again, and picking it brings it back.
+  const fromCatalogue = q ? catalogue.filter((f) => offered(f) && !(lookup(f.id) && !lookup(f.id)!.deleted) && matchesQuery(displayName(f), q)) : [];
+  const pickShared = (f: Food) => onPick(rememberPick(catalogue, f));
   const recent = recentIds.map(lookup).filter((f): f is Food => !!f && foods.includes(f));
   const rest = foods.filter((f) => !recent.includes(f)).sort((a, b) => a.name.localeCompare(b.name));
   const newName = query.trim() || foundName;
@@ -133,7 +131,7 @@ export function FoodSearch({ query, onQuery, kinds, recentIds, onPick, onNew, on
             {matches.map((f) => (
               <FoodRow key={f.id} food={f} onPick={onPick} />
             ))}
-            {fromCatalogue.length > 0 && <li className="list-heading">From the shared catalogue</li>}
+            {fromCatalogue.length > 0 && <li className="list-heading">Shared</li>}
             {fromCatalogue.map((f) => (
               <FoodRow key={f.id} food={f} onPick={pickShared} />
             ))}

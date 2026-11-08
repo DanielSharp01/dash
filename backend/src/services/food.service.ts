@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { asItem, energyImpossible, genericSourceOf, labelAt, type Batch, type Food, type FoodInput, type FoodItemInput, isFinished, type Recipe, type StoredBatch } from "@dash/core";
-import { batchesTable, batchIngredientsTable, comboPartsTable, entriesTable, entryLinesTable, foodsTable, profilesTable } from "../db/schema";
+import { asItem, energyImpossible, labelAt, type Batch, type Food, type FoodInput, type FoodItemInput, isFinished, type Recipe, type StoredBatch } from "@dash/core";
+import { batchesTable, batchIngredientsTable, comboPartsTable, entriesTable, entryLinesTable, foodsTable } from "../db/schema";
 import { db, type Executor, type Tx } from "../providers/db";
 import {
   foodRefRows,
@@ -13,6 +13,7 @@ import {
   loadFoods,
   lockFood,
   setFoodDeleted,
+  setFoodHidden,
   updateBatch,
   updateFood,
   visibleTo,
@@ -60,9 +61,7 @@ export async function listFoods(userId: string) {
 }
 
 export async function searchFoods(userId: string, query: string) {
-  const [profile] = await db.select({ genericSource: profilesTable.genericSource, timeZone: profilesTable.timeZone }).from(profilesTable).where(eq(profilesTable.userId, userId));
-  const table = genericSourceOf({ ...(profile?.genericSource ? { genericSource: profile.genericSource } : {}), ...(profile?.timeZone ? { timeZone: profile.timeZone } : {}) });
-  return { foods: await searchShared(db, userId, query, table) };
+  return { foods: await searchShared(db, userId, query) };
 }
 
 export async function createFood(userId: string, req: FoodInput & { newFoods?: FoodInput[] | undefined }) {
@@ -201,11 +200,15 @@ async function moveUses(tx: Tx, userId: string, from: string, to: string) {
   await tx.update(batchIngredientsTable).set({ foodId: to }).where(and(eq(batchIngredientsTable.foodId, from), inArray(batchIngredientsTable.batchId, batches)));
 }
 
-/** Public items too: retiring one is soft, so past entries keep it and it can be restored. */
+/**
+ * Own foods retire softly, so past entries keep them and they can be restored. A public food only
+ * leaves the person's lists: others may be logging it.
+ */
 export async function setFoodDeletedFor(userId: string, id: string, deleted: boolean) {
   return db.transaction(async (tx) => {
-    const row = editableFood(await lockFood(tx, id), userId);
-    if ((row.deletedAt !== null) !== deleted) await setFoodDeleted(tx, id, deleted, row.revision + 1);
+    const row = visible(await lockFood(tx, id), userId);
+    if (row.userId === null) await setFoodHidden(tx, userId, id, deleted);
+    else if ((row.deletedAt !== null) !== deleted) await setFoodDeleted(tx, id, deleted, row.revision + 1);
     return (await loadFood(tx, id, userId))!;
   });
 }

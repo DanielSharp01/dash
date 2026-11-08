@@ -4,7 +4,6 @@ import {
   type Batch,
   type Food,
   type FoodInput,
-  type ReferenceTable,
   foldAccents,
   foldText,
   searchWords,
@@ -20,6 +19,7 @@ import {
   entriesTable,
   entryLinesTable,
   foodsTable,
+  hiddenFoodsTable,
   labelsTable,
   servingsTable,
 } from "../db/schema";
@@ -80,12 +80,16 @@ export function toBatch(row: BatchRow, ingredients: IngredientRow[]): StoredBatc
 /** Loads whole aggregates: labels and servings, combo parts, and every batch with its ingredients. */
 /**
  * With a viewer, a recipe comes with only their own batches and the reference one; a public
- * recipe's other cooks are nobody else's business. Without one, every batch, for internal work.
+ * recipe's other cooks are nobody else's business. A public food the viewer hid shows as deleted
+ * to them. Without one, every batch, for internal work.
  */
 export async function loadFoods(ex: Executor, where: SQL | undefined, viewer?: string): Promise<Food[]> {
   const rows = await ex.select().from(foodsTable).where(where).orderBy(asc(foodsTable.createdAt), asc(foodsTable.id));
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
+  const hidden = viewer
+    ? new Set((await ex.select({ id: hiddenFoodsTable.foodId }).from(hiddenFoodsTable).where(and(eq(hiddenFoodsTable.userId, viewer), inArray(hiddenFoodsTable.foodId, ids)))).map((r) => r.id))
+    : new Set<string>();
   const labels = await ex.select().from(labelsTable).where(inArray(labelsTable.foodId, ids)).orderBy(asc(labelsTable.effectiveFrom));
   const servings = await ex.select().from(servingsTable).where(inArray(servingsTable.foodId, ids)).orderBy(asc(servingsTable.position));
   const parts = await ex.select().from(comboPartsTable).where(inArray(comboPartsTable.comboId, ids)).orderBy(asc(comboPartsTable.position));
@@ -112,16 +116,19 @@ export async function loadFoods(ex: Executor, where: SQL | undefined, viewer?: s
   const partsBy = Map.groupBy(parts, (p) => p.comboId);
   const batchesBy = Map.groupBy(batches, (b) => b.recipeId);
   const ingredientsBy = Map.groupBy(ingredients, (i) => i.batchId);
-  return rows.map((row) => toFood(row, {
-    labels: labelsBy.get(row.id) ?? [],
-    servings: servingsBy.get(row.id) ?? [],
-    parts: partsBy.get(row.id) ?? [],
-    batches: (batchesBy.get(row.id) ?? []).map((b) => toBatch(b, ingredientsBy.get(b.id) ?? [])),
-  }));
+  return rows.map((row) =>
+    toFood(row, hidden.has(row.id), {
+      labels: labelsBy.get(row.id) ?? [],
+      servings: servingsBy.get(row.id) ?? [],
+      parts: partsBy.get(row.id) ?? [],
+      batches: (batchesBy.get(row.id) ?? []).map((b) => toBatch(b, ingredientsBy.get(b.id) ?? [])),
+    }),
+  );
 }
 
 function toFood(
   row: FoodRow,
+  hidden: boolean,
   children: { labels: LabelRow[]; servings: (typeof servingsTable.$inferSelect)[]; parts: (typeof comboPartsTable.$inferSelect)[]; batches: StoredBatch[] },
 ): Food {
   const common = {
@@ -132,7 +139,7 @@ function toFood(
     catalogued: row.catalogued,
     ...opt("originId", row.originId),
     revision: row.revision,
-    deleted: row.deletedAt !== null,
+    deleted: row.deletedAt !== null || hidden,
     public: row.userId === null,
     starter: row.starter,
   };
@@ -198,12 +205,12 @@ export async function withReferenced(ex: Executor, userId: string, foods: Food[]
 }
 
 /**
- * Shared, catalogued foods whose name, variant or brand contains the query, accents ignored.
- * Reference rows only come from the person's table. Exact names come first, then names that
- * start with the query, then the rest; published foods before reference rows, shorter names and
- * variations first, since the plain version is usually the one meant.
+ * Shared, catalogued foods people made, whose name, variant or brand contains the query, accents
+ * ignored; imported reference rows stay out. Exact names come first, then names that start with
+ * the query, then the rest; shorter names and variations first, since the plain version is
+ * usually the one meant.
  */
-export async function searchShared(ex: Executor, userId: string, query: string, table: ReferenceTable, limit = 30): Promise<Food[]> {
+export async function searchShared(ex: Executor, userId: string, query: string, limit = 30): Promise<Food[]> {
   const fold = (column: SQL) => sql`translate(lower(${column}), ${foldAccents.accented}, ${foldAccents.unaccented})`;
   const text = fold(sql`${foodsTable.name} || ' ' || coalesce(${foodsTable.variant}, '') || ' ' || coalesce(${foodsTable.brand}, '')`);
   const name = fold(sql`${foodsTable.name}`);
@@ -218,13 +225,12 @@ export async function searchShared(ex: Executor, userId: string, query: string, 
         isNull(foodsTable.userId),
         eq(foodsTable.catalogued, true),
         isNull(foodsTable.deletedAt),
-        or(isNull(foodsTable.source), eq(foodsTable.source, table)),
+        isNull(foodsTable.source),
         ...words.map((w) => sql`${text} like ${`%${w}%`}`),
       ),
     )
     .orderBy(
       sql`case when ${name} = ${q} then 0 when ${name} like ${`${words[0] ?? ""}%`} then 1 else 2 end`,
-      sql`${foodsTable.source} is not null`,
       sql`length(${foodsTable.name})`,
       sql`length(coalesce(${foodsTable.variant}, ''))`,
       asc(foodsTable.name),
@@ -350,6 +356,11 @@ export async function setFoodDeleted(ex: Executor, id: string, deleted: boolean,
     .update(foodsTable)
     .set({ deletedAt: deletedAtFor(deleted), revision, updatedAt: new Date() })
     .where(eq(foodsTable.id, id));
+}
+
+export async function setFoodHidden(ex: Executor, userId: string, foodId: string, hidden: boolean) {
+  if (hidden) await ex.insert(hiddenFoodsTable).values({ userId, foodId }).onConflictDoNothing();
+  else await ex.delete(hiddenFoodsTable).where(and(eq(hiddenFoodsTable.userId, userId), eq(hiddenFoodsTable.foodId, foodId)));
 }
 
 /** Moves the catalogue's ETag, for changes that live outside the foods row, such as a batch. */

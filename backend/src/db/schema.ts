@@ -197,6 +197,18 @@ export const foodsTable = pgTable(
   ],
 );
 
+/** Public foods a person took out of their own lists; everyone else keeps them. */
+export const hiddenFoodsTable = pgTable(
+  "hidden_foods",
+  {
+    userId: owner(),
+    foodId: uuid()
+      .notNull()
+      .references(() => foodsTable.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.foodId] })],
+);
+
 /** Oldest first by effective_from. */
 export const labelsTable = pgTable(
   "labels",
