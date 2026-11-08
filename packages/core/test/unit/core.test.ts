@@ -25,7 +25,6 @@ import {
   plannedWeight,
   loggedWeight,
   projectedWeight,
-  provenanceChips,
   lookupOf,
   splitPlanVersions,
   unsureItemsInUse,
@@ -332,13 +331,13 @@ describe("schemas", () => {
     expect(foodInputSchema.safeParse({ ...input, labels: [milk.labels[0], milk.labels[0]] }).success).toBe(false);
   });
 
-  it("keeps provenance consistent: only a package or a prefill can be verified, and nothing unverified lacks an origin", () => {
+  it("keeps provenance consistent: only published values can be verified, and nothing unverified lacks an origin", () => {
     const label = { from: BEGINNING, per: "100", values: { kcal: 64 } } as const;
     const ok = (p: object) => labelSchema.safeParse({ ...label, ...p }).success;
     expect(ok({ verified: true })).toBe(true);
     expect(ok({ verified: true, origin: "open-food-facts", originRev: 12 })).toBe(true);
     expect(ok({ verified: false, origin: "online", url: "https://example.com/menu" })).toBe(true);
-    expect(ok({ verified: true, origin: "online", url: "https://example.com/menu" })).toBe(false);
+    expect(ok({ verified: true, origin: "online", url: "https://example.com/menu" })).toBe(true);
     expect(ok({ verified: false })).toBe(false);
     expect(ok({ verified: true, origin: "usda" })).toBe(false);
     expect(ok({ verified: true, origin: "estimate" })).toBe(false);
@@ -369,12 +368,6 @@ describe("schemas", () => {
     expect(publishBlockers({ labels: [{ ...label, values: { kcal: 300, protein: 1, carbs: 1, fat: 1 } }], barcode: "5995663969519" })).toEqual(["The macros don't add up to the kcal"]);
     expect(publishBlockers({ labels: [{ ...label, verified: false, origin: "estimate" }], brand: "Mama" })).toEqual(["It's an estimate"]);
     expect(publishBlockers({ labels: [] })).toEqual(["No label yet"]);
-  });
-
-  it("shows verification and origin as separate chips", () => {
-    expect(provenanceChips({ verified: true })).toEqual(["Label verified"]);
-    expect(provenanceChips({ verified: true, origin: "open-food-facts" })).toEqual(["Label verified", "Open Food Facts"]);
-    expect(provenanceChips({ verified: false, origin: "open-food-facts" })).toEqual(["Open Food Facts"]);
   });
 });
 

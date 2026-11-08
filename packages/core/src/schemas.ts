@@ -42,10 +42,10 @@ export const referenceTableSchema = z.enum(["usda", "ciqual"]);
 /** What filled a label in. Absent means typed straight off the package. */
 export const labelOriginSchema = z.enum(["open-food-facts", "usda", "ciqual", "online", "estimate"]);
 /**
- * Only a package, or a prefill someone checked against one, is verified. Reference tables and
- * estimates have no package, and values are looked up online because none is at hand.
+ * Verified means published values: read off the package, filled in from its barcode, or found on
+ * the maker's site or a menu. Reference tables and estimates have nothing published behind them.
  */
-export const checkableOrigins: readonly (LabelOrigin | undefined)[] = [undefined, "open-food-facts"];
+export const verifiableOrigins: readonly (LabelOrigin | undefined)[] = [undefined, "open-food-facts", "online"];
 
 /**
  * Values as printed on the package: per 100 of the item's unit, or per serving. Provenance is
@@ -69,7 +69,7 @@ export const labelSchema = z
     /** Where values found online came from. */
     url: z.url({ protocol: /^https?$/ }).max(2000).optional(),
   })
-  .refine((l) => !l.verified || checkableOrigins.includes(l.origin), { message: "Nothing to check this against", path: ["verified"] })
+  .refine((l) => !l.verified || verifiableOrigins.includes(l.origin), { message: "Nothing published to verify this against", path: ["verified"] })
   .refine((l) => l.verified || l.origin, { message: "Values typed off the package are verified", path: ["verified"] })
   .refine((l) => l.originRev === undefined || l.origin === "open-food-facts", { message: "Only Open Food Facts has revisions", path: ["originRev"] })
   .refine((l) => l.url === undefined || l.origin === "online", { message: "Only values found online have a URL", path: ["url"] });

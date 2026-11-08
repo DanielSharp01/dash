@@ -136,11 +136,6 @@ export function provenanceOf({ verified, origin, originRev, url }: Label): Prove
   return { verified, ...(origin ? { origin } : {}), ...(originRev ? { originRev } : {}), ...(url ? { url } : {}) };
 }
 
-/** "Label verified", then what filled it in; nothing more for values typed off the package. */
-export function provenanceChips(label: Pick<Label, "verified" | "origin">): string[] {
-  return [...(label.verified ? ["Label verified"] : []), ...(label.origin ? [originLabels[label.origin]] : [])];
-}
-
 export const sameValues = (a: Nutrients, b: Nutrients) => nutrientKeys.every((k) => a[k] === b[k]);
 
 /**
@@ -178,8 +173,6 @@ export function publishBlockers(item: Pick<FoodItemInput, "labels" | "barcode" |
   if ([kcal, protein, carbs, fat].some((v) => v === undefined)) reasons.push("Kcal and all three macros aren't filled in");
   else if (!energyImpossible(label.values) && energyMismatch(label.values) !== undefined) reasons.push("The macros don't add up to the kcal");
   if (label.origin === "estimate") reasons.push("It's an estimate");
-  else if (label.origin === "online") reasons.push("It was found online, not read off the package");
-  else if (label.origin === "open-food-facts" && !label.verified) reasons.push("Open Food Facts' values weren't checked against the package");
   const generic = label.origin === "usda" || label.origin === "ciqual";
   if (!generic && !item.barcode && !item.brand) reasons.push("A packaged product needs a barcode or a brand");
   return reasons;

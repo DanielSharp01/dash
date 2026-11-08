@@ -58,7 +58,7 @@ async function lookup(code: string): Promise<OpenFoodFactsResult | undefined> {
     name: p.product_name.trim(),
     ...(brand ? { brand } : {}),
     unit,
-    ...(values.kcal !== undefined ? { label: { from: BEGINNING, per: "100", values, verified: false, origin: "open-food-facts", ...(rev ? { originRev: rev } : {}) } as const } : {}),
+    ...(values.kcal !== undefined ? { label: { from: BEGINNING, per: "100", values, verified: true, origin: "open-food-facts", ...(rev ? { originRev: rev } : {}) } as const } : {}),
     servings,
   };
 }

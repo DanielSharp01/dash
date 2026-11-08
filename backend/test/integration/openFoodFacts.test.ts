@@ -17,9 +17,9 @@ describe("openFoodFacts.lookup", () => {
     expect((await openFoodFacts.lookup("1"))?.label?.values).toEqual({ kcal: 380 });
   });
 
-  it("marks the label as an unchecked prefill of that revision", async () => {
+  it("marks the label as a verified prefill of that revision", async () => {
     answer({ "energy-kcal_100g": 380 }, 7);
-    expect((await openFoodFacts.lookup("1"))?.label).toMatchObject({ verified: false, origin: "open-food-facts", originRev: 7 });
+    expect((await openFoodFacts.lookup("1"))?.label).toMatchObject({ verified: true, origin: "open-food-facts", originRev: 7 });
   });
 
   it("leaves the label out without any energy", async () => {
