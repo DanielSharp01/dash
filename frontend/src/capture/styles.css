@@ -1238,11 +1238,25 @@ h1 {
   white-space: nowrap;
 }
 
+.when > .link-btn {
+  display: block;
+  margin: 12px auto 0;
+  padding: 12px 16px;
+}
+
 .exact-time {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 16px;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.exact-time .time-input {
+  justify-content: center;
+}
+
+.exact-time .btn {
+  flex: 1 1 100%;
 }
 
 .time-input {
