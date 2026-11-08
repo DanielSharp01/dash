@@ -45,7 +45,7 @@ export const defaultPlan: Plan = {
   macroPlan: macroPresets.balanced.plan,
 };
 
-export const defaultProfile: ProfileInput = { dayEndsAt: 0, clock: "24h", autoRecap: true };
+export const defaultProfile: ProfileInput = { dayEndsAt: 0, clock: "24h", autoRecap: true, shareVerified: true };
 
 export interface DailyTargets {
   kcal: number;

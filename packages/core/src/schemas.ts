@@ -320,6 +320,8 @@ export const profileInputSchema = z.object({
   clock: clockSchema.default("24h"),
   /** Off, yesterday's recap waits in the summary strip instead of playing when the day rolls over. */
   autoRecap: z.boolean().default(true),
+  /** Whether a new item with a verified label starts out Public; estimates always start Private. */
+  shareVerified: z.boolean().default(true),
   /** IANA name from the device, so the server knows when the person's day is over. */
   timeZone: z.string().max(64).refine(isTimeZone, "Not a time zone").optional(),
   /** Which reference table generic foods come from; absent means picked from the time zone. */

@@ -7,7 +7,7 @@ import { FlowShell } from "../ui/FlowShell";
 import { Choices, Question } from "../ui/Question";
 import { useOpen, useSteps } from "../ui/useSteps";
 
-const settings = { age: "Age", sex: "Sex", height: "Height", "day-ends": "Day ends at", clock: "Clock", recap: "Day recap" };
+const settings = { age: "Age", sex: "Sex", height: "Height", "day-ends": "Day ends at", clock: "Clock", recap: "Day recap", sharing: "New verified items" };
 type Setting = keyof typeof settings;
 const isSetting = (s: string | undefined): s is Setting => !!s && s in settings;
 
@@ -25,6 +25,7 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
     "day-ends": hourLabel(profile.dayEndsAt),
     clock: uses12h() ? "12-hour" : "24-hour",
     recap: profile.autoRecap ? "Plays itself" : "From the strip",
+    sharing: profile.shareVerified ? "Public" : "Private",
   };
   const rows = (keys: Setting[]) => (
     <ul className="list">
@@ -40,6 +41,8 @@ export function SettingsScreen({ onMenu }: { onMenu: () => void }) {
       {rows(["age", "sex", "height"])}
       <h2 className="list-heading">Your day</h2>
       {rows(["day-ends", "clock", "recap"])}
+      <h2 className="list-heading">Sharing</h2>
+      {rows(["sharing"])}
       <h2 className="list-heading">Account</h2>
       <p className="hint">Signed in as {user.email ?? user.name ?? "you"}</p>
       <a className="link-btn danger" href="/auth/logout">
@@ -143,6 +146,18 @@ function SettingPage({ setting }: { setting: Setting }) {
             ]}
             selected={profile.autoRecap}
             onPick={(autoRecap) => pick({ autoRecap })}
+          />
+        </Question>
+      )}
+      {setting === "sharing" && (
+        <Question title="Should new verified items start Public?" hint={["Verified means read off the package or published by the maker.", "Public items are shared with everyone, without your name.", "You can still change it on each item; estimates always start Private."]}>
+          <Choices
+            options={[
+              { value: true, label: "Public" },
+              { value: false, label: "Private" },
+            ]}
+            selected={profile.shareVerified}
+            onPick={(shareVerified) => pick({ shareVerified })}
           />
         </Question>
       )}

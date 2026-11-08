@@ -1,0 +1,1 @@
+ALTER TABLE "profiles" ADD COLUMN "share_verified" boolean DEFAULT true NOT NULL;

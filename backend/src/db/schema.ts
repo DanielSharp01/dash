@@ -77,6 +77,7 @@ export const profilesTable = pgTable(
     dayEndsAt: smallint().notNull().default(0),
     clock: clockEnum().notNull().default("24h"),
     autoRecap: boolean().notNull().default(true),
+    shareVerified: boolean().notNull().default(true),
     timeZone: text(),
     genericSource: referenceTableEnum(),
     /** Not part of the revisioned profile: devices only ever move it forward. */
