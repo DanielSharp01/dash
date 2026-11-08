@@ -720,7 +720,7 @@ function NewFoodChoices({
           Entry only
         </button>
       </div>
-      {!canComplete && <p className="hint">A complete item needs at least its calories. Unsure ones wait in the inbox.</p>}
+      {!canComplete && <p className="hint">A complete item needs at least its calories. Unsure ones wait in To follow up on Today.</p>}
     </div>
   );
 }

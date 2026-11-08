@@ -369,7 +369,7 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
           <div className="save-choices">
             <PublishButton blockers={blockers} refusals={[...noLabel, ...impossible, ...refusals]} label="Save and publish" disabled={!name.trim()} onClick={() => trySave(false, "everyone")} />
             {savesAsUnsure ? (
-              <PublishButton blockers={["No label yet, so it's saved as unsure and waits in To follow up"]} label="Save privately" disabled={!name.trim()} onClick={() => trySave(true, "mine")} />
+              <PublishButton blockers={["No label yet, so it's saved as unsure and waits in To follow up on Today"]} label="Save privately" disabled={!name.trim()} onClick={() => trySave(true, "mine")} />
             ) : (
               saveButton("Save privately", () => trySave(false, "mine"), blockers.length > 0 || refusals.length > 0)
             )}

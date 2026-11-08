@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import type { Entry } from "@dash/core";
-import { deleteEntry, restoreEntry, useDayEntries, useFollowUpCount } from "../queries/entries.queries";
+import { deleteEntry, restoreEntry, useDayEntries } from "../queries/entries.queries";
 import { saveProfile, useMe } from "../queries/me.queries";
 import { dayParam, todayKey } from "./time";
 import { CookFlow } from "./flows/CookFlow";
@@ -32,11 +32,10 @@ function useDay(): [string, (d: string) => void] {
   return [day, setDay];
 }
 
-type NavTarget = "today" | "inbox" | "catalogue" | "containers" | "progress" | "settings";
+type NavTarget = "today" | "catalogue" | "containers" | "progress" | "settings";
 
 const sections: { target: NavTarget; path: string; match: string[]; icon: string; label: string }[] = [
   { target: "today", path: "/", match: ["/"], icon: "📅", label: "Today" },
-  { target: "inbox", path: "/follow-up", match: ["/follow-up"], icon: "📥", label: "To follow up" },
   { target: "catalogue", path: "/items", match: ["/items", "/combos", "/recipes", "/activities"], icon: "🗂️", label: "Catalogue" },
   { target: "containers", path: "/containers", match: ["/containers"], icon: "🫙", label: "Containers" },
   { target: "progress", path: "/progress", match: ["/progress"], icon: "📈", label: "Progress" },
@@ -53,7 +52,6 @@ export function App() {
   }, [profile.timeZone]);
   const toast = useNotice();
   const [drawer, setDrawer] = useState(false);
-  const followUpCount = useFollowUpCount();
   const location = useLocation();
   const open = useOpen();
   // A new account starts on the goal setup, once; opening it marks it offered.
@@ -106,7 +104,7 @@ export function App() {
         <Route path="/cook" element={<Cook />} />
         <Route path="/cook/:recipeId" element={<Cook />} />
         <Route path="/entry/:id/:mode" element={<EditEntry finish={finish} />} />
-        <Route path="/follow-up" element={<InboxScreen onMenu={openMenu} actions={actions} />} />
+        <Route path="/follow-up" element={<InboxScreen actions={actions} />} />
         {(["items", "combos", "recipes", "activities"] as CatalogueTab[]).map((tab) => (
           <Route key={tab} path={`/${tab}`} element={<CatalogueScreen tab={tab} onMenu={openMenu} />} />
         ))}
@@ -133,16 +131,12 @@ export function App() {
       <RecapHost />
 
       <Drawer open={drawer} onOpenChange={setDrawer} swipeToOpen={current !== undefined}>
-        {sections.map((s) => {
-          const count = s.target === "inbox" ? followUpCount : 0;
-          return (
-            <button key={s.target} className="drawer-link" aria-current={current === s.target ? "page" : undefined} onClick={() => go(s)}>
-              <span aria-hidden>{s.icon}</span>
-              {s.label}
-              {count > 0 && <span className="badge badge-warn">{count}</span>}
-            </button>
-          );
-        })}
+        {sections.map((s) => (
+          <button key={s.target} className="drawer-link" aria-current={current === s.target ? "page" : undefined} onClick={() => go(s)}>
+            <span aria-hidden>{s.icon}</span>
+            {s.label}
+          </button>
+        ))}
       </Drawer>
 
       {toast && (

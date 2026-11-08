@@ -404,7 +404,7 @@ export function EntryRow({ entry, open, onToggle, actions, showDay = false }: { 
   );
 }
 
-export function InboxScreen({ onMenu, actions }: { onMenu: () => void; actions: EntryActions }) {
+export function InboxScreen({ actions }: { actions: EntryActions }) {
   const followUp = useFollowUp();
   const foods = useFoodLookup();
   const { close } = useSteps("list");
@@ -417,7 +417,7 @@ export function InboxScreen({ onMenu, actions }: { onMenu: () => void; actions: 
   const pending = [...followUp.entries].sort((a, b) => sortKey(b.when).localeCompare(sortKey(a.when)));
 
   return (
-    <FlowShell title="To follow up" canGoBack={false} onBack={close} onClose={close} onMenu={onMenu}>
+    <FlowShell title="To follow up" canGoBack onBack={close} onClose={close}>
       {unsure.length === 0 && pending.length === 0 && <p className="empty">Nothing left to follow up.</p>}
       {unsure.length > 0 && (
         <>
