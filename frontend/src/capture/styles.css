@@ -1487,6 +1487,10 @@ h1 {
   background: none;
 }
 
+.segmented.kind-switch {
+  margin-bottom: 16px;
+}
+
 .tile-more {
   border: 1.5px dashed var(--line);
   background: transparent;

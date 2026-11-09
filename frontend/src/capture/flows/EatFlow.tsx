@@ -380,6 +380,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
             } else setLines([target.kind === "item" ? { ...line, foodId: target.id } : { ...lineFor(target, line.amount), id: line.id }]);
             back();
           }}
+          onEntryOnly={back}
           onCombo={(combo) => {
             setComboId(combo.id);
             setLines(comboAsLines(combo, lines[0]!.amount.value ?? 1, foods, newId));
@@ -494,7 +495,7 @@ export function EatFlow({ via, date, mode = { kind: "new" }, onDone }: { via: Fo
           )
         }
       >
-        <div className="segmented small" role="radiogroup" aria-label="Kind">
+        <div className="segmented small kind-switch" role="radiogroup" aria-label="Kind">
           <button role="radio" aria-selected={newFood.kind === "item"} onClick={() => setNewFood({ ...newFood, kind: "item" })}>
             Item, with a label
           </button>

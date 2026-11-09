@@ -196,8 +196,13 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
         <IconField value={icon} fallback={autoFoodIcon(name, "item", unit)} groups={["food", "drink"]} onChange={setIcon} />
         <input className="big-text" placeholder="Name" autoFocus={!item.name} value={name} onChange={(e) => setName(e.target.value)} />
       </div>
+      {item.unsure && onMerged && (
+        <button className="link-btn" onClick={() => setMerging(true)}>
+          It's something I already have…
+        </button>
+      )}
       {item.unsure && onCombo && (
-        <div className="segmented small" role="radiogroup" aria-label="Kind">
+        <div className="segmented small kind-switch" role="radiogroup" aria-label="Kind">
           <button role="radio" aria-selected={!asCombo} onClick={() => setAsCombo(false)}>
             Item, with a label
           </button>
@@ -207,11 +212,6 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
         </div>
       )}
       {sharedOrigin && <p className="hint own-version">Your own version of {displayName(sharedOrigin)}. Fixes to the shared one don't reach it.</p>}
-      {item.unsure && onMerged && (
-        <button className="link-btn" onClick={() => setMerging(true)}>
-          It's something I already have…
-        </button>
-      )}
 
       {asCombo ? (
         <div className="field">
@@ -318,18 +318,16 @@ export function ItemEditor({ item, onSaved, onMerged, onEntryOnly, onCombo, onOp
         </>
       )}
 
-      {item.unsure && used && !asCombo && (
+      {item.unsure && used && !asCombo && onEntryOnly && (
         <div className="field">
           <span className="field-label">Or</span>
-          {onEntryOnly && (
-            <button className="row row-unsure" disabled={busy} onClick={makeEntryOnly}>
-              <span className="row-icon">✎</span>
-              <span className="row-main">
-                <span className="row-title">It was a one-off</span>
-                <span className="row-sub">Keep its entries as they are, without an item</span>
-              </span>
-            </button>
-          )}
+          <button className="row row-unsure" disabled={busy} onClick={makeEntryOnly}>
+            <span className="row-icon">✎</span>
+            <span className="row-main">
+              <span className="row-title">It was a one-off</span>
+              <span className="row-sub">Keep its entries as they are, without an item</span>
+            </span>
+          </button>
         </div>
       )}
 
